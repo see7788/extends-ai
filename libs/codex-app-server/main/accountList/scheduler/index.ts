@@ -40,8 +40,7 @@ const schedule = (): void => {
   }, Math.min(remaining, 2_147_000_000));
 };
 
-const schedulerIndex = {
-  async runNow(): Promise<void> {
+export const runNow = async (): Promise<void> => {
     if (!run) return;
     timerClear();
     try {
@@ -49,8 +48,9 @@ const schedulerIndex = {
     } finally {
       schedule();
     }
-  },
-  start(input: Run): void {
+};
+
+export const start = (input: Run): void => {
     store.getState().schedulerActions.normalize();
     run = input;
     unsubscribeSettings?.();
@@ -58,18 +58,20 @@ const schedulerIndex = {
       if (state.globalSettings !== previous.globalSettings) schedule();
     });
     schedule();
-  },
-  stop(): void {
+};
+
+export const stop = (): void => {
     timerClear();
     unsubscribeSettings?.();
     unsubscribeSettings = undefined;
     run = undefined;
-  },
-  install(): () => void {
+};
+
+const install = (): (() => void) => {
     const stateRead = () => scheduler.schedulerValidator.parse(store.getState().scheduler);
     ipcMain.handle(scheduler.channel.runNow, async event => {
       rendererSet(event);
-      await schedulerIndex.runNow();
+      await runNow();
       return scheduler.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(scheduler.channel.stateRead, event => {
@@ -87,7 +89,6 @@ const schedulerIndex = {
       ipcMain.removeHandler(scheduler.channel.runNow);
       ipcMain.removeHandler(scheduler.channel.stateRead);
     };
-  },
 };
 
-export default schedulerIndex;
+export default install;

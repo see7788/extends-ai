@@ -9,8 +9,7 @@ const rendererSet = (event: IpcMainInvokeEvent): void => {
   renderer = event.sender;
 };
 
-const usageIndex = {
-  async read(input: unknown): Promise<void> {
+export const read = async (input: unknown): Promise<void> => {
     const value = usage.input.command.parse(input);
     const account = store.getState().account[value.accountId];
     if (!account) throw new Error(`账号不存在：${value.accountId}`);
@@ -37,12 +36,13 @@ const usageIndex = {
       });
       throw error;
     }
-  },
-  install(): () => void {
+};
+
+const install = (): (() => void) => {
     const stateRead = () => usage.usageValidator.parse(store.getState().usage);
     ipcMain.handle(usage.channel.read, async (event, input: unknown) => {
       rendererSet(event);
-      await usageIndex.read(input);
+      await read(input);
       return usage.commandResultValidator.parse({ ok: true });
     });
     ipcMain.handle(usage.channel.stateRead, event => {
@@ -60,7 +60,6 @@ const usageIndex = {
       ipcMain.removeHandler(usage.channel.read);
       ipcMain.removeHandler(usage.channel.stateRead);
     };
-  },
 };
 
-export default usageIndex;
+export default install;

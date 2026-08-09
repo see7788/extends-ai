@@ -1,7 +1,7 @@
 import { Masonry } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
-import AuthJsonCreate from "../accountAdd/authJsonCreate/index.tsx";
-import AuthJsonImport from "../accountAdd/authJsonImport/index.tsx";
+import AuthJsonCreate from "./authJsonCreate/index.tsx";
+import AuthJsonImport from "./authJsonImport/index.tsx";
 
 const AccountAdd = () => (
   <div style={{ background: "#000", minHeight: "100vh", overflow: "hidden", position: "relative" }}>

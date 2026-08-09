@@ -1,5 +1,5 @@
 import { app, Menu, Tray, nativeImage } from "electron";
-import browserPartitionIndex from "browser-partition-main";
+import browserPartitionInstall from "browser-partition-main";
 import CodexAppServer from "codex-app-server-main";
 import Login from "login-main";
 import trayIconPath from "./icon.png?asset";
@@ -20,7 +20,7 @@ const trayImage = () => {
 };
 
 const ready = async (): Promise<void> => {
-  browserPartitionDispose = browserPartitionIndex.install();
+  browserPartitionDispose = browserPartitionInstall();
   login = new Login();
   codexAppServer = new CodexAppServer();
   tray = new Tray(trayImage());

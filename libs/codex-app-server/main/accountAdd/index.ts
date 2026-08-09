@@ -10,11 +10,20 @@ import {
 import { errorText } from "../public.ts";
 import { accountAuthPath, authFileCopy, authFileCopySync } from "../process.ts";
 import store from "../store.ts";
-import accountListIndex from "../accountList/index.ts";
-import accountIndex from "../accountList/account/index.ts";
-import authJsonCreateIndex from "./authJsonCreate/index.ts";
+import {
+  pause as accountListPause,
+  refresh as accountListRefresh,
+  resume as accountListResume,
+} from "../accountList/index.ts";
+import { enabledSet } from "../accountList/account/index.ts";
+import authJsonCreateRun from "./authJsonCreate/index.ts";
 import { authJsonCreate } from "./authJsonCreate/store.ts";
-import authJsonImportIndex from "./authJsonImport/index.ts";
+import authJsonImportRun, {
+  importClipboard,
+  importDefault,
+  importPath,
+  selectPath,
+} from "./authJsonImport/index.ts";
 import { authJsonImport } from "./authJsonImport/store.ts";
 
 type AccountOperationActions = {
@@ -47,7 +56,7 @@ const codexHomeRead = (): string => {
 const enabledAccountRestore = async (accountId: string | null): Promise<void> => {
   const actions = store.getState().accountActions;
   if (accountId && store.getState().account[accountId]) {
-    await accountIndex.enabledSet({ accountId, enabled: true });
+    await enabledSet({ accountId, enabled: true });
     return;
   }
   actions.enabledClear();
@@ -71,7 +80,7 @@ const accountRun = async (
   actions?: AccountOperationActions,
 ): Promise<string> => {
   const codexHome = codexHomeRead();
-  await accountListIndex.pause();
+  await accountListPause();
   try {
     const previousAccountId = enabledAccountIdRead();
     const materializedAuth = join(codexHome, "auth.json");
@@ -85,9 +94,9 @@ const accountRun = async (
     try {
       store.getState().accountActions.enabledClear();
       const accountId = await run();
-      await accountIndex.enabledSet({ accountId, enabled: true });
+      await enabledSet({ accountId, enabled: true });
       actions?.operationSucceed();
-      void accountListIndex.refresh();
+      void accountListRefresh();
       return accountId;
     } catch (error) {
       await enabledAccountRestore(previousAccountId);
@@ -96,14 +105,13 @@ const accountRun = async (
       throw error;
     }
   } finally {
-    accountListIndex.resume();
+    accountListResume();
   }
 };
 const send = (channel: string, value: unknown): void => {
   if (renderer && !renderer.isDestroyed()) renderer.send(channel, value);
 };
-const accountAddIndex = {
-  install(): () => void {
+const install = (): (() => void) => {
     const interrupted = [store.getState().authJsonImport]
       .find(value => value.status === "working");
     if (interrupted) enabledAccountRestoreSync(interrupted.previousAccountId);
@@ -118,12 +126,12 @@ const accountAddIndex = {
           const controller = new AbortController();
           signal.addEventListener("abort", () => controller.abort(), { once: true });
           return accountRun(async () => {
-            const result = await authJsonCreateIndex.create({
+            const result = await authJsonCreateRun({
               carrier,
               controller,
               parent: parentRead(event),
             });
-            return authJsonImportIndex.import({
+            return authJsonImportRun({
               ...result.source,
               webAccess: result.webAccess,
             });
@@ -146,7 +154,7 @@ const accountAddIndex = {
       const imported = await store.getState().authJsonImportActions.run({
         type: "authJsonImport",
         execute: () => accountRun(
-          () => authJsonImportIndex.importClipboard(),
+          () => importClipboard(),
           store.getState().authJsonImportActions,
         ),
       });
@@ -158,7 +166,7 @@ const accountAddIndex = {
       const imported = await store.getState().authJsonImportActions.run({
         type: "authJsonImport",
         execute: () => accountRun(
-          () => authJsonImportIndex.importDefault(),
+          () => importDefault(),
           store.getState().authJsonImportActions,
         ),
       });
@@ -167,12 +175,12 @@ const accountAddIndex = {
     ipcMain.handle(authJsonImport.channel.select, async (event, input: unknown) => {
       rendererSet(event);
       authJsonImport.input.command.parse(input);
-      const sourcePath = await authJsonImportIndex.selectPath(parentRead(event));
+      const sourcePath = await selectPath(parentRead(event));
       if (!sourcePath) return authJsonImport.result.import.parse({ imported: false });
       const imported = await store.getState().authJsonImportActions.run({
         type: "authJsonImport",
         execute: () => accountRun(
-          () => authJsonImportIndex.importPath(sourcePath),
+          () => importPath(sourcePath),
           store.getState().authJsonImportActions,
         ),
       });
@@ -202,7 +210,6 @@ const accountAddIndex = {
       ipcMain.removeHandler(authJsonImport.channel.select);
       ipcMain.removeHandler(authJsonImport.channel.stateRead);
     };
-  },
 };
 
-export default accountAddIndex;
+export default install;

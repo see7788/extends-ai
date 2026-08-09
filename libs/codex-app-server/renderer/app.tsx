@@ -1,7 +1,7 @@
 import { App as AntdApp, ConfigProvider } from "antd";
 import { Outlet } from "react-router-dom";
 import { useStore } from "zustand";
-import store from "../store.ts";
+import store from "./store.ts";
 
 const App = () => {
   const colorPrimary = useStore(store, state => state.theme.colorPrimary);

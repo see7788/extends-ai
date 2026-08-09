@@ -8,7 +8,7 @@ let renderer: WebContents | undefined;
 const rendererSet = (event: IpcMainInvokeEvent): void => {
   renderer = event.sender;
 };
-const read = async (input: unknown): Promise<void> => {
+export const read = async (input: unknown): Promise<void> => {
   const value = authSessions.input.command.parse(input);
   const account = store.getState().account[value.accountId];
   if (!account) throw new Error(`账号不存在：${value.accountId}`);
@@ -41,15 +41,13 @@ const read = async (input: unknown): Promise<void> => {
   }
 };
 
-const authSessionsIndex = {
-  read,
-  install(): () => void {
+const install = (): (() => void) => {
     const stateRead = () => authSessions.authSessionsValidator.parse(
       store.getState().authSessions,
     );
     ipcMain.handle(authSessions.channel.read, async (event, input: unknown) => {
       rendererSet(event);
-      await authSessionsIndex.read(input);
+      await read(input);
       return authSessions.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(authSessions.channel.stateRead, event => {
@@ -69,7 +67,6 @@ const authSessionsIndex = {
       ipcMain.removeHandler(authSessions.channel.read);
       ipcMain.removeHandler(authSessions.channel.stateRead);
     };
-  },
 };
 
-export default authSessionsIndex;
+export default install;

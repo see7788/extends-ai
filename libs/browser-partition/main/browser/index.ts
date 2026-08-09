@@ -184,15 +184,15 @@ const idRead = (application: BrowserApplication): string => createHash("sha256")
   .digest("hex")
   .slice(0, 24);
 
-const browserIndex = {
-  async applicationRead(input: unknown) {
+export const applicationRead = async (input: unknown) => {
     const { browserId } = browser.input.applicationRead.parse(input);
     const application = (await sourceRead(app.getPath("desktop")))
       .find(value => idRead(value) === browserId);
     if (!application) throw new Error("所选浏览器不可用，请重新读取浏览器列表");
     return browser.browserApplicationValidator.parse(application);
-  },
-  async applicationsRead() {
+};
+
+export const applicationsRead = async () => {
     const source = browser.browserApplicationValidator.array().parse(
       await sourceRead(app.getPath("desktop")),
     );
@@ -200,7 +200,7 @@ const browserIndex = {
       id: idRead(application),
       importSupported: (() => {
         try {
-          browserIndex.remoteDebugRead(application.executablePath, application.launchArguments);
+          remoteDebugRead(application.executablePath, application.launchArguments);
           return true;
         } catch {
           return false;
@@ -208,12 +208,13 @@ const browserIndex = {
       })(),
       name: application.name,
     })));
-  },
-  async executableOpen(
+};
+
+export const executableOpen = async (
     executablePath: string,
     url: string,
     launchArguments: string[] = [],
-  ): Promise<void> {
+  ): Promise<void> => {
     await access(executablePath);
     const validUrl = z.string().url().parse(url);
     await new Promise<void>((resolveOpen, reject) => {
@@ -228,24 +229,30 @@ const browserIndex = {
         resolveOpen();
       });
     });
-  },
-  install(): () => void {
+};
+
+const install = (): (() => void) => {
     ipcMain.handle(browser.channel.applicationsRead, async (_event, input: unknown) => {
       browser.input.command.parse(input);
-      return browserIndex.applicationsRead();
+      return applicationsRead();
     });
     return () => ipcMain.removeHandler(browser.channel.applicationsRead);
-  },
-  async open(input: unknown): Promise<void> {
+};
+
+export const open = async (input: unknown): Promise<void> => {
     const value = browser.input.open.parse(input);
-    const application = await browserIndex.applicationRead(value);
-    await browserIndex.executableOpen(
+    const application = await applicationRead(value);
+    await executableOpen(
       application.executablePath,
       value.url,
       application.launchArguments,
     );
-  },
-  remoteDebugRead(executablePath: string, launchArguments: string[] = []) {
+};
+
+export const remoteDebugRead = (
+  executablePath: string,
+  launchArguments: string[] = [],
+) => {
     if (process.platform !== "win32") {
       throw new Error("当前只支持从 Windows Chromium 浏览器导入网页登录态");
     }
@@ -273,8 +280,12 @@ const browserIndex = {
       devToolsActivePortPath: join(profile, "DevToolsActivePort"),
       inspectUrl: product[2],
     };
-  },
-  async windowClose(executablePath: string, handle: number): Promise<boolean> {
+};
+
+export const windowClose = async (
+  executablePath: string,
+  handle: number,
+): Promise<boolean> => {
     await access(executablePath);
     if (process.platform !== "win32") return false;
     const script = [
@@ -314,8 +325,9 @@ const browserIndex = {
       },
     );
     return browser.browserWindowCloseValidator.parse(JSON.parse(stdout)).closed;
-  },
-  async windowHandlesRead(executablePath: string): Promise<number[]> {
+};
+
+export const windowHandlesRead = async (executablePath: string): Promise<number[]> => {
     await access(executablePath);
     if (process.platform !== "win32") return [];
     const script = [
@@ -359,34 +371,35 @@ const browserIndex = {
       },
     );
     return browser.browserWindowHandlesValidator.parse(JSON.parse(stdout)).handles;
-  },
-  async windowOpen(
+};
+
+export const windowOpen = async (
     executablePath: string,
     url: string,
     launchArguments: string[] = [],
-  ): Promise<{ close(): Promise<boolean> }> {
-    const previous = new Set(await browserIndex.windowHandlesRead(executablePath));
-    await browserIndex.executableOpen(
+  ): Promise<{ close(): Promise<boolean> }> => {
+    const previous = new Set(await windowHandlesRead(executablePath));
+    await executableOpen(
       executablePath,
       url,
       [...launchArguments, "--new-window"],
     );
     const deadline = Date.now() + 5_000;
     while (Date.now() < deadline) {
-      const handle = (await browserIndex.windowHandlesRead(executablePath))
+      const handle = (await windowHandlesRead(executablePath))
         .find(value => !previous.has(value));
       if (handle !== undefined) {
         return {
-          close: () => browserIndex.windowClose(executablePath, handle),
+          close: () => windowClose(executablePath, handle),
         };
       }
       await new Promise(resolveWait => setTimeout(resolveWait, 100));
     }
     throw new Error("浏览器没有创建授权窗口");
-  },
-  async windowOpenRead(executablePath: string): Promise<boolean> {
-    return (await browserIndex.windowHandlesRead(executablePath)).length > 0;
-  },
 };
 
-export default browserIndex;
+export const windowOpenRead = async (executablePath: string): Promise<boolean> => {
+    return (await windowHandlesRead(executablePath)).length > 0;
+};
+
+export default install;

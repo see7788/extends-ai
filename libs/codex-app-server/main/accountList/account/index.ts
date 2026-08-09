@@ -22,17 +22,10 @@ const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
   return parent;
 };
 
-const accountIndex = {
-  read(input: unknown) {
-    const { accountId } = account.input.read.parse(input);
-    return account.accountValidator.nullable().parse(
-      store.getState().account[accountId] ?? null,
-    );
-  },
-  labelSet(input: unknown): void {
-    store.getState().accountActions.labelSet(account.input.labelSet.parse(input));
-  },
-  async officialOpen(input: unknown, parent: ElectronBrowserWindow): Promise<void> {
+const officialOpen = async (
+  input: unknown,
+  parent: ElectronBrowserWindow,
+): Promise<void> => {
     const { accountId } = account.input.officialOpen.parse(input);
     const selected = store.getState().account[accountId];
     if (!selected) throw new Error(`账号不存在：${accountId}`);
@@ -40,8 +33,9 @@ const accountIndex = {
       throw new Error("该账号没有内嵌网页登录会话，请通过内嵌 ChatGPT 登录重新添加");
     }
     await AccountBrowserWindow.open(parent, selected.webAccess.partition);
-  },
-  async enabledSet(input: unknown): Promise<void> {
+};
+
+export const enabledSet = async (input: unknown): Promise<void> => {
     const value = account.input.enabledSet.parse(input);
     if (!value.enabled) return;
     const selected = store.getState().account[value.accountId];
@@ -61,8 +55,9 @@ const accountIndex = {
       materializedAuth,
     );
     store.getState().accountActions.enabledSet(value);
-  },
-  initialize(): void {
+};
+
+export const initialize = (): void => {
     store.getState().accountActions.normalize();
     const enabled = Object.values(store.getState().account).find(value => value.enabled);
     const codexHome = store.getState().globalSettings.codexHome;
@@ -72,22 +67,23 @@ const accountIndex = {
     if (!existsSync(materializedAuth) && existsSync(backupAuth)) {
       authFileCopySync(backupAuth, materializedAuth);
     }
-  },
-  install(): () => void {
+};
+
+const install = (): (() => void) => {
     const stateRead = () => account.accountStateValidator.parse(store.getState().account);
     ipcMain.handle(account.channel.enabledSet, async (event, input: unknown) => {
       rendererSet(event);
-      await accountIndex.enabledSet(input);
+      await enabledSet(input);
       return account.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(account.channel.labelSet, (event, input: unknown) => {
       rendererSet(event);
-      accountIndex.labelSet(input);
+      store.getState().accountActions.labelSet(account.input.labelSet.parse(input));
       return account.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(account.channel.officialOpen, async (event, input: unknown) => {
       rendererSet(event);
-      await accountIndex.officialOpen(input, parentRead(event));
+      await officialOpen(input, parentRead(event));
       return account.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(account.channel.stateRead, event => {
@@ -107,7 +103,6 @@ const accountIndex = {
       ipcMain.removeHandler(account.channel.officialOpen);
       ipcMain.removeHandler(account.channel.stateRead);
     };
-  },
 };
 
-export default accountIndex;
+export default install;

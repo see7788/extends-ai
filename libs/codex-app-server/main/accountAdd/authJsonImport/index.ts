@@ -98,42 +98,43 @@ const commit = async (options: {
   return id;
 };
 
-const authJsonImportIndex = {
-  commit,
-  prepare,
-  async import(options: {
+const importAuthJson = async (options: {
     sourceFileName: string;
     sourcePath?: string;
     sourceText: string;
     webAccess?: WebAccess;
-  }): Promise<string> {
+  }): Promise<string> => {
     return commit({
       ...options,
       prepared: await prepare(options.sourceText),
     });
-  },
-  async importClipboard(): Promise<string> {
+};
+
+export const importClipboard = async (): Promise<string> => {
     const sourceText = clipboard.readText();
     if (!sourceText.trim()) throw new Error("剪贴板中没有 auth.json 内容");
-    return authJsonImportIndex.import({
+    return importAuthJson({
       sourceFileName: "clipboard-auth.json",
       sourceText,
     });
-  },
-  async importDefault(): Promise<string> {
+};
+
+export const importDefault = async (): Promise<string> => {
     const codexHome = store.getState().globalSettings.codexHome;
     if (!codexHome) throw new Error("请先配置 CODEX_HOME");
-    return authJsonImportIndex.importPath(join(codexHome, "auth.json"));
-  },
-  async importPath(sourcePathInput: string): Promise<string> {
+    return importPath(join(codexHome, "auth.json"));
+};
+
+export const importPath = async (sourcePathInput: string): Promise<string> => {
     const sourcePath = resolve(sourcePathInput);
-    return authJsonImportIndex.import({
+    return importAuthJson({
       sourceFileName: basename(sourcePath),
       sourcePath,
       sourceText: await readFile(sourcePath, "utf8"),
     });
-  },
-  async selectPath(parent: BrowserWindow): Promise<string | null> {
+};
+
+export const selectPath = async (parent: BrowserWindow): Promise<string | null> => {
     const codexHome = store.getState().globalSettings.codexHome;
     const result = await dialog.showOpenDialog(parent, {
       title: "选择 auth.json",
@@ -145,7 +146,6 @@ const authJsonImportIndex = {
     const sourcePath = result.filePaths[0];
     if (result.canceled || !sourcePath) return null;
     return sourcePath;
-  },
 };
 
-export default authJsonImportIndex;
+export default importAuthJson;

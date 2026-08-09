@@ -1,17 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { type BrowserWindow as ElectronBrowserWindow } from "electron";
 import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
-import browserIndex from "browser-partition-main/browser/index.ts";
+import { open as browserOpen } from "browser-partition-main/browser/index.ts";
 import { z } from "zod";
 import store from "../../store.ts";
 import { authJsonCreate } from "./store.ts";
 
-const authJsonCreateIndex = {
-  async create(input: {
+const create = async (input: {
     carrier: z.infer<typeof authJsonCreate.input.create>;
     controller: AbortController;
     parent: ElectronBrowserWindow;
-  }) {
+  }) => {
     const carrier = input.carrier;
     const electron = carrier.type === "electron";
     const partition = electron
@@ -35,7 +34,7 @@ const authJsonCreateIndex = {
                 width: 920,
               });
             }
-          : authUrl => browserIndex.open({
+          : authUrl => browserOpen({
               browserId: carrier.browserId,
               url: authUrl,
             }),
@@ -55,7 +54,6 @@ const authJsonCreateIndex = {
         await BrowserPartitionWindow.storageClear(partition).catch(() => undefined);
       }
     }
-  },
 };
 
-export default authJsonCreateIndex;
+export default create;

@@ -1,22 +1,68 @@
 import { Collapse, ConfigProvider, Masonry, Space, Typography } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
+import { useParams } from "react-router-dom";
 import { useStore } from "zustand";
 import AuthJsonCreate from "../accountAdd/authJsonCreate/index.tsx";
 import AuthJsonImport from "../accountAdd/authJsonImport/index.tsx";
-import Account, { useAccount } from "../accountList/account/index.tsx";
-import useAccounts, {
-  AccountRemove,
-  AccountsEmpty,
-} from "../accountList/accounts/index.tsx";
-import AuthSession, {
-  AuthSessionEmail,
-  useAuthSessions,
-} from "../accountList/authSessions/index.tsx";
-import RateLimits, { useRateLimits } from "../accountList/rateLimits/index.tsx";
-import Scheduler from "../accountList/scheduler/index.tsx";
-import Usage, { useUsage } from "../accountList/usage/index.tsx";
 import GlobalSettings from "../globalSettings/index.tsx";
 import store from "../store.ts";
+import Account, { useAccount } from "./account/index.tsx";
+import { account as accountContract } from "./account/store.ts";
+import useAccounts, { AccountRemove, AccountsEmpty } from "./accounts/index.tsx";
+import AuthSession, { AuthSessionEmail, useAuthSessions } from "./authSessions/index.tsx";
+import RateLimits, { useRateLimits } from "./rateLimits/index.tsx";
+import Scheduler from "./scheduler/index.tsx";
+import Usage, { useUsage } from "./usage/index.tsx";
+
+const pageStyle = {
+  background: "#000",
+  minHeight: "100vh",
+  overflow: "hidden",
+  position: "relative",
+} as const;
+const contentStyle = {
+  boxSizing: "border-box",
+  height: "100vh",
+  inset: 0,
+  overflowY: "auto",
+  padding: 28,
+  position: "absolute",
+} as const;
+
+const AccountPage = () => {
+  const accountId = accountContract.accountIdValidator.parse(useParams().accountId);
+  useAccount();
+  useAuthSessions();
+  useRateLimits();
+  useUsage();
+  return (
+    <div style={pageStyle}>
+      <Hyperspeed />
+      <div style={contentStyle}>
+        <Masonry
+          columns={1}
+          gutter={16}
+          items={[{
+            children: (
+              <Account
+                accountId={accountId}
+                title={<AuthSessionEmail accountId={accountId} fallback="璐﹀彿" />}
+              >
+                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                  <AuthSession accountId={accountId} interactive />
+                  <RateLimits accountId={accountId} interactive />
+                  <Usage accountId={accountId} interactive />
+                </Space>
+              </Account>
+            ),
+            data: null,
+            key: accountId,
+          }]}
+        />
+      </div>
+    </div>
+  );
+};
 
 const AccountList = () => {
   const order = useAccounts();
@@ -50,7 +96,7 @@ const AccountList = () => {
           actions={<AccountRemove accountId={accountId} />}
           title={(
             <Typography.Text strong style={{ color: "inherit" }}>
-              <AuthSessionEmail accountId={accountId} fallback="账号" />
+              <AuthSessionEmail accountId={accountId} fallback="璐﹀彿" />
             </Typography.Text>
           )}
         >
@@ -66,7 +112,7 @@ const AccountList = () => {
                   </Space>
                 ),
                 key: "account-details",
-                label: <Typography.Text style={{ color: "inherit" }}>账号信息</Typography.Text>,
+                label: <Typography.Text style={{ color: "inherit" }}>璐﹀彿淇℃伅</Typography.Text>,
               }]}
               size="small"
               styles={{ body: { paddingInline: 0 }, header: { paddingInline: 0 } }}
@@ -80,7 +126,7 @@ const AccountList = () => {
       : []),
   ];
   return (
-    <div style={{ background: "#000", minHeight: "100vh", overflow: "hidden", position: "relative" }}>
+    <div style={pageStyle}>
       <Hyperspeed />
       <ConfigProvider theme={{
         token: {
@@ -90,14 +136,7 @@ const AccountList = () => {
           colorTextSecondary: "rgba(0, 0, 0, 0.56)",
         },
       }}>
-        <div style={{
-          boxSizing: "border-box",
-          height: "100vh",
-          inset: 0,
-          overflowY: "auto",
-          padding: 28,
-          position: "absolute",
-        }}>
+        <div style={contentStyle}>
           <Masonry
             columns={{ xs: 1, sm: 2, md: 3 }}
             fresh
@@ -110,4 +149,5 @@ const AccountList = () => {
   );
 };
 
+export { AccountPage };
 export default AccountList;

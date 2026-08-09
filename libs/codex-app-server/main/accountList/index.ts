@@ -1,9 +1,9 @@
 import { errorText } from "../public.ts";
 import store from "../store.ts";
-import authSessionsIndex from "./authSessions/index.ts";
-import rateLimitsIndex from "./rateLimits/index.ts";
-import schedulerIndex from "./scheduler/index.ts";
-import usageIndex from "./usage/index.ts";
+import { read as authSessionsRead } from "./authSessions/index.ts";
+import { read as rateLimitsRead } from "./rateLimits/index.ts";
+import { start as schedulerStart, stop as schedulerStop } from "./scheduler/index.ts";
+import { read as usageRead } from "./usage/index.ts";
 
 let refreshing: Promise<void> | undefined;
 const queryStateClear = (): void => {
@@ -27,8 +27,7 @@ const dataMissing = (): boolean => store.getState().accounts.order.some(accountI
   )
 ));
 
-const accountListIndex = {
-  refresh(): Promise<void> {
+export const refresh = (): Promise<void> => {
     if (refreshing) return refreshing;
     refreshing = (async () => {
       store.getState().schedulerActions.runStart();
@@ -40,9 +39,9 @@ const accountListIndex = {
           === "requiresLogin"
         ) continue;
         try {
-          await authSessionsIndex.read({ accountId });
-          await rateLimitsIndex.read({ accountId });
-          await usageIndex.read({ accountId });
+          await authSessionsRead({ accountId });
+          await rateLimitsRead({ accountId });
+          await usageRead({ accountId });
         } catch (error) {
           refreshError ??= errorText(error);
         }
@@ -55,27 +54,30 @@ const accountListIndex = {
       refreshing = undefined;
     });
     return refreshing;
-  },
-  start(): void {
+};
+
+const start = (): void => {
     queryStateClear();
     if (store.getState().globalSettings.codexHome) {
       store.getState().accountActions.enabledNormalize();
     } else {
       store.getState().accountActions.enabledClear();
     }
-    schedulerIndex.start(accountListIndex.refresh);
-    if (dataMissing()) void accountListIndex.refresh();
-  },
-  async pause(): Promise<void> {
-    schedulerIndex.stop();
-    await refreshing;
-  },
-  resume(): void {
-    schedulerIndex.start(accountListIndex.refresh);
-  },
-  stop(): void {
-    schedulerIndex.stop();
-  },
+    schedulerStart(refresh);
+    if (dataMissing()) void refresh();
 };
 
-export default accountListIndex;
+export const pause = async (): Promise<void> => {
+    schedulerStop();
+    await refreshing;
+};
+
+export const resume = (): void => {
+    schedulerStart(refresh);
+};
+
+export const stop = (): void => {
+    schedulerStop();
+};
+
+export default start;

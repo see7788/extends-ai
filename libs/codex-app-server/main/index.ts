@@ -1,15 +1,15 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { electronRendererUrlRead } from "./process.ts";
-import accountAddIndex from "./accountAdd/index.ts";
-import globalSettingsIndex from "./globalSettings/index.ts";
-import accountListIndex from "./accountList/index.ts";
-import accountIndex from "./accountList/account/index.ts";
-import accountsIndex from "./accountList/accounts/index.ts";
-import authSessionsIndex from "./accountList/authSessions/index.ts";
-import rateLimitsIndex from "./accountList/rateLimits/index.ts";
-import schedulerIndex from "./accountList/scheduler/index.ts";
-import usageIndex from "./accountList/usage/index.ts";
+import accountAddInstall from "./accountAdd/index.ts";
+import globalSettingsInstall, { initialize as globalSettingsInitialize } from "./globalSettings/index.ts";
+import accountListStart, { stop as accountListStop } from "./accountList/index.ts";
+import accountInstall, { initialize as accountInitialize } from "./accountList/account/index.ts";
+import accountsInstall from "./accountList/accounts/index.ts";
+import authSessionsInstall from "./accountList/authSessions/index.ts";
+import rateLimitsInstall from "./accountList/rateLimits/index.ts";
+import schedulerInstall from "./accountList/scheduler/index.ts";
+import usageInstall from "./accountList/usage/index.ts";
 import store from "./store.ts";
 
 const preloadPath = () => join(
@@ -26,8 +26,8 @@ class CodexAppServer {
   private readonly window: BrowserWindow;
 
   constructor() {
-    globalSettingsIndex.initialize();
-    accountIndex.initialize();
+    globalSettingsInitialize();
+    accountInitialize();
     this.window = new BrowserWindow({
       autoHideMenuBar: true,
       width: 1100,
@@ -45,14 +45,14 @@ class CodexAppServer {
       },
     });
     this.disposeCommunication = [
-      globalSettingsIndex.install(),
-      accountAddIndex.install(),
-      accountIndex.install(),
-      accountsIndex.install(),
-      authSessionsIndex.install(),
-      rateLimitsIndex.install(),
-      schedulerIndex.install(),
-      usageIndex.install(),
+      globalSettingsInstall(),
+      accountAddInstall(),
+      accountInstall(),
+      accountsInstall(),
+      authSessionsInstall(),
+      rateLimitsInstall(),
+      schedulerInstall(),
+      usageInstall(),
     ];
     const route = store.getState().accounts.order.length === 0 ? "/" : "/accounts";
     this.ready = this.rendererLoad(route);
@@ -61,7 +61,7 @@ class CodexAppServer {
       event.preventDefault();
       this.window.hide();
     });
-    accountListIndex.start();
+    accountListStart();
   }
 
   async show(): Promise<void> {
@@ -79,7 +79,7 @@ class CodexAppServer {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    accountListIndex.stop();
+    accountListStop();
     for (const run of this.disposeCommunication.reverse()) run();
     if (!this.window.isDestroyed()) this.window.destroy();
   }

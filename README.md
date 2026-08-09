@@ -145,7 +145,7 @@ extends-ai/
       ├─ globalSettings/              # 全局设置 store、通信、操作与本切片 UI
       ├─ theme/store.ts               # renderer 主题数据切片，无虚假 UI
       ├─ public/                      # 无业务的公共 UI 与文本工具
-      ├─ app/                         # 多页面消费者：入口、添加、列表、账号详情
+      ├─ app.tsx                      # 应用壳：主题上下文与路由 Outlet
       ├─ store.ts                     # 只组合 renderer 同名切片
       ├─ routers.tsx                  # Hash Router 路由集合
       ├─ index.tsx                    # React 根与 RouterProvider 启动入口
@@ -168,8 +168,8 @@ extends-ai/
 - 每个独立业务 renderer 根目录固定存在 `store.ts / routers.tsx / index.tsx`；即使只有一个页面，也使用 `react-router-dom` 的 Hash Router。
 - renderer 业务切片目录固定只有 `store.ts / index.tsx`：通信、监听、操作和本切片 UI 统一由同一个 `index.tsx` 承担，不再并存 `index.ts` 与 `index.tsx`，也不保留套壳转发入口。
 - 每个 `store.ts` 只定义本切片的 `<切片名>` 与 `<切片名>Actions`；主 `store.ts` 只组合切片。
-- renderer 业务切片的 `index.tsx` 只负责自身通信、监听、操作和 UI；跨切片页面组合只允许位于 `app.tsx` 或 `app/`，`app` 不拥有业务 store。
-- 单文件消费者直接使用根级 `app.tsx`；只有存在多个页面消费者文件时才使用 `app/` 目录。
+- renderer 业务切片的 `index.tsx` 只负责自身通信、监听、操作和 UI；根切片的 `index.tsx` 可以透明组合自己的子切片。
+- `app.tsx` 只负责应用主题上下文与路由 `Outlet`，不转发页面、不拥有业务 store，也不替根切片组合业务 UI。
 - `public/` 只保存无业务的公共组件与工具，不保存页面壳或业务转发。
 - `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
 - `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
@@ -184,6 +184,6 @@ extends-ai/
 - [x] 验证 `browser-partition` 无主仓库、公共 preload 工厂以及两端消费者。
 - [x] 主 store 采用持久化白名单，确保当前 JSON 只写入所属切片。
 - [x] login 的 `login` 与 `cookieImport` 状态由 main 推送并在 renderer 同构呈现；内嵌登录自动交给 accounts 识别，cookieImport 自己记录导入历史并在成功后停在 `ready`，只由人工操作交给 accounts。
-- [x] codex-app-server renderer 收口为切片 UI + app 消费者：删除父级业务套壳、集中启动黑盒和跨切片 UI 导入，账号列表 Masonry 只由 app 组合。
+- [x] codex-app-server renderer 收口为切片 UI + 根切片消费者：`accountAdd/index.tsx` 与 `accountList/index.tsx` 分别透明组合自身子切片，`app.tsx` 只保留应用壳。
 - [ ] 接入成人端权限通信后限制 CODEX_HOME 可见性开关。
 - [x] 完成相关包 typecheck 与开发态 main/preload/renderer 运行验收；生产构建继续后置。

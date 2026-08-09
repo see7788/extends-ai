@@ -9,8 +9,7 @@ const rendererSet = (event: IpcMainInvokeEvent): void => {
   renderer = event.sender;
 };
 
-const rateLimitsIndex = {
-  async read(input: unknown): Promise<void> {
+export const read = async (input: unknown): Promise<void> => {
     const value = rateLimits.input.command.parse(input);
     const account = store.getState().account[value.accountId];
     if (!account) throw new Error(`账号不存在：${value.accountId}`);
@@ -37,12 +36,13 @@ const rateLimitsIndex = {
       });
       throw error;
     }
-  },
-  install(): () => void {
+};
+
+const install = (): (() => void) => {
     const stateRead = () => rateLimits.rateLimitsValidator.parse(store.getState().rateLimits);
     ipcMain.handle(rateLimits.channel.read, async (event, input: unknown) => {
       rendererSet(event);
-      await rateLimitsIndex.read(input);
+      await read(input);
       return rateLimits.commandResultValidator.parse({ ok: true });
     });
     ipcMain.handle(rateLimits.channel.stateRead, event => {
@@ -60,7 +60,6 @@ const rateLimitsIndex = {
       ipcMain.removeHandler(rateLimits.channel.read);
       ipcMain.removeHandler(rateLimits.channel.stateRead);
     };
-  },
 };
 
-export default rateLimitsIndex;
+export default install;

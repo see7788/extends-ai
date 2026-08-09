@@ -6,7 +6,11 @@ import {
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import browserIndex from "browser-partition-main/browser/index.ts";
+import {
+  applicationRead,
+  remoteDebugRead,
+  windowOpen,
+} from "browser-partition-main/browser/index.ts";
 import store from "../store.ts";
 import { cookieImport } from "./store.ts";
 
@@ -37,16 +41,16 @@ const install = (): (() => void) => {
     const value = cookieImport.input.create.parse(input);
     return cookieImport.result.start.parse({
       completed: await store.getState().cookieImportActions.start(value.browserId, {
-        applicationRead: browserId => browserIndex.applicationRead(browserId),
+        applicationRead,
         fileRead: path => readFile(path, "utf8"),
         fileStat: path => stat(path),
         idCreate: randomUUID,
         remoteDebugRead: (executablePath, launchArguments) => (
-          browserIndex.remoteDebugRead(executablePath, launchArguments)
+          remoteDebugRead(executablePath, launchArguments)
         ),
         sessionRead: partition => session.fromPartition(partition),
         windowOpen: (executablePath, url, launchArguments) => (
-          browserIndex.windowOpen(executablePath, url, launchArguments)
+          windowOpen(executablePath, url, launchArguments)
         ),
       }),
     });
