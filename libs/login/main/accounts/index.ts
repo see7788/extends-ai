@@ -39,7 +39,7 @@ const verificationRead = async (
       "https://chatgpt.com/api/auth/session",
       signal ? { signal } : undefined,
     );
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       return { checkedAt, email: null, error: null, status: "expired" };
     }
     if (!response.ok) {

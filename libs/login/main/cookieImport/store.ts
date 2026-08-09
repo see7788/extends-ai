@@ -35,7 +35,6 @@ const authorizationStartValidator = z.object({
 const operationFailValidator = z.object({ error: z.string().min(1) });
 const commandValidator = z.object({});
 const cancelResultValidator = z.object({ canceled: z.boolean() });
-const discardResultValidator = z.object({ discarded: z.boolean() });
 const settingResultValidator = z.object({ updated: z.boolean() });
 const devToolsMessageValidator = z.object({
   id: z.number().int().positive().optional(),
@@ -109,7 +108,6 @@ const cookieImport = {
   channel: {
     authorizationTimeoutSecondsSet: "login:cookie-import:authorization-timeout-seconds-set",
     cancel: "login:cookie-import:cancel",
-    discard: "login:cookie-import:discard",
     start: "login:cookie-import:start",
     stateRead: "login:cookie-import:state-read",
     stateUpdated: "login:cookie-import:state-updated",
@@ -131,7 +129,6 @@ const cookieImport = {
   },
   result: {
     cancel: cancelResultValidator,
-    discard: discardResultValidator,
     start: z.object({ completed: z.boolean() }),
     setting: settingResultValidator,
   },

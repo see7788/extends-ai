@@ -1,5 +1,5 @@
 import {
-  CloseCircleOutlined,
+  CheckCircleOutlined,
   GlobalOutlined,
   ReloadOutlined,
   UserOutlined,
@@ -11,7 +11,6 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
-import { accounts } from "../accounts/store.ts";
 import { cookieImport } from "./store.ts";
 
 const stateSet = (input: unknown): void => {
@@ -19,71 +18,20 @@ const stateSet = (input: unknown): void => {
     cookieImport.cookieImportValidator.parse(input),
   );
 };
-const cookieImportIndex = {
-  async authorizationTimeoutSecondsSet(
-    authorizationTimeoutSeconds: number,
-  ): Promise<void> {
-    await browserPartitionRenderer.invoke({
-      channel: cookieImport.channel.authorizationTimeoutSecondsSet,
-      input: { authorizationTimeoutSeconds },
-      inputValidator: cookieImport.input.authorizationTimeoutSecondsSet,
-      resultValidator: cookieImport.result.setting,
-    });
-  },
-  async cancel(): Promise<boolean> {
-    return (await browserPartitionRenderer.invoke({
-      channel: cookieImport.channel.cancel,
-      input: {},
-      inputValidator: cookieImport.input.command,
-      resultValidator: cookieImport.result.cancel,
-    })).canceled;
-  },
-  async candidateDiscard(): Promise<boolean> {
-    return (await browserPartitionRenderer.invoke({
-      channel: cookieImport.channel.discard,
-      input: {},
-      inputValidator: cookieImport.input.command,
-      resultValidator: cookieImport.result.discard,
-    })).discarded;
-  },
-  async candidateIdentify() {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.cookieImportConsume,
-      input: {},
-      inputValidator: accounts.input.command,
-      resultValidator: accounts.result.account,
-    })).account;
-  },
-  async start(browserId: string): Promise<boolean> {
-    return (await browserPartitionRenderer.invoke({
-      channel: cookieImport.channel.start,
-      input: { browserId },
-      inputValidator: cookieImport.input.create,
-      resultValidator: cookieImport.result.start,
-    })).completed;
-  },
-  async stateRead(): Promise<void> {
-    stateSet(await browserPartitionRenderer.read({
-      channel: cookieImport.channel.stateRead,
-      resultValidator: cookieImport.cookieImportValidator,
-    }));
-  },
-  stateSubscribe(): () => void {
-    return browserPartitionRenderer.subscribe({
-      channel: cookieImport.channel.stateUpdated,
-      resultValidator: cookieImport.cookieImportValidator,
-      run: stateSet,
-    });
-  },
-};
 
 type BrowserApplication = Awaited<ReturnType<
   typeof browserIndex.applicationsRead
 >>[number];
 
-const useCookieImport = () => {
+const useCookieImport = ({
+  identifiedBrowserIds,
+  identify,
+}: {
+  identifiedBrowserIds: ReadonlySet<string>;
+  identify: () => Promise<unknown>;
+}) => {
   const { message } = AntdApp.useApp();
-  const cookieImport = useStore(store, state => state.cookieImport);
+  const cookieImportState = useStore(store, state => state.cookieImport);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [identifying, setIdentifying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -93,8 +41,15 @@ const useCookieImport = () => {
   };
 
   useEffect(() => {
-    void cookieImportIndex.stateRead().catch(errorShow);
-    const dispose = cookieImportIndex.stateSubscribe();
+    void browserPartitionRenderer.read({
+      channel: cookieImport.channel.stateRead,
+      resultValidator: cookieImport.cookieImportValidator,
+    }).then(stateSet).catch(errorShow);
+    const dispose = browserPartitionRenderer.subscribe({
+      channel: cookieImport.channel.stateUpdated,
+      resultValidator: cookieImport.cookieImportValidator,
+      run: stateSet,
+    });
     setLoading(true);
     void browserIndex.applicationsRead(browserPartitionRenderer.invoke)
       .then(setApplications)
@@ -104,21 +59,21 @@ const useCookieImport = () => {
   }, []);
 
   useEffect(() => {
-    if (!cookieImport.authorizationExpiresAt) return undefined;
+    if (!cookieImportState.authorizationExpiresAt) return undefined;
     setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(interval);
-  }, [cookieImport.authorizationExpiresAt]);
+  }, [cookieImportState.authorizationExpiresAt]);
 
-  const authorizationSeconds = cookieImport.authorizationExpiresAt
+  const authorizationSeconds = cookieImportState.authorizationExpiresAt
     ? Math.max(0, Math.ceil(
-      (Date.parse(cookieImport.authorizationExpiresAt) - now) / 1_000,
+      (Date.parse(cookieImportState.authorizationExpiresAt) - now) / 1_000,
     ))
     : null;
   const candidateIdentify = async (): Promise<void> => {
     setIdentifying(true);
     try {
-      await cookieImportIndex.candidateIdentify();
+      await identify();
     } catch (error) {
       errorShow(error);
     } finally {
@@ -126,36 +81,40 @@ const useCookieImport = () => {
     }
   };
   const treeData = applications.map(application => {
-    const imported = cookieImport.history[application.id] !== undefined;
-    const active = cookieImport.activeBrowserId === application.id;
-    const ready = cookieImport.status === "ready"
-      && cookieImport.candidate?.browserId === application.id;
+    const imported = cookieImportState.history[application.id] !== undefined;
+    const active = cookieImportState.activeBrowserId === application.id;
+    const ready = cookieImportState.status === "ready"
+      && cookieImportState.candidate?.browserId === application.id;
+    const identified = identifiedBrowserIds.has(application.id);
     return {
-      children: ready ? [{
-        key: `cookieImport:${application.id}:candidate`,
-        title: (
-          <Flex align="center" gap={8} justify="space-between">
-            <Typography.Text>Cookie 已导入</Typography.Text>
-            <Flex align="center" gap={4}>
-              <Button
-                icon={<UserOutlined />}
-                loading={identifying}
-                type="text"
-                onClick={() => void candidateIdentify()}
-              >
-                识别账号
-              </Button>
-              <Button
-                disabled={identifying}
-                type="text"
-                onClick={() => void cookieImportIndex.candidateDiscard().catch(errorShow)}
-              >
-                放弃
-              </Button>
-            </Flex>
-          </Flex>
-        ),
-      }] : undefined,
+      children: ready
+        ? [{
+            key: `cookieImport:${application.id}:candidate`,
+            title: (
+              <Flex align="center" gap={8} justify="space-between">
+                <Typography.Text>已导入待识别</Typography.Text>
+                <Button
+                  aria-label="识别账号"
+                  icon={<UserOutlined />}
+                  loading={identifying}
+                  title="识别账号"
+                  type="text"
+                  onClick={() => void candidateIdentify()}
+                />
+              </Flex>
+            ),
+          }]
+        : identified
+          ? [{
+              key: `cookieImport:${application.id}:identified`,
+              title: (
+                <Flex align="center" gap={8} justify="space-between">
+                  <Typography.Text>已导入已识别</Typography.Text>
+                  <CheckCircleOutlined />
+                </Flex>
+              ),
+            }]
+          : undefined,
       key: `cookieImport:${application.id}`,
       title: (
         <Flex align="center" gap={8} justify="space-between">
@@ -169,13 +128,7 @@ const useCookieImport = () => {
             {!application.importSupported ? (
               <Typography.Text disabled>暂不支持</Typography.Text>
             ) : active ? (
-              <Button
-                icon={<CloseCircleOutlined />}
-                type="text"
-                onClick={() => void cookieImportIndex.cancel().catch(errorShow)}
-              >
-                取消
-              </Button>
+              null
             ) : ready ? (
               <Button
                 aria-label={`刷新导入 ${application.name}`}
@@ -183,16 +136,27 @@ const useCookieImport = () => {
                 icon={<ReloadOutlined />}
                 title="刷新导入"
                 type="text"
-                onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
+                onClick={() => void browserPartitionRenderer.invoke({
+                  channel: cookieImport.channel.start,
+                  input: { browserId: application.id },
+                  inputValidator: cookieImport.input.create,
+                  resultValidator: cookieImport.result.start,
+                }).catch(errorShow)}
               />
             ) : (
               <Button
+                aria-label={`${imported ? "重新导入" : "导入"} ${application.name}`}
+                disabled={cookieImportState.status === "working" || identifying}
                 icon={imported ? <ReloadOutlined /> : <GlobalOutlined />}
+                title={imported ? "重新导入" : "导入"}
                 type="text"
-                onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
-              >
-                {imported ? "再次导入" : "导入"}
-              </Button>
+                onClick={() => void browserPartitionRenderer.invoke({
+                  channel: cookieImport.channel.start,
+                  input: { browserId: application.id },
+                  inputValidator: cookieImport.input.create,
+                  resultValidator: cookieImport.result.start,
+                }).catch(errorShow)}
+              />
             )}
           </Flex>
         </Flex>
@@ -206,11 +170,11 @@ const useCookieImport = () => {
       title: <Typography.Text>未发现浏览器</Typography.Text>,
     });
   }
-  if (cookieImport.error) {
+  if (cookieImportState.error) {
     treeData.push({
       children: undefined,
       key: "cookieImport:error",
-      title: <Typography.Text>{cookieImport.error}</Typography.Text>,
+      title: <Typography.Text>{cookieImportState.error}</Typography.Text>,
     });
   }
 

@@ -6,8 +6,11 @@ import useLogin from "./login/index.tsx";
 
 const App = () => {
   const loginItems = useLogin();
-  const cookieImportItems = useCookieImport();
-  const accountItems = useAccounts();
+  const accounts = useAccounts();
+  const cookieImportItems = useCookieImport({
+    identifiedBrowserIds: accounts.identifiedBrowserIds,
+    identify: accounts.cookieImportConsume,
+  });
 
   return (
     <div style={{ background: "#000", minHeight: "100vh", overflow: "hidden", position: "relative" }}>
@@ -23,7 +26,7 @@ const App = () => {
         <Masonry
           columns={{ xs: 1, sm: 2, lg: 3, xl: 4 }}
           gutter={16}
-          items={[...loginItems, ...cookieImportItems, ...accountItems]}
+          items={[...loginItems, ...cookieImportItems, ...accounts.items]}
         />
       </div>
     </div>

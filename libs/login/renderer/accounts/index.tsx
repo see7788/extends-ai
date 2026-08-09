@@ -24,6 +24,14 @@ const stateSet = (input: unknown): void => {
   );
 };
 const accountsIndex = {
+  async cookieImportConsume() {
+    return (await browserPartitionRenderer.invoke({
+      channel: accounts.channel.cookieImportConsume,
+      input: {},
+      inputValidator: accounts.input.command,
+      resultValidator: accounts.result.account,
+    })).account;
+  },
   async open(email: string): Promise<boolean> {
     return (await browserPartitionRenderer.invoke({
       channel: accounts.channel.open,
@@ -126,7 +134,15 @@ const useAccounts = () => {
       data: null,
       key: `account:${account.email}`,
     }));
-  return accountItems;
+  return {
+    cookieImportConsume: accountsIndex.cookieImportConsume,
+    identifiedBrowserIds: new Set(accounts.order.flatMap(email => (
+      accounts.byEmail[email]?.sources.map(
+        source => source.browserId,
+      ) ?? []
+    ))),
+    items: accountItems,
+  };
 };
 
 export default useAccounts;
