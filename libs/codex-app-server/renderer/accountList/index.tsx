@@ -46,7 +46,7 @@ const AccountPage = () => {
             children: (
               <Account
                 accountId={accountId}
-                title={<AuthSessionEmail accountId={accountId} fallback="璐﹀彿" />}
+                title={<AuthSessionEmail accountId={accountId} fallback="账号" />}
               >
                 <Space direction="vertical" size="large" style={{ width: "100%" }}>
                   <AuthSession accountId={accountId} interactive />
@@ -96,7 +96,7 @@ const AccountList = () => {
           actions={<AccountRemove accountId={accountId} />}
           title={(
             <Typography.Text strong style={{ color: "inherit" }}>
-              <AuthSessionEmail accountId={accountId} fallback="璐﹀彿" />
+              <AuthSessionEmail accountId={accountId} fallback="账号" />
             </Typography.Text>
           )}
         >
@@ -112,7 +112,7 @@ const AccountList = () => {
                   </Space>
                 ),
                 key: "account-details",
-                label: <Typography.Text style={{ color: "inherit" }}>璐﹀彿淇℃伅</Typography.Text>,
+                label: <Typography.Text style={{ color: "inherit" }}>账号信息</Typography.Text>,
               }]}
               size="small"
               styles={{ body: { paddingInline: 0 }, header: { paddingInline: 0 } }}
