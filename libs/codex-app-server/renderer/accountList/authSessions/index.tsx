@@ -1,26 +1,9 @@
 import { App as AntdApp, Button, Space, Tag, Typography } from "antd";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect, useState } from "react";
+import { invoke } from "browser-partition-renderer/public.ts";
+import { useState } from "react";
 import { errorText, timeText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { authSessions } from "./store.ts";
-
-const useAuthSessions = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void read({
-      channel: authSessions.channel.stateRead,
-      resultValidator: authSessions.authSessionsValidator,
-    }).then(store.getState().authSessionsActions.stateSet).catch(error => {
-      void message.error(errorText(error));
-    });
-    return subscribe({
-      channel: authSessions.channel.stateUpdated,
-      resultValidator: authSessions.authSessionsValidator,
-      run: store.getState().authSessionsActions.stateSet,
-    });
-  }, []);
-};
 
 const statusText = {
   authenticated: "已登录",
@@ -84,5 +67,4 @@ const AuthSession = ({
   );
 };
 
-export { useAuthSessions };
 export default AuthSession;

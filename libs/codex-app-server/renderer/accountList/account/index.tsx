@@ -9,9 +9,9 @@ import {
   theme,
   Typography,
 } from "antd";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
+import { invoke } from "browser-partition-renderer/public.ts";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
@@ -20,23 +20,6 @@ import {
 } from "./store.ts";
 
 const timeText = (value: string): string => new Date(value).toLocaleString("zh-CN");
-
-const useAccount = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void read({
-      channel: accountContract.channel.stateRead,
-      resultValidator: accountContract.accountValidator,
-    }).then(store.getState().accountActions.stateSet).catch(error => {
-      void message.error(errorText(error));
-    });
-    return subscribe({
-      channel: accountContract.channel.stateUpdated,
-      resultValidator: accountContract.accountValidator,
-      run: store.getState().accountActions.stateSet,
-    });
-  }, []);
-};
 
 const Account = ({ accountId, children, summary, title }: {
   accountId: string;
@@ -58,10 +41,6 @@ const Account = ({ accountId, children, summary, title }: {
         inputValidator: accountContract.input.enabledSet,
         resultValidator: accountContract.resultValidator,
       });
-      store.getState().accountActions.stateSet(await read({
-        channel: accountContract.channel.stateRead,
-        resultValidator: accountContract.accountValidator,
-      }));
     } catch (error) {
       void message.error(errorText(error));
     }
@@ -138,5 +117,5 @@ const AccountSource = ({ accountId }: { accountId: string }) => {
   );
 };
 
-export { AccountSource, useAccount };
+export { AccountSource };
 export default Account;

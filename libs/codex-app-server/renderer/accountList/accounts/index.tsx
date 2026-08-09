@@ -3,30 +3,10 @@ import {
   App as AntdApp,
   Button,
 } from "antd";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect } from "react";
+import { invoke } from "browser-partition-renderer/public.ts";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { accounts } from "./store.ts";
-
-const useAccounts = (): string[] => {
-  const { message } = AntdApp.useApp();
-  const order = store(state => state.accounts.order);
-  useEffect(() => {
-    void read({
-      channel: accounts.channel.stateRead,
-      resultValidator: accounts.accountsValidator,
-    }).then(store.getState().accountsActions.stateSet).catch(error => {
-      void message.error(errorText(error));
-    });
-    return subscribe({
-      channel: accounts.channel.stateUpdated,
-      resultValidator: accounts.accountsValidator,
-      run: store.getState().accountsActions.stateSet,
-    });
-  }, []);
-  return order;
-};
 
 const AccountRemove = ({ accountId }: { accountId: string }) => {
   const { message } = AntdApp.useApp();
@@ -38,10 +18,6 @@ const AccountRemove = ({ accountId }: { accountId: string }) => {
         inputValidator: accounts.input.accountDelete,
         resultValidator: accounts.resultValidator,
       });
-      store.getState().accountsActions.stateSet(await read({
-        channel: accounts.channel.stateRead,
-        resultValidator: accounts.accountsValidator,
-      }));
     })().catch(error => void message.error(errorText(error)));
   };
   return (
@@ -56,5 +32,4 @@ const AccountRemove = ({ accountId }: { accountId: string }) => {
   );
 };
 
-export { AccountRemove };
-export default useAccounts;
+export default AccountRemove;

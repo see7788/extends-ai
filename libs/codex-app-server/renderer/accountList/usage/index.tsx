@@ -1,26 +1,9 @@
 import { App as AntdApp, Button, Flex, Space, Typography } from "antd";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect, useState } from "react";
+import { invoke } from "browser-partition-renderer/public.ts";
+import { useState } from "react";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { usage } from "./store.ts";
-
-const useUsage = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void read({
-      channel: usage.channel.stateRead,
-      resultValidator: usage.usageValidator,
-    }).then(store.getState().usageActions.stateSet).catch(error => {
-      void message.error(errorText(error));
-    });
-    return subscribe({
-      channel: usage.channel.stateUpdated,
-      resultValidator: usage.usageValidator,
-      run: store.getState().usageActions.stateSet,
-    });
-  }, []);
-};
 
 const numberText = (value: number | null | undefined): string => value === null
   || value === undefined
@@ -59,11 +42,6 @@ const Usage = ({
         inputValidator: usage.input.command,
         resultValidator: usage.commandResultValidator,
       });
-      store.getState().usageActions.stateSet(await read({
-        channel: usage.channel.stateRead,
-        resultValidator: usage.usageValidator,
-      }));
-      void message.success("用量查询完成");
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -117,5 +95,4 @@ const Usage = ({
   );
 };
 
-export { useUsage };
 export default Usage;

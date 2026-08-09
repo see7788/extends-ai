@@ -1,26 +1,9 @@
 import { App as AntdApp, Button, Flex, Progress, Space, Tag, Typography } from "antd";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect, useState } from "react";
+import { invoke } from "browser-partition-renderer/public.ts";
+import { useState } from "react";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { rateLimits } from "./store.ts";
-
-const useRateLimits = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void read({
-      channel: rateLimits.channel.stateRead,
-      resultValidator: rateLimits.rateLimitsValidator,
-    }).then(store.getState().rateLimitsActions.stateSet).catch(error => {
-      void message.error(errorText(error));
-    });
-    return subscribe({
-      channel: rateLimits.channel.stateUpdated,
-      resultValidator: rateLimits.rateLimitsValidator,
-      run: store.getState().rateLimitsActions.stateSet,
-    });
-  }, []);
-};
 
 const dateTimeText = (value: number | string | null | undefined): string => {
   if (value === null || value === undefined) return "—";
@@ -70,11 +53,6 @@ const RateLimits = ({
         inputValidator: rateLimits.input.command,
         resultValidator: rateLimits.commandResultValidator,
       });
-      store.getState().rateLimitsActions.stateSet(await read({
-        channel: rateLimits.channel.stateRead,
-        resultValidator: rateLimits.rateLimitsValidator,
-      }));
-      void message.success("额度查询完成");
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -154,5 +132,4 @@ const RateLimits = ({
   );
 };
 
-export { useRateLimits };
 export default RateLimits;
