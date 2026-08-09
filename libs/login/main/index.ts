@@ -1,8 +1,10 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, session } from "electron";
 import { join } from "node:path";
-import accountsIndex from "./accounts/index.ts";
-import cookieImportIndex from "./cookieImport/index.ts";
-import loginIndex from "./login/index.ts";
+import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
+import accountsInstall from "./accounts/index.ts";
+import cookieImportInstall from "./cookieImport/index.ts";
+import loginInstall from "./login/index.ts";
+import store from "./store.ts";
 import { electronRendererUrlRead } from "./process.ts";
 
 const preloadPath = () => join(
@@ -35,10 +37,42 @@ class Login {
         sandbox: true,
       },
     });
+    const accountsRuntime = {
+      fetch: (
+        partition: string,
+        url: string,
+        signal?: AbortSignal,
+      ) => session.fromPartition(partition).fetch(
+        url,
+        signal ? { signal } : undefined,
+      ),
+      storageClear: BrowserPartitionWindow.storageClear,
+      windowOpen: async (value: {
+        onClose(): void;
+        parent: unknown;
+        partition: string;
+        title: string;
+      }) => {
+        const window = await BrowserPartitionWindow.open({
+          height: 760,
+          minHeight: 520,
+          minWidth: 760,
+          onClose: value.onClose,
+          parent: value.parent as BrowserWindow,
+          partition: value.partition,
+          title: value.title,
+          url: "https://chatgpt.com/",
+          width: 920,
+        });
+        return { dispose: () => window.dispose() };
+      },
+    };
     this.disposeCommunication = [
-      accountsIndex.install(),
-      loginIndex.install(accountsIndex.loginIdentify),
-      cookieImportIndex.install(),
+      accountsInstall(accountsRuntime),
+      loginInstall(partition => (
+        store.getState().accountsActions.loginIdentify(partition, accountsRuntime)
+      )),
+      cookieImportInstall(),
     ];
     this.ready = this.rendererLoad();
     this.window.on("close", event => {

@@ -8,9 +8,36 @@ const loginValidator = z.object({
 const operationStartValidator = loginValidator.pick({ partition: true });
 const commandValidator = z.object({});
 type Login = z.infer<typeof loginValidator>;
+type Identify = (partition: string) => Promise<boolean>;
+type LoginWindow = {
+  dispose(): void;
+  contents: {
+    cookies: {
+      on(event: "changed", listener: () => void): void;
+      removeListener(event: "changed", listener: () => void): void;
+    };
+    on(event: "did-stop-loading", listener: () => void): void;
+    removeListener(event: "did-stop-loading", listener: () => void): void;
+  };
+};
+type LoginRuntime = {
+  idCreate(): string;
+  storageClear(partition: string): Promise<void>;
+  windowOpen(input: {
+    onClose(): void;
+    parent: unknown;
+    partition: string;
+  }): Promise<LoginWindow>;
+};
 type LoginSlice = {
   login: Login;
   loginActions: {
+    cancel(): boolean;
+    create(
+      parent: unknown,
+      identify: Identify,
+      runtime: LoginRuntime,
+    ): Promise<{ partition: string }>;
     operationCancel(): void;
     operationSucceed(): void;
     operationStart(input: z.infer<typeof operationStartValidator>): void;
@@ -37,9 +64,88 @@ const login = {
   },
 };
 
-const loginStore: ImmerStateCreator<LoginSlice> = set => ({
+const canceledError = (): Error => {
+  const error = new Error("内嵌登录已取消");
+  error.name = "AbortError";
+  return error;
+};
+type Active = { cancel(): void };
+let active: Active | undefined;
+
+const loginStore: ImmerStateCreator<LoginSlice> = (set, get) => ({
   login: structuredClone(initial),
   loginActions: {
+    cancel() {
+      if (!active) return false;
+      active.cancel();
+      return true;
+    },
+    create(parent, identify, runtime) {
+      if (active) throw new Error("已有内嵌登录窗口正在使用");
+      const partition = `persist:login.chatgpt.${runtime.idCreate()}`;
+      get().loginActions.operationStart({ partition });
+      return new Promise((resolve, reject) => {
+        let identifying = false;
+        let settled = false;
+        let watchingStop = (): void => undefined;
+        let window: LoginWindow | undefined;
+        const finish = (error?: Error): void => {
+          if (settled) return;
+          settled = true;
+          watchingStop();
+          active = undefined;
+          if (error) {
+            get().loginActions.operationCancel();
+            window?.dispose();
+            void runtime.storageClear(partition).catch(() => undefined);
+            reject(error);
+          } else {
+            get().loginActions.operationSucceed();
+            resolve({ partition });
+          }
+        };
+        const identifyRun = async (): Promise<void> => {
+          if (identifying || settled) return;
+          identifying = true;
+          try {
+            if (await identify(partition)) {
+              finish();
+              window?.dispose();
+            }
+          } catch (error) {
+            finish(error instanceof Error ? error : new Error(String(error)));
+          } finally {
+            identifying = false;
+          }
+        };
+        active = { cancel: () => finish(canceledError()) };
+        void runtime.windowOpen({
+          onClose: () => finish(canceledError()),
+          parent,
+          partition,
+        }).then(value => {
+          window = value;
+          if (settled) {
+            value.dispose();
+            return;
+          }
+          const contents = value.contents;
+          const cookies = contents.cookies;
+          const identifySchedule = (): void => {
+            void identifyRun();
+          };
+          contents.on("did-stop-loading", identifySchedule);
+          cookies.on("changed", identifySchedule);
+          watchingStop = () => {
+            contents.removeListener("did-stop-loading", identifySchedule);
+            cookies.removeListener("changed", identifySchedule);
+          };
+          void identifyRun();
+        }).catch(error => finish(
+          error instanceof Error ? error : new Error(String(error)),
+        ));
+      });
+    },
     operationCancel() {
       set(state => {
         state.login = structuredClone(initial);
