@@ -37,7 +37,7 @@ class Login {
     });
     this.disposeCommunication = [
       accountsIndex.install(),
-      loginIndex.install(),
+      loginIndex.install(accountsIndex.loginIdentify),
       cookieImportIndex.install(),
     ];
     this.ready = this.rendererLoad();

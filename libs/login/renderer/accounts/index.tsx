@@ -33,14 +33,6 @@ const accountsIndex = {
       resultValidator: accounts.result.account,
     })).account;
   },
-  async loginConsume() {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.loginConsume,
-      input: {},
-      inputValidator: accounts.input.command,
-      resultValidator: accounts.result.account,
-    })).account;
-  },
   async open(email: string): Promise<boolean> {
     return (await browserPartitionRenderer.invoke({
       channel: accounts.channel.open,
@@ -90,7 +82,6 @@ const useAccounts = () => {
   const { message } = AntdApp.useApp();
   const accounts = useStore(store, state => state.accounts);
   const cookieImport = useStore(store, state => state.cookieImport);
-  const login = useStore(store, state => state.login);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
@@ -100,22 +91,6 @@ const useAccounts = () => {
   }, []);
 
   const candidateNodes = [];
-  if (login.status === "ready" && login.partition) {
-    candidateNodes.push({
-      key: "accounts:login",
-      title: (
-        <Flex align="center" gap={8} justify="space-between">
-          <Typography.Text>内嵌登录</Typography.Text>
-          <Button
-            type="text"
-            onClick={() => void accountsIndex.loginConsume().catch(errorShow)}
-          >
-            识别账号
-          </Button>
-        </Flex>
-      ),
-    });
-  }
   if (cookieImport.status === "ready" && cookieImport.candidate) {
     candidateNodes.push({
       key: "accounts:cookieImport",

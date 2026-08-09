@@ -59,7 +59,6 @@ const accounts = {
   accountsValidator,
   channel: {
     cookieImportConsume: "login:accounts:cookie-import-consume",
-    loginConsume: "login:accounts:login-consume",
     open: "login:accounts:open",
     remove: "login:accounts:remove",
     stateRead: "login:accounts:state-read",

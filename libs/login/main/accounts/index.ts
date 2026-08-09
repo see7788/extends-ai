@@ -27,6 +27,7 @@ type Verification = {
   error: string | null;
   status: "valid" | "expired" | "unknown";
 };
+type Candidate = ReturnType<typeof accounts.input.candidate.parse>;
 
 const verificationRead = async (
   partition: string,
@@ -80,6 +81,37 @@ const verificationRead = async (
   }
 };
 
+const accountCommit = async (
+  candidate: Candidate,
+  verification: Verification,
+) => {
+  if (verification.status !== "valid" || !verification.email) {
+    throw new Error(verification.error ?? "未检测到有效的 ChatGPT 登录态");
+  }
+  const previous = store.getState().accounts.byEmail[verification.email];
+  const sources = candidate.source
+    ? [
+        ...(previous?.sources.filter(
+          source => source.browserId !== candidate.source?.browserId,
+        ) ?? []),
+        { ...candidate.source, importedAt: new Date().toISOString() },
+      ]
+    : previous?.sources ?? [];
+  const account = accounts.accountValidator.parse({
+    checkedAt: verification.checkedAt,
+    email: verification.email,
+    error: null,
+    partition: candidate.partition,
+    sources,
+    status: "valid",
+  });
+  const previousPartition = store.getState().accountsActions.accountSet(account);
+  if (previousPartition && previousPartition !== account.partition) {
+    await BrowserPartitionWindow.storageClear(previousPartition).catch(() => undefined);
+  }
+  return account;
+};
+
 let accountWindow: BrowserPartitionWindow | undefined;
 const accountsIndex = {
   async cookieImportConsume() {
@@ -105,48 +137,18 @@ const accountsIndex = {
     const value = accounts.input.candidate.parse(input);
     try {
       const verification = await verificationRead(value.partition, signal);
-      if (verification.status !== "valid" || !verification.email) {
-        throw new Error(verification.error ?? "候选分区没有可用的 ChatGPT 登录态");
-      }
-      const previous = store.getState().accounts.byEmail[verification.email];
-      const sources = value.source
-        ? [
-            ...(previous?.sources.filter(
-              source => source.browserId !== value.source?.browserId,
-            ) ?? []),
-            { ...value.source, importedAt: new Date().toISOString() },
-          ]
-        : previous?.sources ?? [];
-      const account = accounts.accountValidator.parse({
-        checkedAt: verification.checkedAt,
-        email: verification.email,
-        error: null,
-        partition: value.partition,
-        sources,
-        status: "valid",
-      });
-      const previousPartition = store.getState().accountsActions.accountSet(account);
-      if (previousPartition && previousPartition !== account.partition) {
-        await BrowserPartitionWindow.storageClear(previousPartition).catch(() => undefined);
-      }
-      return account;
+      return await accountCommit(value, verification);
     } catch (error) {
       await BrowserPartitionWindow.storageClear(value.partition).catch(() => undefined);
       throw error;
     }
   },
-  async loginConsume() {
-    const candidate = store.getState().login;
-    if (candidate.status !== "ready" || !candidate.partition) {
-      throw new Error("没有待识别的内嵌登录态");
-    }
-    try {
-      return await accountsIndex.candidateConsume({ partition: candidate.partition });
-    } finally {
-      store.getState().loginActions.candidateClear({
-        partition: candidate.partition,
-      });
-    }
+  async loginIdentify(partition: string): Promise<boolean> {
+    const candidate = accounts.input.candidate.parse({ partition });
+    const verification = await verificationRead(candidate.partition);
+    if (verification.status !== "valid" || !verification.email) return false;
+    await accountCommit(candidate, verification);
+    return true;
   },
   install(): () => void {
     const renderers = new Set<WebContents>();
@@ -158,13 +160,6 @@ const accountsIndex = {
       accounts.input.command.parse(input);
       return accounts.result.account.parse({
         account: await accountsIndex.cookieImportConsume(),
-      });
-    });
-    ipcMain.handle(accounts.channel.loginConsume, async (event, input: unknown) => {
-      rendererSet(event);
-      accounts.input.command.parse(input);
-      return accounts.result.account.parse({
-        account: await accountsIndex.loginConsume(),
       });
     });
     ipcMain.handle(accounts.channel.open, async (event, input: unknown) => {
@@ -232,7 +227,6 @@ const accountsIndex = {
       unsubscribe();
       renderers.clear();
       ipcMain.removeHandler(accounts.channel.cookieImportConsume);
-      ipcMain.removeHandler(accounts.channel.loginConsume);
       ipcMain.removeHandler(accounts.channel.open);
       ipcMain.removeHandler(accounts.channel.remove);
       ipcMain.removeHandler(accounts.channel.stateRead);

@@ -34,23 +34,14 @@ store.persist.setOptions({
       errorBrowserId: null,
       status: state.cookieImport.candidate ? "ready" : "idle",
     },
-    login: state.login.status === "ready" && state.login.partition
-      ? state.login
-      : structuredClone(login.initial),
+    login: structuredClone(login.initial),
   }) as Store,
 });
 
 const accountsState = accounts.accountsValidator.safeParse(store.getState().accounts);
 if (accountsState.success) store.setState({ accounts: accountsState.data });
 else store.setState({ accounts: structuredClone(accounts.initial) });
-const loginState = login.loginValidator.safeParse(store.getState().login);
-if (loginState.success
-  && loginState.data.status === "ready"
-  && loginState.data.partition) {
-  store.setState({ login: loginState.data });
-} else {
-  store.setState({ login: structuredClone(login.initial) });
-}
+store.setState({ login: structuredClone(login.initial) });
 
 const cookieImportState = cookieImport.cookieImportValidator.safeParse(
   store.getState().cookieImport,

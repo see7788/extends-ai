@@ -17,6 +17,7 @@ const canceledError = (): Error => {
 type Active = {
   cancel(): void;
 };
+type Identify = (partition: string) => Promise<boolean>;
 let active: Active | undefined;
 const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
   const parent = ElectronBrowserWindow.fromWebContents(event.sender);
@@ -30,19 +31,22 @@ const loginIndex = {
     active.cancel();
     return true;
   },
-  create(parent: ElectronBrowserWindow): Promise<{ partition: string }> {
+  create(
+    parent: ElectronBrowserWindow,
+    identify: Identify,
+  ): Promise<{ partition: string }> {
     if (active) throw new Error("已有内嵌登录窗口正在使用");
-    if (store.getState().login.status === "ready") {
-      throw new Error("已有待识别的内嵌登录态");
-    }
     const partition = `persist:login.chatgpt.${randomUUID()}`;
     store.getState().loginActions.operationStart({ partition });
     return new Promise((resolve, reject) => {
+      let identifying = false;
       let settled = false;
+      let watchingStop = (): void => undefined;
       let window: BrowserPartitionWindow | undefined;
       const finish = (error?: Error): void => {
         if (settled) return;
         settled = true;
+        watchingStop();
         active = undefined;
         if (error) {
           store.getState().loginActions.operationCancel();
@@ -54,12 +58,26 @@ const loginIndex = {
           resolve({ partition });
         }
       };
+      const identifyRun = async (): Promise<void> => {
+        if (identifying || settled) return;
+        identifying = true;
+        try {
+          if (await identify(partition)) {
+            finish();
+            window?.dispose();
+          }
+        } catch (error) {
+          finish(error instanceof Error ? error : new Error(String(error)));
+        } finally {
+          identifying = false;
+        }
+      };
       active = { cancel: () => finish(canceledError()) };
       void BrowserPartitionWindow.open({
         height: 760,
         minHeight: 520,
         minWidth: 760,
-        onClose: () => finish(),
+        onClose: () => finish(canceledError()),
         parent,
         partition,
         title: "ChatGPT.com",
@@ -67,11 +85,26 @@ const loginIndex = {
         width: 920,
       }).then(value => {
         window = value;
-        if (settled) value.dispose();
+        if (settled) {
+          value.dispose();
+          return;
+        }
+        const contents = value.value.webContents;
+        const cookies = contents.session.cookies;
+        const identifySchedule = (): void => {
+          void identifyRun();
+        };
+        contents.on("did-stop-loading", identifySchedule);
+        cookies.on("changed", identifySchedule);
+        watchingStop = () => {
+          contents.removeListener("did-stop-loading", identifySchedule);
+          cookies.removeListener("changed", identifySchedule);
+        };
+        void identifyRun();
       }).catch(error => finish(error instanceof Error ? error : new Error(String(error))));
     });
   },
-  install(): () => void {
+  install(identify: Identify): () => void {
     const renderers = new Set<WebContents>();
     const rendererSet = (event: IpcMainInvokeEvent): void => {
       renderers.add(event.sender);
@@ -84,8 +117,15 @@ const loginIndex = {
     ipcMain.handle(login.channel.start, async (event, input: unknown) => {
       rendererSet(event);
       login.input.command.parse(input);
-      await loginIndex.create(parentRead(event));
-      return login.result.start.parse({ completed: true });
+      try {
+        await loginIndex.create(parentRead(event), identify);
+        return login.result.start.parse({ completed: true });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return login.result.start.parse({ completed: false });
+        }
+        throw error;
+      }
     });
     ipcMain.handle(login.channel.stateRead, event => {
       rendererSet(event);

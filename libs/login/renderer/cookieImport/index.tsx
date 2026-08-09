@@ -1,6 +1,7 @@
 import {
   CloseCircleOutlined,
   GlobalOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import browserIndex from "browser-partition-renderer/browser/index.ts";
@@ -122,10 +123,19 @@ const useCookieImport = () => {
                 取消
               </Button>
             ) : ready ? (
-              <Typography.Text>已导入</Typography.Text>
+              <Flex align="center" gap={4}>
+                <Typography.Text>已导入</Typography.Text>
+                <Button
+                  aria-label={`刷新导入 ${application.name}`}
+                  icon={<ReloadOutlined />}
+                  title="刷新导入"
+                  type="text"
+                  onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
+                />
+              </Flex>
             ) : (
               <Button
-                icon={<GlobalOutlined />}
+                icon={imported ? <ReloadOutlined /> : <GlobalOutlined />}
                 type="text"
                 onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
               >

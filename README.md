@@ -4,14 +4,14 @@
 
 - 从其他浏览器导入是纯生产过程：发现浏览器、取得授权、读取 Cookie、写入新的候选 Electron partition、返回候选结果。
 - `cookieImport` 不访问账号接口、不解析 email、不判断有效期、不打开预览窗口、不记录业务账号；只持久化自身每个浏览器最后一次成功导入的时间。
-- `accounts` 是候选结果的唯一消费者：识别 email、检查状态、同 email 合并、保存账号并提供账号操作。
+- `accounts` 是登录态的唯一识别者：内嵌登录由主进程直接调用识别；外部浏览器 Cookie 候选由用户手工交给它识别。它负责 email、状态、同 email 合并、保存账号及账号操作。
 - 同一个 email 永远只显示和持久化为一个业务账号；来源浏览器只是该账号的元数据。
 - 账号状态只有 `valid / expired / unknown`。网络失败、服务端 5xx 或响应结构变化必须是 `unknown`，不得删除账号。
 - 新候选验证成功以后才替换旧 partition；任一前置步骤失败都保留旧登录态。
 - 打开 Login 只发现并展示浏览器，不自动启动或导入任何外部浏览器；用户选择一个来源后只处理该来源。
 - 系统浏览器“可发现”不等于“可导入”：当前仅对提供用户授权远程调试入口的 Chrome / Edge 系列开放 Cookie 导入；旧版 Chromium / Firefox 仍以禁用暗色显示“暂不支持”，但不提供点击事件，避免固定等待超时。
 - Login 的两个生产者按切片直接对应两张透明 AntD Card：Card 使用自身标题，内部只放常开、无额外配色的原始 AntD Tree。`login → 内嵌登录`、`cookieImport → 其他浏览器导入`；后者每行只呈现浏览器名称与真实状态或操作。
-- 两棵生产者 Tree 只呈现各自生产状态。生产成功后停在持久化的 `ready` 候选，不自动访问账号接口；`accounts` 自己呈现“账号识别”Card，用户点击后才由它消费现有候选、识别 email 并持久化结果。生产者之间不互调，也不调用或承载 `accounts` 操作。
+- 两棵生产者 Tree 只呈现各自状态。内嵌登录由 main 入口把 `login` 生产者与 `accounts` 识别者串联，识别成功后自动关闭窗口并直接显示账号；`cookieImport` 成功后停在持久化的 `ready` 候选，由 `accounts` 自己呈现人工识别入口。生产者之间不互调。
 - “其他浏览器导入”只响应用户单击的一个 browserId；罗列浏览器不触发串行、并行或批量导入。
 - cookieImport 为授权流程固定打开一个新增浏览器窗口，并在成功、手动取消或自动取消后关闭该窗口；用户原有浏览器窗口不属于本次资源，不关闭。
 - main/renderer 同构；每个 `store.ts` 只定义自身切片，跨切片串联只允许在消费者 `index.ts`。
@@ -62,9 +62,9 @@
 ### 5. 内嵌登录归一
 
 - [x] `login` 只创建/打开隔离登录 partition，不在生产者内识别或持久化账号。
-- [x] 用户完成登录后保留候选 partition 并停在 `ready`；第二次人工点击才交给 `accounts` 消费者。
+- [x] Electron 根据隔离 Session 的页面加载与 Cookie 变化触发 `accounts` 识别；成功直接持久化账号并关闭窗口，不增加人工“完成”步骤。
 - [x] 关闭或取消不产生虚假账号，也不破坏已有账号。
-- 验收：外部浏览器导入与内嵌登录最终进入完全相同的 accounts 提交流程。
+- 验收：内嵌登录自动识别；外部浏览器导入保持候选与人工识别，二者不伪造账号。
 
 ### 6. 账号操作与页面收口
 
@@ -76,7 +76,7 @@
 
 ### 7. 持久化与开发态总验收
 
-- [x] `login-main` 的 `cwdPersist` 只保存自身 accounts、可配置参数、cookieImport 导入历史和等待人工识别的候选引用；运行中的瞬时状态重启后恢复为 idle。
+- [x] `login-main` 的 `cwdPersist` 只保存自身 accounts、cookieImport 导入历史和等待人工识别的 Cookie 候选引用；内嵌登录运行状态重启后恢复为 idle。
 - [x] Cookie、IndexedDB 和缓存仅由 Electron Session 管理。
 - [x] 同步本 README 与最终源码目录；完成相关子包 typecheck 和 dev 实际运行观察。
 - [x] 保持 dev/HMR；生产打包只在项目最后统一执行。
@@ -92,7 +92,7 @@
 
 - 公共通信去重已完成并通过公共 preload/renderer 类型检查。
 - `cookieImport` 生产者已经纯化并完成目录级验收；自己的导入历史用于区分“导入/再次导入”，页面不存在预览契约、批量导入或账号识别逻辑。
-- `login` 与 `cookieImport` 均只生产并持久化 `ready` 候选；renderer/accounts 自己呈现人工识别入口并消费候选，生产者 UI 不再夹带消费者方法。
+- 内嵌登录由 Electron 监听隔离 Session 的页面加载和 Cookie 变化，主进程 accounts 识别成功后立即持久化账号并自动关闭窗口；提前关闭只取消本次操作。只有 `cookieImport` 保留 `ready` 候选与人工识别步骤。
 - 公共 preload、双窗口、Login 页面、动画瀑布流和持久化白名单已经完成 dev 运行验收。
 - 当前剩余三项必须由用户完成浏览器授权/官方登录的人工验收；生产打包仍明确后置。
 
@@ -182,7 +182,7 @@ extends-ai/
 - [x] 修复开发态重复 renderer 入口并恢复 auth.json 页面。
 - [x] 验证 `browser-partition` 无主仓库、公共 preload 工厂以及两端消费者。
 - [x] 主 store 采用持久化白名单，确保当前 JSON 只写入所属切片。
-- [x] login 的 `login` 与 `cookieImport` 状态由 main 持久化、推送并在 renderer 同构呈现；cookieImport 自己记录导入历史，运行成功停在 `ready`，只由人工操作交给 accounts。
+- [x] login 的 `login` 与 `cookieImport` 状态由 main 推送并在 renderer 同构呈现；内嵌登录自动交给 accounts 识别，cookieImport 自己记录导入历史并在成功后停在 `ready`，只由人工操作交给 accounts。
 - [x] codex-app-server renderer 收口为切片 UI + app 消费者：删除父级业务套壳、集中启动黑盒和跨切片 UI 导入，账号列表 Masonry 只由 app 组合。
 - [ ] 接入成人端权限通信后限制 CODEX_HOME 可见性开关。
 - [x] 完成相关包 typecheck 与开发态 main/preload/renderer 运行验收；生产构建继续后置。

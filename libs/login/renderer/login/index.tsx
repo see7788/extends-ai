@@ -1,7 +1,4 @@
-import {
-  CloseCircleOutlined,
-  LoginOutlined,
-} from "@ant-design/icons";
+import { CloseCircleOutlined, LoginOutlined } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import loginRenderer from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
@@ -15,20 +12,24 @@ const stateSet = (input: unknown): void => {
 };
 const loginIndex = {
   async cancel(): Promise<boolean> {
-    return (await loginRenderer.invoke({
+    const canceled = (await loginRenderer.invoke({
       channel: login.channel.cancel,
       input: {},
       inputValidator: login.input.command,
       resultValidator: login.result.cancel,
     })).canceled;
+    await loginIndex.stateRead();
+    return canceled;
   },
   async start(): Promise<boolean> {
-    return (await loginRenderer.invoke({
+    const completed = (await loginRenderer.invoke({
       channel: login.channel.start,
       input: {},
       inputValidator: login.input.command,
       resultValidator: login.result.start,
     })).completed;
+    await loginIndex.stateRead();
+    return completed;
   },
   async stateRead(): Promise<void> {
     stateSet(await loginRenderer.read({
@@ -76,8 +77,6 @@ const useLogin = () => {
                   >
                     取消
                   </Button>
-                ) : login.status === "ready" ? (
-                  <Typography.Text>登录完成</Typography.Text>
                 ) : (
                   <Button
                     icon={<LoginOutlined />}
