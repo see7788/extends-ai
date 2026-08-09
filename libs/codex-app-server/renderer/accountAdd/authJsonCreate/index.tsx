@@ -4,7 +4,7 @@ import {
   LoginOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Space, Tree, type TreeDataNode } from "antd";
-import browserIndex from "browser-partition-renderer/browser/index.ts";
+import applicationsRead from "browser-partition-renderer/browser/index.ts";
 import { invoke } from "browser-partition-renderer/public.ts";
 import { authJsonCreate as producer } from "codex-app-server-main/accountAdd/authJsonCreate/store.ts";
 import { useEffect, useRef } from "react";
@@ -13,28 +13,6 @@ import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
-
-const authJsonCreateIndex = {
-  applicationsRead() {
-    return browserIndex.applicationsRead(invoke);
-  },
-  async cancel(): Promise<boolean> {
-    return (await invoke({
-      channel: producer.channel.cancel,
-      input: {},
-      inputValidator: producer.input.command,
-      resultValidator: producer.result.cancel,
-    })).canceled;
-  },
-  async create(input: unknown): Promise<boolean> {
-    return (await invoke({
-      channel: producer.channel.create,
-      input,
-      inputValidator: producer.input.create,
-      resultValidator: producer.result.create,
-    })).created;
-  },
-};
 
 const AuthJsonCreate = () => {
   const { message } = AntdApp.useApp();
@@ -50,7 +28,12 @@ const AuthJsonCreate = () => {
     running.current = true;
     actions.pendingSet({ pending });
     try {
-      if (await authJsonCreateIndex.create(input)) navigate("/accounts");
+      if ((await invoke({
+        channel: producer.channel.create,
+        input,
+        inputValidator: producer.input.create,
+        resultValidator: producer.result.create,
+      })).created) navigate("/accounts");
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -60,15 +43,20 @@ const AuthJsonCreate = () => {
   };
   const cancel = async (): Promise<void> => {
     try {
-      if (await authJsonCreateIndex.cancel()) actions.pendingSet({ pending: null });
+      if ((await invoke({
+        channel: producer.channel.cancel,
+        input: {},
+        inputValidator: producer.input.command,
+        resultValidator: producer.result.cancel,
+      })).canceled) actions.pendingSet({ pending: null });
     } catch (error) {
       void message.error(errorText(error));
     }
   };
-  const applicationsRead = async (): Promise<void> => {
+  const applicationsRefresh = async (): Promise<void> => {
     actions.browserLoadingSet({ browserLoading: true });
     try {
-      actions.applicationsSet({ applications: await authJsonCreateIndex.applicationsRead() });
+      actions.applicationsSet({ applications: await applicationsRead(invoke) });
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -76,7 +64,7 @@ const AuthJsonCreate = () => {
     }
   };
   useEffect(() => {
-    void applicationsRead();
+    void applicationsRefresh();
   }, []);
   const browserChildren: TreeDataNode[] = state.browserLoading
     ? [{ disabled: true, key: "browser:loading", title: "正在读取浏览器" }]
@@ -126,7 +114,7 @@ const AuthJsonCreate = () => {
         }}
         treeData={treeData}
         onExpand={(_keys, info) => {
-          if (info.expanded && info.node.key === "browser") void applicationsRead();
+          if (info.expanded && info.node.key === "browser") void applicationsRefresh();
         }}
         onSelect={(_keys, info) => {
           const key = String(info.node.key);

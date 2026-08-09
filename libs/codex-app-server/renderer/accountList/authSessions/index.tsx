@@ -4,41 +4,22 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { authSessions, type AuthSessionsCommandInput } from "./store.ts";
+import { authSessions } from "./store.ts";
 
-const authSessionsIndex = {
-  async read(input: AuthSessionsCommandInput): Promise<void> {
-    await invoke({
-      channel: authSessions.channel.read,
-      input,
-      inputValidator: authSessions.input.command,
-      resultValidator: authSessions.resultValidator,
-    });
-    await authSessionsIndex.stateRead();
-  },
-  async stateRead(): Promise<void> {
-    const state = await read({
+const useAuthSessions = (): void => {
+  const { message } = AntdApp.useApp();
+  useEffect(() => {
+    void read({
       channel: authSessions.channel.stateRead,
       resultValidator: authSessions.authSessionsValidator,
+    }).then(store.getState().authSessionsActions.stateSet).catch(error => {
+      void message.error(errorText(error));
     });
-    store.getState().authSessionsActions.stateSet(state);
-  },
-  stateSubscribe(): () => void {
     return subscribe({
       channel: authSessions.channel.stateUpdated,
       resultValidator: authSessions.authSessionsValidator,
       run: store.getState().authSessionsActions.stateSet,
     });
-  },
-};
-
-const useAuthSessions = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void authSessionsIndex.stateRead().catch(error => {
-      void message.error(errorText(error));
-    });
-    return authSessionsIndex.stateSubscribe();
   }, []);
 };
 
@@ -70,7 +51,16 @@ const AuthSession = ({
   const refresh = async (): Promise<void> => {
     setPending(true);
     try {
-      await authSessionsIndex.read({ accountId });
+      await invoke({
+        channel: authSessions.channel.read,
+        input: { accountId },
+        inputValidator: authSessions.input.command,
+        resultValidator: authSessions.resultValidator,
+      });
+      store.getState().authSessionsActions.stateSet(await read({
+        channel: authSessions.channel.stateRead,
+        resultValidator: authSessions.authSessionsValidator,
+      }));
       void message.success("登录态检查完成");
     } catch (error) {
       void message.error(errorText(error));

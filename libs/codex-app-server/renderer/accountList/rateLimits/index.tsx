@@ -4,41 +4,22 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { rateLimits, type RateLimitsReadInput } from "./store.ts";
+import { rateLimits } from "./store.ts";
 
-const rateLimitsIndex = {
-  async read(input: RateLimitsReadInput): Promise<void> {
-    await invoke({
-      channel: rateLimits.channel.read,
-      input,
-      inputValidator: rateLimits.input.command,
-      resultValidator: rateLimits.commandResultValidator,
-    });
-    await rateLimitsIndex.stateRead();
-  },
-  async stateRead(): Promise<void> {
-    const state = await read({
+const useRateLimits = (): void => {
+  const { message } = AntdApp.useApp();
+  useEffect(() => {
+    void read({
       channel: rateLimits.channel.stateRead,
       resultValidator: rateLimits.rateLimitsValidator,
+    }).then(store.getState().rateLimitsActions.stateSet).catch(error => {
+      void message.error(errorText(error));
     });
-    store.getState().rateLimitsActions.stateSet(state);
-  },
-  stateSubscribe(): () => void {
     return subscribe({
       channel: rateLimits.channel.stateUpdated,
       resultValidator: rateLimits.rateLimitsValidator,
       run: store.getState().rateLimitsActions.stateSet,
     });
-  },
-};
-
-const useRateLimits = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void rateLimitsIndex.stateRead().catch(error => {
-      void message.error(errorText(error));
-    });
-    return rateLimitsIndex.stateSubscribe();
   }, []);
 };
 
@@ -84,7 +65,16 @@ const RateLimits = ({
   const refresh = async (): Promise<void> => {
     setPending(true);
     try {
-      await rateLimitsIndex.read({ accountId });
+      await invoke({
+        channel: rateLimits.channel.read,
+        input: { accountId },
+        inputValidator: rateLimits.input.command,
+        resultValidator: rateLimits.commandResultValidator,
+      });
+      store.getState().rateLimitsActions.stateSet(await read({
+        channel: rateLimits.channel.stateRead,
+        resultValidator: rateLimits.rateLimitsValidator,
+      }));
       void message.success("额度查询完成");
     } catch (error) {
       void message.error(errorText(error));

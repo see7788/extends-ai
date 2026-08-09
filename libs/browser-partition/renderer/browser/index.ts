@@ -9,15 +9,11 @@ type Invoke = <TInput, TResult>(options: {
   resultValidator: ZodType<TResult>;
 }) => Promise<TResult>;
 
-const browserIndex = {
-  async applicationsRead(invoke: Invoke): Promise<BrowserApplication[]> {
-    return invoke({
-      channel: browser.channel.applicationsRead,
-      input: {},
-      inputValidator: browser.input.command,
-      resultValidator: browser.browserApplicationsValidator,
-    });
-  },
-};
+const applicationsRead = (invoke: Invoke): Promise<BrowserApplication[]> => invoke({
+  channel: browser.channel.applicationsRead,
+  input: {},
+  inputValidator: browser.input.command,
+  resultValidator: browser.browserApplicationsValidator,
+});
 
-export default browserIndex;
+export default applicationsRead;

@@ -15,32 +15,6 @@ import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
 import { scheduler } from "./store.ts";
 
-const schedulerIndex = {
-  async stateRead(): Promise<void> {
-    const state = await read({
-      channel: scheduler.channel.stateRead,
-      resultValidator: scheduler.schedulerValidator,
-    });
-    store.getState().schedulerActions.stateSet(state);
-  },
-  async runNow(): Promise<void> {
-    await read({
-      channel: scheduler.channel.runNow,
-      resultValidator: scheduler.resultValidator,
-    });
-    await schedulerIndex.stateRead();
-    const error = store.getState().scheduler.error;
-    if (error) throw new Error(error);
-  },
-  stateSubscribe(): () => void {
-    return subscribe({
-      channel: scheduler.channel.stateUpdated,
-      resultValidator: scheduler.schedulerValidator,
-      run: store.getState().schedulerActions.stateSet,
-    });
-  },
-};
-
 type SchedulerProps = {
   maintenanceEnabled: boolean;
   maintenanceIntervalHours: number;
@@ -58,15 +32,31 @@ const Scheduler = ({
   const value = useStore(store, state => state.scheduler);
   const [pending, setPending] = useState(false);
   useEffect(() => {
-    void schedulerIndex.stateRead().catch(error => {
+    void read({
+      channel: scheduler.channel.stateRead,
+      resultValidator: scheduler.schedulerValidator,
+    }).then(store.getState().schedulerActions.stateSet).catch(error => {
       void message.error(errorText(error));
     });
-    return schedulerIndex.stateSubscribe();
+    return subscribe({
+      channel: scheduler.channel.stateUpdated,
+      resultValidator: scheduler.schedulerValidator,
+      run: store.getState().schedulerActions.stateSet,
+    });
   }, []);
   const runNow = async (): Promise<void> => {
     setPending(true);
     try {
-      await schedulerIndex.runNow();
+      await read({
+        channel: scheduler.channel.runNow,
+        resultValidator: scheduler.resultValidator,
+      });
+      store.getState().schedulerActions.stateSet(await read({
+        channel: scheduler.channel.stateRead,
+        resultValidator: scheduler.schedulerValidator,
+      }));
+      const error = store.getState().scheduler.error;
+      if (error) throw new Error(error);
       void message.success("全部账号查询完成");
     } catch (error) {
       void message.error(errorText(error));
@@ -130,5 +120,4 @@ const Scheduler = ({
   );
 };
 
-export { schedulerIndex };
 export default Scheduler;

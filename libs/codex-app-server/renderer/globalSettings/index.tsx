@@ -30,99 +30,11 @@ import { globalSettings } from "./store.ts";
 
 const { Text } = Typography;
 
-const globalSettingsIndex = {
-  codexHomeVisibleSet(codexHomeVisible: boolean): void {
-    store.getState().globalSettingsActions.codexHomeVisibleSet({ codexHomeVisible });
-  },
-  async codexHomeDefaultRestore(): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.codexHomeDefaultRestore,
-      input: {},
-      inputValidator: globalSettings.input.command,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async codexHomeDelete(): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.codexHomeDelete,
-      input: {},
-      inputValidator: globalSettings.input.command,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async codexHomeSet(codexHome: string): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.codexHomeSet,
-      input: { codexHome },
-      inputValidator: globalSettings.input.codexHomeSet,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async maintenanceEnabledSet(maintenanceEnabled: boolean): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.maintenanceEnabledSet,
-      input: { maintenanceEnabled },
-      inputValidator: globalSettings.input.maintenanceEnabledSet,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async maintenanceIntervalHoursSet(maintenanceIntervalHours: number): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.maintenanceIntervalHoursSet,
-      input: { maintenanceIntervalHours },
-      inputValidator: globalSettings.input.maintenanceIntervalHoursSet,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async maintenanceRetryCountSet(maintenanceRetryCount: number): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.maintenanceRetryCountSet,
-      input: { maintenanceRetryCount },
-      inputValidator: globalSettings.input.maintenanceRetryCountSet,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async maintenanceRetryIntervalMinutesSet(
-    maintenanceRetryIntervalMinutes: number,
-  ): Promise<void> {
-    await invoke({
-      channel: globalSettings.channel.maintenanceRetryIntervalMinutesSet,
-      input: { maintenanceRetryIntervalMinutes },
-      inputValidator: globalSettings.input.maintenanceRetryIntervalMinutesSet,
-      resultValidator: globalSettings.resultValidator,
-    });
-    await globalSettingsIndex.stateRead();
-  },
-  async stateRead(): Promise<void> {
-    const state = await read({
-      channel: globalSettings.channel.stateRead,
-      resultValidator: globalSettings.globalSettingsValidator,
-    });
-    store.getState().globalSettingsActions.stateSet(state);
-  },
-  stateSubscribe(): () => void {
-    return subscribe({
-      channel: globalSettings.channel.stateUpdated,
-      resultValidator: globalSettings.globalSettingsValidator,
-      run: store.getState().globalSettingsActions.stateSet,
-    });
-  },
-  use() {
-    return useStore(store, state => state.globalSettings);
-  },
-};
-
 type Pending = keyof typeof globalSettings.channel | null;
 
 const GlobalSettings = () => {
   const { message } = AntdApp.useApp();
-  const value = globalSettingsIndex.use();
+  const value = useStore(store, state => state.globalSettings);
   const codexHomeInput = useRef<InputRef>(null);
   const [form, setForm] = useState(value);
   const [editingCodexHome, setEditingCodexHome] = useState(false);
@@ -132,9 +44,19 @@ const GlobalSettings = () => {
     "codex-home-path",
     "maintenance-automatic",
   ]);
+  const stateRead = async (): Promise<void> => {
+    store.getState().globalSettingsActions.stateSet(await read({
+      channel: globalSettings.channel.stateRead,
+      resultValidator: globalSettings.globalSettingsValidator,
+    }));
+  };
   useEffect(() => {
-    void globalSettingsIndex.stateRead();
-    return globalSettingsIndex.stateSubscribe();
+    void stateRead();
+    return subscribe({
+      channel: globalSettings.channel.stateUpdated,
+      resultValidator: globalSettings.globalSettingsValidator,
+      run: store.getState().globalSettingsActions.stateSet,
+    });
   }, []);
   useEffect(() => setForm(value), [value]);
   useEffect(() => {
@@ -146,7 +68,7 @@ const GlobalSettings = () => {
     try {
       await action();
     } catch (error) {
-      await globalSettingsIndex.stateRead().catch(() => undefined);
+      await stateRead().catch(() => undefined);
       void message.error(errorText(error));
     } finally {
       setPending(null);
@@ -160,30 +82,54 @@ const GlobalSettings = () => {
       setForm(value);
       return;
     }
-    void update("codexHomeSet", () => globalSettingsIndex.codexHomeSet(codexHome));
+    void update("codexHomeSet", async () => {
+      await invoke({
+        channel: globalSettings.channel.codexHomeSet,
+        input: { codexHome },
+        inputValidator: globalSettings.input.codexHomeSet,
+        resultValidator: globalSettings.resultValidator,
+      });
+      await stateRead();
+    });
   };
   const maintenanceIntervalHoursCommit = () => {
     if (form.maintenanceIntervalHours === value.maintenanceIntervalHours) return;
-    void update("maintenanceIntervalHoursSet", () => (
-      globalSettingsIndex.maintenanceIntervalHoursSet(form.maintenanceIntervalHours)
-    ));
+    void update("maintenanceIntervalHoursSet", async () => {
+      await invoke({
+        channel: globalSettings.channel.maintenanceIntervalHoursSet,
+        input: { maintenanceIntervalHours: form.maintenanceIntervalHours },
+        inputValidator: globalSettings.input.maintenanceIntervalHoursSet,
+        resultValidator: globalSettings.resultValidator,
+      });
+      await stateRead();
+    });
   };
   const maintenanceRetryCountCommit = () => {
     if (form.maintenanceRetryCount === value.maintenanceRetryCount) return;
-    void update("maintenanceRetryCountSet", () => (
-      globalSettingsIndex.maintenanceRetryCountSet(form.maintenanceRetryCount)
-    ));
+    void update("maintenanceRetryCountSet", async () => {
+      await invoke({
+        channel: globalSettings.channel.maintenanceRetryCountSet,
+        input: { maintenanceRetryCount: form.maintenanceRetryCount },
+        inputValidator: globalSettings.input.maintenanceRetryCountSet,
+        resultValidator: globalSettings.resultValidator,
+      });
+      await stateRead();
+    });
   };
   const maintenanceRetryIntervalMinutesCommit = () => {
     if (
       form.maintenanceRetryIntervalMinutes
       === value.maintenanceRetryIntervalMinutes
     ) return;
-    void update("maintenanceRetryIntervalMinutesSet", () => (
-      globalSettingsIndex.maintenanceRetryIntervalMinutesSet(
-        form.maintenanceRetryIntervalMinutes,
-      )
-    ));
+    void update("maintenanceRetryIntervalMinutesSet", async () => {
+      await invoke({
+        channel: globalSettings.channel.maintenanceRetryIntervalMinutesSet,
+        input: { maintenanceRetryIntervalMinutes: form.maintenanceRetryIntervalMinutes },
+        inputValidator: globalSettings.input.maintenanceRetryIntervalMinutesSet,
+        resultValidator: globalSettings.resultValidator,
+      });
+      await stateRead();
+    });
   };
   const disabled = pending !== null;
   const codexHomeNode: TreeDataNode = {
@@ -222,7 +168,7 @@ const GlobalSettings = () => {
               checkedChildren="可见"
               unCheckedChildren="隐藏"
               onChange={codexHomeVisible => {
-                globalSettingsIndex.codexHomeVisibleSet(codexHomeVisible);
+                store.getState().globalSettingsActions.codexHomeVisibleSet({ codexHomeVisible });
               }}
             />
           </Space>
@@ -271,7 +217,15 @@ const GlobalSettings = () => {
                 type="text"
                 onClick={() => void update(
                   "codexHomeDefaultRestore",
-                  globalSettingsIndex.codexHomeDefaultRestore,
+                  async () => {
+                    await invoke({
+                      channel: globalSettings.channel.codexHomeDefaultRestore,
+                      input: {},
+                      inputValidator: globalSettings.input.command,
+                      resultValidator: globalSettings.resultValidator,
+                    });
+                    await stateRead();
+                  },
                 )}
               />
             </Tooltip>
@@ -281,7 +235,15 @@ const GlobalSettings = () => {
               title="删除 CODEX_HOME 配置？"
               onConfirm={() => void update(
                 "codexHomeDelete",
-                globalSettingsIndex.codexHomeDelete,
+                async () => {
+                  await invoke({
+                    channel: globalSettings.channel.codexHomeDelete,
+                    input: {},
+                    inputValidator: globalSettings.input.command,
+                    resultValidator: globalSettings.resultValidator,
+                  });
+                  await stateRead();
+                },
               )}
             >
               <Tooltip title="删除配置">
@@ -315,9 +277,15 @@ const GlobalSettings = () => {
               unCheckedChildren="已停用"
               onChange={maintenanceEnabled => {
                 setForm(current => ({ ...current, maintenanceEnabled }));
-                void update("maintenanceEnabledSet", () => (
-                  globalSettingsIndex.maintenanceEnabledSet(maintenanceEnabled)
-                ));
+                void update("maintenanceEnabledSet", async () => {
+                  await invoke({
+                    channel: globalSettings.channel.maintenanceEnabledSet,
+                    input: { maintenanceEnabled },
+                    inputValidator: globalSettings.input.maintenanceEnabledSet,
+                    resultValidator: globalSettings.resultValidator,
+                  });
+                  await stateRead();
+                });
               }}
             />
           </Space>
@@ -419,5 +387,4 @@ const GlobalSettings = () => {
   );
 };
 
-export { globalSettingsIndex };
 export default GlobalSettings;

@@ -18,63 +18,24 @@ import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
 import {
   account as accountContract,
-  type AccountEnabledSetInput,
-  type AccountLabelSetInput,
-  type AccountOfficialOpenInput,
 } from "./store.ts";
 
 const timeText = (value: string): string => new Date(value).toLocaleString("zh-CN");
 
-const accountIndex = {
-  async enabledSet(input: AccountEnabledSetInput): Promise<void> {
-    await invoke({
-      channel: accountContract.channel.enabledSet,
-      input,
-      inputValidator: accountContract.input.enabledSet,
-      resultValidator: accountContract.resultValidator,
-    });
-    await accountIndex.stateRead();
-  },
-  async labelSet(input: AccountLabelSetInput): Promise<void> {
-    await invoke({
-      channel: accountContract.channel.labelSet,
-      input,
-      inputValidator: accountContract.input.labelSet,
-      resultValidator: accountContract.resultValidator,
-    });
-    await accountIndex.stateRead();
-  },
-  async officialOpen(input: AccountOfficialOpenInput): Promise<void> {
-    await invoke({
-      channel: accountContract.channel.officialOpen,
-      input,
-      inputValidator: accountContract.input.officialOpen,
-      resultValidator: accountContract.resultValidator,
-    });
-  },
-  async stateRead(): Promise<void> {
-    const state = await read({
+const useAccount = (): void => {
+  const { message } = AntdApp.useApp();
+  useEffect(() => {
+    void read({
       channel: accountContract.channel.stateRead,
       resultValidator: accountContract.accountValidator,
+    }).then(store.getState().accountActions.stateSet).catch(error => {
+      void message.error(errorText(error));
     });
-    store.getState().accountActions.stateSet(state);
-  },
-  stateSubscribe(): () => void {
     return subscribe({
       channel: accountContract.channel.stateUpdated,
       resultValidator: accountContract.accountValidator,
       run: store.getState().accountActions.stateSet,
     });
-  },
-};
-
-const useAccount = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void accountIndex.stateRead().catch(error => {
-      void message.error(errorText(error));
-    });
-    return accountIndex.stateSubscribe();
   }, []);
 };
 
@@ -92,7 +53,16 @@ const Account = ({ accountId, actions, children, title }: {
   if (!account) return <GlassCard><Empty description="账号不存在或已移除" /></GlassCard>;
   const enabledSet = async (enabled: boolean): Promise<void> => {
     try {
-      await accountIndex.enabledSet({ accountId, enabled });
+      await invoke({
+        channel: accountContract.channel.enabledSet,
+        input: { accountId, enabled },
+        inputValidator: accountContract.input.enabledSet,
+        resultValidator: accountContract.resultValidator,
+      });
+      store.getState().accountActions.stateSet(await read({
+        channel: accountContract.channel.stateRead,
+        resultValidator: accountContract.accountValidator,
+      }));
     } catch (error) {
       void message.error(errorText(error));
     }
@@ -100,7 +70,12 @@ const Account = ({ accountId, actions, children, title }: {
   const officialOpen = async (): Promise<void> => {
     setOfficialOpening(true);
     try {
-      await accountIndex.officialOpen({ accountId });
+      await invoke({
+        channel: accountContract.channel.officialOpen,
+        input: { accountId },
+        inputValidator: accountContract.input.officialOpen,
+        resultValidator: accountContract.resultValidator,
+      });
     } catch (error) {
       void message.error(errorText(error));
     } finally {

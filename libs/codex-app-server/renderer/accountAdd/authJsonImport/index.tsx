@@ -18,49 +18,34 @@ const stateSet = (input: unknown): void => {
     authJsonImport.authJsonImportValidator.parse(input),
   );
 };
-const invokeImport = async (channel: string): Promise<boolean> => (
-  (await invoke({
-    channel,
-    input: {},
-    inputValidator: authJsonImport.input.command,
-    resultValidator: authJsonImport.result.import,
-  })).imported
-);
-const authJsonImportIndex = {
-  clipboard: () => invokeImport(authJsonImport.channel.clipboard),
-  default: () => invokeImport(authJsonImport.channel.default),
-  select: () => invokeImport(authJsonImport.channel.select),
-  async stateRead(): Promise<void> {
-    stateSet(await read({
-      channel: authJsonImport.channel.stateRead,
-      resultValidator: authJsonImport.authJsonImportValidator,
-    }));
-  },
-  stateSubscribe(): () => void {
-    return subscribe({
-      channel: authJsonImport.channel.stateUpdated,
-      resultValidator: authJsonImport.authJsonImportValidator,
-      run: stateSet,
-    });
-  },
-};
-
 const AuthJsonImport = () => {
   const { message } = AntdApp.useApp();
   const navigate = useNavigate();
   const state = useStore(store, value => value.authJsonImport);
   const running = useRef(false);
   useEffect(() => {
-    void authJsonImportIndex.stateRead().catch(error => {
+    void read({
+      channel: authJsonImport.channel.stateRead,
+      resultValidator: authJsonImport.authJsonImportValidator,
+    }).then(stateSet).catch(error => {
       void message.error(errorText(error));
     });
-    return authJsonImportIndex.stateSubscribe();
+    return subscribe({
+      channel: authJsonImport.channel.stateUpdated,
+      resultValidator: authJsonImport.authJsonImportValidator,
+      run: stateSet,
+    });
   }, []);
-  const run = async (action: () => Promise<boolean>): Promise<void> => {
+  const run = async (channel: string): Promise<void> => {
     if (running.current || state.status === "working") return;
     running.current = true;
     try {
-      if (await action()) navigate("/accounts");
+      if ((await invoke({
+        channel,
+        input: {},
+        inputValidator: authJsonImport.input.command,
+        resultValidator: authJsonImport.result.import,
+      })).imported) navigate("/accounts");
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -89,9 +74,9 @@ const AuthJsonImport = () => {
         treeData={treeData}
         onSelect={(_keys, info) => {
           const key = String(info.node.key);
-          if (key === "default") void run(authJsonImportIndex.default);
-          else if (key === "select") void run(authJsonImportIndex.select);
-          else if (key === "clipboard") void run(authJsonImportIndex.clipboard);
+          if (key === "default") void run(authJsonImport.channel.default);
+          else if (key === "select") void run(authJsonImport.channel.select);
+          else if (key === "clipboard") void run(authJsonImport.channel.clipboard);
         }}
       />
       {state.error ? (

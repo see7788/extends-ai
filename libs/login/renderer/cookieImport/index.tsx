@@ -5,7 +5,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
-import browserIndex from "browser-partition-renderer/browser/index.ts";
+import applicationsRead from "browser-partition-renderer/browser/index.ts";
 import browserPartitionRenderer from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
@@ -20,7 +20,7 @@ const stateSet = (input: unknown): void => {
 };
 
 type BrowserApplication = Awaited<ReturnType<
-  typeof browserIndex.applicationsRead
+  typeof applicationsRead
 >>[number];
 
 const useCookieImport = ({
@@ -51,7 +51,7 @@ const useCookieImport = ({
       run: stateSet,
     });
     setLoading(true);
-    void browserIndex.applicationsRead(browserPartitionRenderer.invoke)
+    void applicationsRead(browserPartitionRenderer.invoke)
       .then(setApplications)
       .catch(errorShow)
       .finally(() => setLoading(false));

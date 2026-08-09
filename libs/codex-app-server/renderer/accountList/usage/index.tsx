@@ -4,41 +4,22 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { usage, type UsageReadInput } from "./store.ts";
+import { usage } from "./store.ts";
 
-const usageIndex = {
-  async read(input: UsageReadInput): Promise<void> {
-    await invoke({
-      channel: usage.channel.read,
-      input,
-      inputValidator: usage.input.command,
-      resultValidator: usage.commandResultValidator,
-    });
-    await usageIndex.stateRead();
-  },
-  async stateRead(): Promise<void> {
-    const state = await read({
+const useUsage = (): void => {
+  const { message } = AntdApp.useApp();
+  useEffect(() => {
+    void read({
       channel: usage.channel.stateRead,
       resultValidator: usage.usageValidator,
+    }).then(store.getState().usageActions.stateSet).catch(error => {
+      void message.error(errorText(error));
     });
-    store.getState().usageActions.stateSet(state);
-  },
-  stateSubscribe(): () => void {
     return subscribe({
       channel: usage.channel.stateUpdated,
       resultValidator: usage.usageValidator,
       run: store.getState().usageActions.stateSet,
     });
-  },
-};
-
-const useUsage = (): void => {
-  const { message } = AntdApp.useApp();
-  useEffect(() => {
-    void usageIndex.stateRead().catch(error => {
-      void message.error(errorText(error));
-    });
-    return usageIndex.stateSubscribe();
   }, []);
 };
 
@@ -73,7 +54,16 @@ const Usage = ({
   const refresh = async (): Promise<void> => {
     setPending(true);
     try {
-      await usageIndex.read({ accountId });
+      await invoke({
+        channel: usage.channel.read,
+        input: { accountId },
+        inputValidator: usage.input.command,
+        resultValidator: usage.commandResultValidator,
+      });
+      store.getState().usageActions.stateSet(await read({
+        channel: usage.channel.stateRead,
+        resultValidator: usage.usageValidator,
+      }));
       void message.success("用量查询完成");
     } catch (error) {
       void message.error(errorText(error));
