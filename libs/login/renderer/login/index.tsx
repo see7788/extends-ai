@@ -3,11 +3,47 @@ import {
   LoginOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
+import loginRenderer from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
-import loginIndex from "./index.ts";
+import { login } from "./store.ts";
+
+const stateSet = (input: unknown): void => {
+  store.getState().loginActions.stateSet(login.loginValidator.parse(input));
+};
+const loginIndex = {
+  async cancel(): Promise<boolean> {
+    return (await loginRenderer.invoke({
+      channel: login.channel.cancel,
+      input: {},
+      inputValidator: login.input.command,
+      resultValidator: login.result.cancel,
+    })).canceled;
+  },
+  async start(): Promise<boolean> {
+    return (await loginRenderer.invoke({
+      channel: login.channel.start,
+      input: {},
+      inputValidator: login.input.command,
+      resultValidator: login.result.start,
+    })).completed;
+  },
+  async stateRead(): Promise<void> {
+    stateSet(await loginRenderer.read({
+      channel: login.channel.stateRead,
+      resultValidator: login.loginValidator,
+    }));
+  },
+  stateSubscribe(): () => void {
+    return loginRenderer.subscribe({
+      channel: login.channel.stateUpdated,
+      resultValidator: login.loginValidator,
+      run: stateSet,
+    });
+  },
+};
 
 type LoginProps = {
   identify(): Promise<unknown>;

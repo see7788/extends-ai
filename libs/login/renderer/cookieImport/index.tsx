@@ -9,7 +9,54 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
-import cookieImportIndex from "./index.ts";
+import { cookieImport } from "./store.ts";
+
+const stateSet = (input: unknown): void => {
+  store.getState().cookieImportActions.stateSet(
+    cookieImport.cookieImportValidator.parse(input),
+  );
+};
+const cookieImportIndex = {
+  async authorizationTimeoutSecondsSet(
+    authorizationTimeoutSeconds: number,
+  ): Promise<void> {
+    await browserPartitionRenderer.invoke({
+      channel: cookieImport.channel.authorizationTimeoutSecondsSet,
+      input: { authorizationTimeoutSeconds },
+      inputValidator: cookieImport.input.authorizationTimeoutSecondsSet,
+      resultValidator: cookieImport.result.setting,
+    });
+  },
+  async cancel(): Promise<boolean> {
+    return (await browserPartitionRenderer.invoke({
+      channel: cookieImport.channel.cancel,
+      input: {},
+      inputValidator: cookieImport.input.command,
+      resultValidator: cookieImport.result.cancel,
+    })).canceled;
+  },
+  async start(browserId: string): Promise<boolean> {
+    return (await browserPartitionRenderer.invoke({
+      channel: cookieImport.channel.start,
+      input: { browserId },
+      inputValidator: cookieImport.input.create,
+      resultValidator: cookieImport.result.start,
+    })).completed;
+  },
+  async stateRead(): Promise<void> {
+    stateSet(await browserPartitionRenderer.read({
+      channel: cookieImport.channel.stateRead,
+      resultValidator: cookieImport.cookieImportValidator,
+    }));
+  },
+  stateSubscribe(): () => void {
+    return browserPartitionRenderer.subscribe({
+      channel: cookieImport.channel.stateUpdated,
+      resultValidator: cookieImport.cookieImportValidator,
+      run: stateSet,
+    });
+  },
+};
 
 type BrowserApplication = Awaited<ReturnType<
   typeof browserIndex.applicationsRead

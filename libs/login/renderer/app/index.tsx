@@ -1,7 +1,6 @@
 import { Masonry } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
-import accountsIndex from "../accounts/index.ts";
-import useAccounts from "../accounts/index.tsx";
+import useAccounts, { accountsIndex } from "../accounts/index.tsx";
 import useCookieImport from "../cookieImport/index.tsx";
 import useLogin from "../login/index.tsx";
 

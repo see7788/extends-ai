@@ -149,6 +149,7 @@ extends-ai/
 
 - main/renderer 以业务切片同构：main 切片拥有数据、Actions、验证器与执行方法；renderer 同名切片消费其验证器、镜像状态并呈现交互。
 - 每个独立业务 renderer 根目录固定存在 `store.ts / routers.tsx / index.tsx`；即使只有一个页面，也使用 `react-router-dom` 的 Hash Router。
+- renderer 业务切片目录固定只有 `store.ts / index.tsx`：通信、监听、操作和本切片 UI 统一由同一个 `index.tsx` 承担，不再并存 `index.ts` 与 `index.tsx`，也不保留套壳转发入口。
 - 每个 `store.ts` 只定义本切片；主 `store.ts` 只组合切片；跨切片调用只允许出现在透明的 `index.ts` 消费者中。
 - `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
 - `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
