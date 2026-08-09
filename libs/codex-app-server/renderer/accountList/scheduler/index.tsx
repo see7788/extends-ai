@@ -8,7 +8,7 @@ import {
   Typography,
 } from "antd";
 import { errorText, timeText, type TreeSection } from "../../public.tsx";
-import store from "../../store/index.ts";
+import store from "../../store.ts";
 import { read, subscribe } from "browser-partition-renderer/public.ts";
 import { scheduler } from "./store.ts";
 

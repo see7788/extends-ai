@@ -1,4 +1,4 @@
-import store from "../../store/index.ts";
+import store from "../../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { authJsonImport } from "./store.ts";
 

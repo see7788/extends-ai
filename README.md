@@ -91,7 +91,7 @@
 
 - 公共通信去重已完成并通过公共 preload/renderer 类型检查。
 - `cookieImport` 生产者已经纯化并完成目录级验收；页面不存在预览契约、批量导入或账号识别逻辑。
-- `cookieImport`、main/renderer accounts、单来源串联和内嵌登录归一均已完成类型验收。
+- `login` 与 `cookieImport` 均只生产并持久化 `ready` 候选；`accounts` 只在用户再次点击后消费候选，已完成类型验收。
 - 公共 preload、双窗口、Login 页面、动画瀑布流和持久化白名单已经完成 dev 运行验收。
 - 当前剩余三项必须由用户完成浏览器授权/官方登录的人工验收；生产打包仍明确后置。
 
@@ -116,7 +116,12 @@ extends-ai/
 │  └─ renderer/                       # 登录态页面
 │     ├─ login/                       # 同构镜像主进程 login 状态
 │     ├─ cookieImport/                # 同构镜像主进程 cookieImport 进度状态
-│     └─ accounts/                    # 同构镜像业务账号状态与透明操作
+│     ├─ accounts/                    # 同构镜像业务账号状态与透明操作
+│     ├─ public/                      # 公共 UI 成品；当前只有唯一毛玻璃 Card
+│     ├─ app/                         # 消费各切片 UI，并只负责背景与 Masonry 组合
+│     ├─ store.ts                     # 只组合 renderer 同名切片
+│     ├─ routers.tsx                  # Hash Router 路由集合
+│     └─ index.tsx                    # React 根与 RouterProvider 启动入口
 └─ libs/codex-app-server/              # auth.json 导入、账号管理、查询和唯一物化 CODEX_HOME
    ├─ main/
    │  ├─ accountAdd/
@@ -125,6 +130,9 @@ extends-ai/
    │  ├─ accountList/                 # 已有账号、认证、额度、用量与定时查询
    │  └─ globalSettings/              # 唯一 CODEX_HOME 与查询设置
    └─ renderer/                       # 账号添加、列表、详情和全局设置页面；消费公共 bridge
+      ├─ store.ts                     # 只组合 renderer 同名切片
+      ├─ routers.tsx                  # Hash Router 路由集合
+      ├─ index.tsx                    # React 根与 RouterProvider 启动入口
       └─ 已验收：auth.json 三个入口在开发态正常呈现
 ```
 
@@ -140,6 +148,7 @@ extends-ai/
 ## 已确认原则
 
 - main/renderer 以业务切片同构：main 切片拥有数据、Actions、验证器与执行方法；renderer 同名切片消费其验证器、镜像状态并呈现交互。
+- 每个独立业务 renderer 根目录固定存在 `store.ts / routers.tsx / index.tsx`；即使只有一个页面，也使用 `react-router-dom` 的 Hash Router。
 - 每个 `store.ts` 只定义本切片；主 `store.ts` 只组合切片；跨切片调用只允许出现在透明的 `index.ts` 消费者中。
 - `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
 - `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
@@ -153,6 +162,6 @@ extends-ai/
 - [x] 修复开发态重复 renderer 入口并恢复 auth.json 页面。
 - [x] 验证 `browser-partition` 无主仓库、公共 preload 工厂以及两端消费者。
 - [x] 主 store 采用持久化白名单，确保当前 JSON 只写入所属切片。
-- [x] login 的 `login` 与 `cookieImport` 状态由 main 持久化、推送并在 renderer 同构呈现。
+- [x] login 的 `login` 与 `cookieImport` 状态由 main 持久化、推送并在 renderer 同构呈现；运行成功停在 `ready`，只由人工操作交给 accounts。
 - [ ] 接入成人端权限通信后限制 CODEX_HOME 可见性开关。
-- [x] 完成相关包 typecheck、主应用生产构建与开发态 main/preload/renderer 运行验收。
+- [x] 完成相关包 typecheck 与开发态 main/preload/renderer 运行验收；生产构建继续后置。

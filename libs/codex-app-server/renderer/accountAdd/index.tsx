@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "zustand";
 import Hyperspeed from "extends-react/src/Hyperspeed";
 import { errorText } from "../public.tsx";
-import store from "../store/index.ts";
+import store from "../store.ts";
 import authJsonCreateIndex from "./authJsonCreate/index.ts";
 import authJsonImportIndex from "./authJsonImport/index.ts";
 

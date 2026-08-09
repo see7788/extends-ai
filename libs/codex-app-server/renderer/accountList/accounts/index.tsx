@@ -19,7 +19,7 @@ import {
   type MasonryProps,
 } from "antd";
 import { errorText } from "../../public.tsx";
-import store from "../../store/index.ts";
+import store from "../../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { accountIndex } from "../account/index.tsx";
 import type { Account } from "../account/store.ts";

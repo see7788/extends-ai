@@ -23,7 +23,7 @@ import {
   type TreeDataNode,
 } from "antd";
 import { errorText, type TreeSection } from "../public.tsx";
-import store from "../store/index.ts";
+import store from "../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { globalSettings } from "./store.ts";
 

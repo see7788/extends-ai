@@ -3,7 +3,7 @@ import { createHashRouter, RouterProvider } from "react-router-dom";
 import { App as AntdApp, ConfigProvider } from "antd";
 import { useStore } from "zustand";
 import routers from "./routers.tsx";
-import store from "./store/index.ts";
+import store from "./store.ts";
 
 const router = createHashRouter(routers);
 const Renderer = () => {

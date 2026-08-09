@@ -1,5 +1,5 @@
 import { useStore } from "zustand";
-import store from "../../store/index.ts";
+import store from "../../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { authSessions, type AuthSessionsCommandInput } from "./store.ts";
 

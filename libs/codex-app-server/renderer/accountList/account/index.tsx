@@ -15,7 +15,7 @@ import {
   Typography,
 } from "antd";
 import { errorText, Shell, timeText } from "../../public.tsx";
-import store from "../../store/index.ts";
+import store from "../../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import authSessionsIndex from "../authSessions/index.ts";
 import rateLimitsIndex from "../rateLimits/index.ts";
