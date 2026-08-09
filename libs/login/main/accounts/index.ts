@@ -53,8 +53,21 @@ const install = (runtime: AccountsRuntime): (() => void) => {
   });
   ipcMain.handle(accounts.channel.remove, async (event, input: unknown) => {
     rendererSet(event);
+    const value = accounts.input.email.parse(input);
+    const sources = store.getState().accounts.byEmail[value.email]?.sources ?? [];
+    const completed = await store.getState().accountsActions.remove(value, runtime);
+    if (completed) {
+      for (const source of sources) {
+        const candidatePartition = store.getState().cookieImportActions.historyRemove({
+          browserId: source.browserId,
+        });
+        if (candidatePartition) {
+          await runtime.storageClear(candidatePartition).catch(() => undefined);
+        }
+      }
+    }
     return accounts.result.command.parse({
-      completed: await store.getState().accountsActions.remove(input, runtime),
+      completed,
     });
   });
   ipcMain.handle(accounts.channel.validate, async (event, input: unknown) => {

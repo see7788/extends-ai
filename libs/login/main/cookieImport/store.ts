@@ -27,6 +27,7 @@ const cookieImportValidator = z.object({
 });
 const createValidator = z.object({ browserId: browser.browserIdValidator });
 const candidateClearValidator = candidateValidator.pick({ partition: true });
+const historyRemoveValidator = createValidator;
 const authorizationTimeoutSecondsSetValidator = cookieImportValidator.pick({
   authorizationTimeoutSeconds: true,
 });
@@ -123,6 +124,7 @@ type CookieImportSlice = {
       authorizationTimeoutMs: number,
       runtime: CookieImportRuntime,
     ): Promise<BrowserImport>;
+    historyRemove(input: z.infer<typeof historyRemoveValidator>): string | undefined;
     operationCancel(): void;
     operationFail(input: z.infer<typeof operationFailValidator>): void;
     operationStart(input: z.infer<typeof createValidator>): void;
@@ -665,6 +667,23 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
         cleared = true;
       });
       return cleared;
+    },
+    historyRemove(input) {
+      const { browserId } = historyRemoveValidator.parse(input);
+      let candidatePartition: string | undefined;
+      set(state => {
+        delete state.cookieImport.history[browserId];
+        if (state.cookieImport.status !== "ready"
+          || state.cookieImport.candidate?.browserId !== browserId) return;
+        candidatePartition = state.cookieImport.candidate.partition;
+        state.cookieImport.activeBrowserId = null;
+        state.cookieImport.authorizationExpiresAt = null;
+        state.cookieImport.candidate = null;
+        state.cookieImport.error = null;
+        state.cookieImport.errorBrowserId = null;
+        state.cookieImport.status = "idle";
+      });
+      return candidatePartition;
     },
     cancel() {
       if (!active || active.signal.aborted) return false;

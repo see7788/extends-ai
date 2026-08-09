@@ -270,7 +270,7 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
       if (!partition) return false;
       accountWindow?.dispose();
       accountWindow = undefined;
-      await runtime.storageClear(partition);
+      await runtime.storageClear(partition).catch(() => undefined);
       return true;
     },
     async validate(input, runtime) {

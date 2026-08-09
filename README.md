@@ -5,6 +5,7 @@
 - 从其他浏览器导入是纯生产过程：发现浏览器、取得授权、读取 Cookie、写入新的候选 Electron partition、返回候选结果。
 - `cookieImport` 不访问账号接口、不解析 email、不判断有效期、不打开预览窗口、不记录业务账号；只持久化自身每个浏览器最后一次成功导入的时间。
 - `accounts` 是登录态的唯一识别者：内嵌登录由主进程直接调用识别；外部浏览器 Cookie 候选由用户手工交给它识别。它负责 email、状态、同 email 合并、保存账号及账号操作。
+- `accounts` 删除账号成功后，由主进程消费者按该账号的来源调用 `cookieImport.historyRemove`；`cookieImport` 只清理自己的导入历史及同源候选，renderer 只渲染两个切片推送的新状态。
 - 同一个 email 永远只显示和持久化为一个业务账号；来源浏览器只是该账号的元数据。
 - 账号状态只有 `valid / expired / unknown`。网络失败、服务端 5xx 或响应结构变化必须是 `unknown`，不得删除账号。
 - 新候选验证成功以后才替换旧 partition；任一前置步骤失败都保留旧登录态。
