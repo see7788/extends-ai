@@ -23,53 +23,6 @@ const stateSet = (input: unknown): void => {
     accounts.accountsValidator.parse(input),
   );
 };
-const accountsIndex = {
-  async cookieImportConsume() {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.cookieImportConsume,
-      input: {},
-      inputValidator: accounts.input.command,
-      resultValidator: accounts.result.account,
-    })).account;
-  },
-  async open(email: string): Promise<boolean> {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.open,
-      input: { email },
-      inputValidator: accounts.input.email,
-      resultValidator: accounts.result.command,
-    })).completed;
-  },
-  async remove(email: string): Promise<boolean> {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.remove,
-      input: { email },
-      inputValidator: accounts.input.email,
-      resultValidator: accounts.result.command,
-    })).completed;
-  },
-  async stateRead(): Promise<void> {
-    stateSet(await browserPartitionRenderer.read({
-      channel: accounts.channel.stateRead,
-      resultValidator: accounts.accountsValidator,
-    }));
-  },
-  stateSubscribe(): () => void {
-    return browserPartitionRenderer.subscribe({
-      channel: accounts.channel.stateUpdated,
-      resultValidator: accounts.accountsValidator,
-      run: stateSet,
-    });
-  },
-  async validate(email: string): Promise<boolean> {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.validate,
-      input: { email },
-      inputValidator: accounts.input.email,
-      resultValidator: accounts.result.command,
-    })).completed;
-  },
-};
 
 const statusText = {
   expired: "已过期",
@@ -79,17 +32,24 @@ const statusText = {
 
 const useAccounts = () => {
   const { message } = AntdApp.useApp();
-  const accounts = useStore(store, state => state.accounts);
+  const accountsState = useStore(store, state => state.accounts);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
   useEffect(() => {
-    void accountsIndex.stateRead().catch(errorShow);
-    return accountsIndex.stateSubscribe();
+    void browserPartitionRenderer.read({
+      channel: accounts.channel.stateRead,
+      resultValidator: accounts.accountsValidator,
+    }).then(stateSet).catch(errorShow);
+    return browserPartitionRenderer.subscribe({
+      channel: accounts.channel.stateUpdated,
+      resultValidator: accounts.accountsValidator,
+      run: stateSet,
+    });
   }, []);
 
-  const accountItems = accounts.order
-    .map(email => accounts.byEmail[email])
+  const accountItems = accountsState.order
+    .map(email => accountsState.byEmail[email])
     .filter(account => account !== undefined)
     .map(account => ({
       children: (
@@ -109,21 +69,36 @@ const useAccounts = () => {
               <Button
                 icon={<GlobalOutlined />}
                 type="text"
-                onClick={() => void accountsIndex.open(account.email).catch(errorShow)}
+                onClick={() => void browserPartitionRenderer.invoke({
+                  channel: accounts.channel.open,
+                  input: { email: account.email },
+                  inputValidator: accounts.input.email,
+                  resultValidator: accounts.result.command,
+                }).catch(errorShow)}
               >
                 打开
               </Button>
               <Button
                 icon={<SafetyCertificateOutlined />}
                 type="text"
-                onClick={() => void accountsIndex.validate(account.email).catch(errorShow)}
+                onClick={() => void browserPartitionRenderer.invoke({
+                  channel: accounts.channel.validate,
+                  input: { email: account.email },
+                  inputValidator: accounts.input.email,
+                  resultValidator: accounts.result.command,
+                }).catch(errorShow)}
               >
                 验证
               </Button>
               <Popconfirm
                 description="只移除本应用保存的隔离登录态"
                 title="移除账号？"
-                onConfirm={() => accountsIndex.remove(account.email).catch(errorShow)}
+                onConfirm={() => browserPartitionRenderer.invoke({
+                  channel: accounts.channel.remove,
+                  input: { email: account.email },
+                  inputValidator: accounts.input.email,
+                  resultValidator: accounts.result.command,
+                }).catch(errorShow)}
               >
                 <Button danger icon={<DeleteOutlined />} type="text">移除</Button>
               </Popconfirm>
@@ -135,9 +110,14 @@ const useAccounts = () => {
       key: `account:${account.email}`,
     }));
   return {
-    cookieImportConsume: accountsIndex.cookieImportConsume,
-    identifiedBrowserIds: new Set(accounts.order.flatMap(email => (
-      accounts.byEmail[email]?.sources.map(
+    cookieImportConsume: async () => (await browserPartitionRenderer.invoke({
+      channel: accounts.channel.cookieImportConsume,
+      input: {},
+      inputValidator: accounts.input.command,
+      resultValidator: accounts.result.account,
+    })).account,
+    identifiedBrowserIds: new Set(accountsState.order.flatMap(email => (
+      accountsState.byEmail[email]?.sources.map(
         source => source.browserId,
       ) ?? []
     ))),

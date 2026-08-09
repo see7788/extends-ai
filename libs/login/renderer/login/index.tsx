@@ -10,51 +10,23 @@ import { login } from "./store.ts";
 const stateSet = (input: unknown): void => {
   store.getState().loginActions.stateSet(login.loginValidator.parse(input));
 };
-const loginIndex = {
-  async cancel(): Promise<boolean> {
-    const canceled = (await loginRenderer.invoke({
-      channel: login.channel.cancel,
-      input: {},
-      inputValidator: login.input.command,
-      resultValidator: login.result.cancel,
-    })).canceled;
-    await loginIndex.stateRead();
-    return canceled;
-  },
-  async start(): Promise<boolean> {
-    const completed = (await loginRenderer.invoke({
-      channel: login.channel.start,
-      input: {},
-      inputValidator: login.input.command,
-      resultValidator: login.result.start,
-    })).completed;
-    await loginIndex.stateRead();
-    return completed;
-  },
-  async stateRead(): Promise<void> {
-    stateSet(await loginRenderer.read({
+
+const useLogin = () => {
+  const { message } = AntdApp.useApp();
+  const loginState = useStore(store, state => state.login);
+  const errorShow = (error: unknown): void => {
+    void message.error(error instanceof Error ? error.message : String(error));
+  };
+  useEffect(() => {
+    void loginRenderer.read({
       channel: login.channel.stateRead,
       resultValidator: login.loginValidator,
-    }));
-  },
-  stateSubscribe(): () => void {
+    }).then(stateSet).catch(errorShow);
     return loginRenderer.subscribe({
       channel: login.channel.stateUpdated,
       resultValidator: login.loginValidator,
       run: stateSet,
     });
-  },
-};
-
-const useLogin = () => {
-  const { message } = AntdApp.useApp();
-  const login = useStore(store, state => state.login);
-  const errorShow = (error: unknown): void => {
-    void message.error(error instanceof Error ? error.message : String(error));
-  };
-  useEffect(() => {
-    void loginIndex.stateRead().catch(errorShow);
-    return loginIndex.stateSubscribe();
   }, []);
 
   return [{
@@ -69,11 +41,16 @@ const useLogin = () => {
             title: (
               <Flex align="center" gap={8} justify="space-between">
                 <Typography.Text>ChatGPT.com</Typography.Text>
-                {login.status === "open" ? (
+                {loginState.status === "open" ? (
                   <Button
                     icon={<CloseCircleOutlined />}
                     type="text"
-                    onClick={() => void loginIndex.cancel().catch(errorShow)}
+                    onClick={() => void loginRenderer.invoke({
+                      channel: login.channel.cancel,
+                      input: {},
+                      inputValidator: login.input.command,
+                      resultValidator: login.result.cancel,
+                    }).catch(errorShow)}
                   >
                     取消
                   </Button>
@@ -81,7 +58,12 @@ const useLogin = () => {
                   <Button
                     icon={<LoginOutlined />}
                     type="text"
-                    onClick={() => void loginIndex.start().catch(errorShow)}
+                    onClick={() => void loginRenderer.invoke({
+                      channel: login.channel.start,
+                      input: {},
+                      inputValidator: login.input.command,
+                      resultValidator: login.result.start,
+                    }).catch(errorShow)}
                   >
                     登录
                   </Button>
