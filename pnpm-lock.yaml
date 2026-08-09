@@ -152,12 +152,6 @@ importers:
       codex-app-server-renderer:
         specifier: workspace:*
         version: link:../../libs/codex-app-server/renderer
-      login-main:
-        specifier: workspace:*
-        version: link:../../libs/login/main
-      login-renderer:
-        specifier: workspace:*
-        version: link:../../libs/login/renderer
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

@@ -8,21 +8,12 @@ const reactDevelopment = react().map(plugin => ({
   ...plugin,
   apply: "serve" as const,
 }));
-const rendererProjects = [
-  "../../libs/login/renderer",
-  "../../libs/codex-app-server/renderer",
-] as const;
+const rendererProject = "../../libs/codex-app-server/renderer";
 const rendererEntryCanonical: Plugin = {
   apply: "serve",
   name: "renderer-entry-canonical",
   transformIndexHtml(html) {
-    const project = html.includes("<title>ChatGPT 登录态</title>")
-      ? rendererProjects[0]
-      : html.includes("<title>Codex 账号维护</title>")
-        ? rendererProjects[1]
-        : undefined;
-    if (!project) return;
-    const entry = normalizePath(resolve(project, "index.tsx"));
+    const entry = normalizePath(resolve(rendererProject, "index.tsx"));
     return html.replace("./index.tsx", `/@fs/${entry}`);
   },
 };
@@ -60,7 +51,7 @@ const config = {
       rendererEntryCanonical,
       rendererReact(
         { otherPort: 5174 },
-        ...rendererProjects.map(path => [path] as [string]),
+        [rendererProject],
       ),
     ],
     resolve: {

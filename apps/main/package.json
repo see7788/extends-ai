@@ -14,9 +14,7 @@
     "browser-partition-main": "workspace:*",
     "browser-partition-preload": "workspace:*",
     "codex-app-server-main": "workspace:*",
-    "codex-app-server-renderer": "workspace:*",
-    "login-main": "workspace:*",
-    "login-renderer": "workspace:*"
+    "codex-app-server-renderer": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

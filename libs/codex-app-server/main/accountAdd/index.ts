@@ -120,25 +120,39 @@ const install = (): (() => void) => {
     ipcMain.handle(authJsonCreate.channel.create, async (event, input: unknown) => {
       rendererSet(event);
       const carrier = authJsonCreate.input.create.parse(input);
-      const imported = await store.getState().authJsonImportActions.run({
-        type: "authJsonCreate",
-        execute: async signal => {
-          const controller = new AbortController();
-          signal.addEventListener("abort", () => controller.abort(), { once: true });
-          return accountRun(async () => {
-            const result = await authJsonCreateRun({
-              carrier,
-              controller,
-              parent: parentRead(event),
-            });
-            return authJsonImportRun({
-              ...result.source,
-              webAccess: result.webAccess,
-            });
-          });
-        },
-      });
-      return authJsonCreate.result.create.parse({ created: imported !== undefined });
+      const actions = store.getState().authJsonCreateActions;
+      let started = false;
+      let succeeded = false;
+      try {
+        const imported = await store.getState().authJsonImportActions.run({
+          type: "authJsonCreate",
+          execute: async signal => {
+            actions.operationStart(carrier);
+            started = true;
+            const controller = new AbortController();
+            const timeout = setTimeout(
+              () => controller.abort(),
+              store.getState().authJsonCreate.authorizationTimeoutSeconds * 1_000,
+            );
+            signal.addEventListener("abort", () => controller.abort(), { once: true });
+            try {
+              return await accountRun(async () => {
+                const result = await authJsonCreateRun({ carrier, controller });
+                return authJsonImportRun(result.source);
+              });
+            } finally {
+              clearTimeout(timeout);
+            }
+          },
+        });
+        if (imported !== undefined) {
+          actions.operationSucceed();
+          succeeded = true;
+        }
+        return authJsonCreate.result.create.parse({ created: succeeded });
+      } finally {
+        if (started && !succeeded) actions.operationCancel();
+      }
     });
     ipcMain.handle(authJsonCreate.channel.cancel, (event, input: unknown) => {
       rendererSet(event);
@@ -146,6 +160,10 @@ const install = (): (() => void) => {
       return authJsonCreate.result.cancel.parse({
         canceled: store.getState().authJsonImportActions.cancel("authJsonCreate"),
       });
+    });
+    ipcMain.handle(authJsonCreate.channel.stateRead, event => {
+      rendererSet(event);
+      return authJsonCreate.authJsonCreateValidator.parse(store.getState().authJsonCreate);
     });
 
     ipcMain.handle(authJsonImport.channel.clipboard, async (event, input: unknown) => {
@@ -192,6 +210,12 @@ const install = (): (() => void) => {
     });
 
     const unsubscribe = store.subscribe((state, previous) => {
+      if (state.authJsonCreate !== previous.authJsonCreate) {
+        send(
+          authJsonCreate.channel.stateUpdated,
+          authJsonCreate.authJsonCreateValidator.parse(state.authJsonCreate),
+        );
+      }
       if (state.authJsonImport !== previous.authJsonImport) {
         send(
           authJsonImport.channel.stateUpdated,
@@ -205,6 +229,7 @@ const install = (): (() => void) => {
       renderer = undefined;
       ipcMain.removeHandler(authJsonCreate.channel.cancel);
       ipcMain.removeHandler(authJsonCreate.channel.create);
+      ipcMain.removeHandler(authJsonCreate.channel.stateRead);
       ipcMain.removeHandler(authJsonImport.channel.clipboard);
       ipcMain.removeHandler(authJsonImport.channel.default);
       ipcMain.removeHandler(authJsonImport.channel.select);

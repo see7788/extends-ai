@@ -1,64 +1,24 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { browser } from "browser-partition-main/browser/store.ts";
-import { z } from "zod";
+import { authJsonCreate as producer } from "codex-app-server-main/accountAdd/authJsonCreate/store.ts";
 
-const authJsonCreateValidator = z.object({
-  applications: browser.browserApplicationsValidator,
-  browserLoading: z.boolean(),
-  pending: z.enum(["browser", "electron"]).nullable(),
-});
-const applicationsSetValidator = authJsonCreateValidator.pick({ applications: true });
-const browserLoadingSetValidator = authJsonCreateValidator.pick({ browserLoading: true });
-const pendingSetValidator = authJsonCreateValidator.pick({ pending: true });
-
-type AuthJsonCreate = z.infer<typeof authJsonCreateValidator>;
+type AuthJsonCreate = ReturnType<typeof producer.authJsonCreateValidator.parse>;
 type AuthJsonCreateSlice = {
   authJsonCreate: AuthJsonCreate;
   authJsonCreateActions: {
-    applicationsSet(input: z.infer<typeof applicationsSetValidator>): void;
-    browserLoadingSet(input: z.infer<typeof browserLoadingSetValidator>): void;
-    pendingSet(input: z.infer<typeof pendingSetValidator>): void;
+    stateSet(input: AuthJsonCreate): void;
   };
 };
 
-const initial: AuthJsonCreate = {
-  applications: [],
-  browserLoading: false,
-  pending: null,
-};
-const authJsonCreate = {
-  authJsonCreateValidator,
-  initial,
-  input: {
-    applicationsSet: applicationsSetValidator,
-    browserLoadingSet: browserLoadingSetValidator,
-    pendingSet: pendingSetValidator,
-  },
-};
-
 const authJsonCreateStore: ImmerStateCreator<AuthJsonCreateSlice> = set => ({
-  authJsonCreate: structuredClone(initial),
+  authJsonCreate: structuredClone(producer.initial),
   authJsonCreateActions: {
-    applicationsSet(input) {
-      const value = applicationsSetValidator.parse(input);
+    stateSet(input) {
       set(state => {
-        state.authJsonCreate.applications = value.applications;
-      });
-    },
-    browserLoadingSet(input) {
-      const value = browserLoadingSetValidator.parse(input);
-      set(state => {
-        state.authJsonCreate.browserLoading = value.browserLoading;
-      });
-    },
-    pendingSet(input) {
-      const value = pendingSetValidator.parse(input);
-      set(state => {
-        state.authJsonCreate.pending = value.pending;
+        state.authJsonCreate = structuredClone(input);
       });
     },
   },
 });
 
-export { authJsonCreate };
+export { producer as authJsonCreate };
 export default authJsonCreateStore;

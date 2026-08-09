@@ -379,7 +379,10 @@ export const windowOpen = async (
     url: string,
     launchArguments: string[] = [],
     signal?: AbortSignal,
-  ): Promise<{ close(): Promise<boolean> }> => {
+  ): Promise<{
+    close(): Promise<boolean>;
+    closed: Promise<void>;
+  }> => {
     const canceledError = (): Error => {
       const error = new Error("浏览器操作已取消");
       error.name = "AbortError";
@@ -403,8 +406,19 @@ export const windowOpen = async (
         const handle = (await windowHandlesRead(executablePath))
           .find(value => !previous.has(value));
         if (handle !== undefined) {
+          const closed = (async (): Promise<void> => {
+            while (true) {
+              try {
+                if (!(await windowHandlesRead(executablePath)).includes(handle)) return;
+              } catch {
+                return;
+              }
+              await new Promise(resolveWait => setTimeout(resolveWait, 200));
+            }
+          })();
           const result = {
             close: () => windowClose(executablePath, handle),
+            closed,
           };
           if (!canceled) return result;
           await result.close().catch(() => false);

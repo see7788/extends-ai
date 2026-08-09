@@ -2,7 +2,7 @@ import cwdPersist from "extends-zustand/cwdPersist";
 import { app } from "electron";
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
-import authJsonCreateStore from "./accountAdd/authJsonCreate/store.ts";
+import authJsonCreateStore, { authJsonCreate } from "./accountAdd/authJsonCreate/store.ts";
 import authJsonImportStore from "./accountAdd/authJsonImport/store.ts";
 import globalSettingsStore from "./globalSettings/store.ts";
 import accountStore from "./accountList/account/store.ts";
@@ -47,6 +47,11 @@ const store = createStore<Store>()(
 store.persist.setOptions({
   partialize: state => ({
     account: state.account,
+    authJsonCreate: {
+      ...structuredClone(authJsonCreate.initial),
+      authorizationTimeoutSeconds: state.authJsonCreate.authorizationTimeoutSeconds,
+      history: state.authJsonCreate.history,
+    },
     authJsonImport: state.authJsonImport,
     globalSettings: state.globalSettings,
     accounts: state.accounts,

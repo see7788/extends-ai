@@ -1,5 +1,11 @@
 # extends-ai
 
+## 当前应用组合
+
+- `apps/main` 只实例化 Codex 账号维护窗口；托盘只保留“打开 Codex 账号管理”和“退出”。
+- `libs/login` 源码作为独立库保留，不由当前应用实例化，也不进入当前应用的 Vite renderer 输入。
+- Codex 的 `authJsonCreate` 只允许选择外部浏览器完成官方登录；不再提供 Electron 内置登录载体。
+
 ## Login 执行约定
 
 - 从其他浏览器导入是纯生产过程：发现浏览器、取得授权、读取 Cookie、写入新的候选 Electron partition、返回候选结果。
@@ -25,7 +31,7 @@
 
 - [x] `browser-partition/preload` 是唯一 `contextBridge / ipcRenderer` 实现。
 - [x] `browser-partition/renderer/public.ts` 是唯一 renderer 类型化 `invoke / read / subscribe` 实现。
-- [x] Login 与 Codex 窗口共同加载 `browser-partition-preload.cjs`。
+- [x] Login 与 Codex 源码均消费 `browser-partition-preload.cjs`；当前应用只构建 Codex renderer。
 - [x] 删除 `login-preload`、`codex-app-server-preload` 及两个重复 renderer `public.ts`。
 - 验收：全仓库检索只允许公共目录出现 `contextBridge`、`ipcRenderer`、`preloadRead`。
 
@@ -95,14 +101,14 @@
 - 公共通信去重已完成并通过公共 preload/renderer 类型检查。
 - `cookieImport` 主进程生产者已经纯化并完成目录级验收；自己的导入历史用于区分“导入/重新导入”。renderer 在候选子节点提供人工“识别账号”按钮，但识别方法和账号卡片仍由 accounts 提供。
 - 内嵌登录由 Electron 监听隔离 Session 的页面加载和 Cookie 变化，主进程 accounts 识别成功后立即持久化账号并自动关闭窗口；提前关闭只取消本次操作。只有 `cookieImport` 保留 `ready` 候选与人工识别步骤。
-- 公共 preload、双窗口、Login 页面、动画瀑布流和持久化白名单已经完成 dev 运行验收。
+- 公共 preload、Login 独立源码、动画瀑布流和持久化白名单已经完成；当前应用已与 Login 窗口脱钩。
 - 当前剩余三项必须由用户完成浏览器授权/官方登录的人工验收；生产打包仍明确后置。
 
 本文件是 pnpm 工作区唯一维护文档。具体库不再单独维护 README；未完成事项记录在下方目录树对应节点。
 
 ```text
 extends-ai/
-├─ apps/main/                         # Electron 生命周期、托盘、业务窗口实例化及公共 preload 构建入口
+├─ apps/main/                         # Electron 生命周期、Codex 托盘/窗口及公共 preload 构建入口
 │  └─ 已验收：开发态每个 renderer 只有一个入口并保持 HMR
 ├─ libs/browser-partition/            # 无业务状态的浏览器与隔离窗口生产者
 │  ├─ main/
@@ -128,13 +134,13 @@ extends-ai/
 └─ libs/codex-app-server/              # auth.json 导入、账号管理、查询和唯一物化 CODEX_HOME
    ├─ main/
    │  ├─ accountAdd/
-   │  │  ├─ authJsonCreate/           # 官方 Codex 登录创建 auth.json
+   │  │  ├─ authJsonCreate/           # 选择外部浏览器完成官方登录，创建并导入 auth.json
    │  │  └─ authJsonImport/           # 导入并验证已有 auth.json
    │  ├─ accountList/                 # 已有账号、认证、额度、用量与定时查询
    │  └─ globalSettings/              # 唯一 CODEX_HOME 与查询设置
    └─ renderer/                       # 账号添加、列表、详情和全局设置页面；消费公共 bridge
       ├─ accountAdd/
-      │  ├─ authJsonCreate/           # 创建并导入：自身 store、通信、操作与 Card/Tree
+      │  ├─ authJsonCreate/           # 外部浏览器一级列表、59 秒倒计时、取消与重新导入
       │  └─ authJsonImport/           # 文件导入：自身 store、通信、操作与 Card/Tree
       ├─ accountList/
       │  ├─ account/                  # 单账号启用、官网访问与账号卡片
@@ -175,7 +181,7 @@ extends-ai/
 - `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
 - `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
 - `login` 与 `codex-app-server` 相互独立，只共同消费 `browser-partition`。
-- `authJsonCreate` 只有一个官方创建流程；Electron 隔离窗口或指定外部浏览器只是 `openAuthUrl` 载体。
+- `authJsonCreate` 只有一个官方创建流程，指定的外部浏览器是唯一 `openAuthUrl` 载体；每次只新开并追踪一个授权窗口，成功、页面取消、59 秒超时或失败后统一关闭，用户直接关闭该窗口等价于取消。
 - 自动查询与立即查询只查询账号信息；Token 是否刷新交给官方 Codex App Server 判断，不实现强制刷新。
 - 启用账号由主进程唯一控制，renderer 不伪造启用状态。
 
