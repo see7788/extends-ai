@@ -121,38 +121,34 @@ const install = (): (() => void) => {
       rendererSet(event);
       const carrier = authJsonCreate.input.create.parse(input);
       const actions = store.getState().authJsonCreateActions;
-      let started = false;
-      let succeeded = false;
-      try {
-        const imported = await store.getState().authJsonImportActions.run({
-          type: "authJsonCreate",
-          execute: async signal => {
-            actions.operationStart(carrier);
-            started = true;
-            const controller = new AbortController();
-            const timeout = setTimeout(
-              () => controller.abort(),
-              store.getState().authJsonCreate.authorizationTimeoutSeconds * 1_000,
-            );
-            signal.addEventListener("abort", () => controller.abort(), { once: true });
-            try {
-              return await accountRun(async () => {
-                const result = await authJsonCreateRun({ carrier, controller });
-                return authJsonImportRun(result.source);
-              });
-            } finally {
-              clearTimeout(timeout);
-            }
-          },
-        });
-        if (imported !== undefined) {
-          actions.operationSucceed();
-          succeeded = true;
-        }
-        return authJsonCreate.result.create.parse({ created: succeeded });
-      } finally {
-        if (started && !succeeded) actions.operationCancel();
-      }
+      const imported = await store.getState().authJsonImportActions.run({
+        type: "authJsonCreate",
+        execute: async signal => {
+          actions.operationStart(carrier);
+          const controller = new AbortController();
+          const timeout = setTimeout(
+            () => controller.abort(),
+            store.getState().authJsonCreate.authorizationTimeoutSeconds * 1_000,
+          );
+          signal.addEventListener("abort", () => controller.abort(), { once: true });
+          try {
+            const accountId = await accountRun(async () => {
+              const result = await authJsonCreateRun({ carrier, controller });
+              return authJsonImportRun(result.source);
+            });
+            actions.operationSucceed();
+            return accountId;
+          } catch (error) {
+            actions.operationCancel();
+            throw error;
+          } finally {
+            clearTimeout(timeout);
+          }
+        },
+      });
+      return authJsonCreate.result.create.parse({
+        created: imported !== undefined,
+      });
     });
     ipcMain.handle(authJsonCreate.channel.cancel, (event, input: unknown) => {
       rendererSet(event);
