@@ -5,14 +5,13 @@ import {
 } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
-import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { accounts } from "./store.ts";
 
 const useAccounts = (): string[] => {
   const { message } = AntdApp.useApp();
-  const order = useStore(store, state => state.accounts.order);
+  const order = store(state => state.accounts.order);
   useEffect(() => {
     void read({
       channel: accounts.channel.stateRead,

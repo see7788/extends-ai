@@ -7,7 +7,6 @@ import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import { browser } from "browser-partition-main/browser/store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
-import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
@@ -17,15 +16,9 @@ type BrowserApplication = ReturnType<
   typeof browser.browserApplicationsValidator.parse
 >[number];
 
-const stateSet = (input: unknown): void => {
-  store.getState().authJsonCreateActions.stateSet(
-    authJsonCreate.authJsonCreateValidator.parse(input),
-  );
-};
-
 const AuthJsonCreate = () => {
   const { message } = AntdApp.useApp();
-  const state = useStore(store, value => value.authJsonCreate);
+  const state = store(value => value.authJsonCreate);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -37,11 +30,11 @@ const AuthJsonCreate = () => {
     void read({
       channel: authJsonCreate.channel.stateRead,
       resultValidator: authJsonCreate.authJsonCreateValidator,
-    }).then(stateSet).catch(errorShow);
+    }).then(store.getState().authJsonCreateActions.stateSet).catch(errorShow);
     const dispose = subscribe({
       channel: authJsonCreate.channel.stateUpdated,
       resultValidator: authJsonCreate.authJsonCreateValidator,
-      run: stateSet,
+      run: store.getState().authJsonCreateActions.stateSet,
     });
     setLoading(true);
     void invoke({

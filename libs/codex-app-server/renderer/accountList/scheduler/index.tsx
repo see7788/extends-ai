@@ -9,7 +9,6 @@ import {
 } from "antd";
 import { read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
-import { useStore } from "zustand";
 import { errorText, timeText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
@@ -29,7 +28,7 @@ const Scheduler = ({
   maintenanceRetryIntervalMinutes,
 }: SchedulerProps) => {
   const { message } = AntdApp.useApp();
-  const value = useStore(store, state => state.scheduler);
+  const value = store(state => state.scheduler);
   useEffect(() => {
     void read({
       channel: scheduler.channel.stateRead,

@@ -1,7 +1,6 @@
 import { Collapse, ConfigProvider, Flex, Masonry, Space, Typography } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
 import { useParams } from "react-router-dom";
-import { useStore } from "zustand";
 import AuthJsonCreate from "../accountAdd/authJsonCreate/index.tsx";
 import AuthJsonImport from "../accountAdd/authJsonImport/index.tsx";
 import GlobalSettings from "../globalSettings/index.tsx";
@@ -9,11 +8,7 @@ import store from "../store.ts";
 import Account, { AccountSource, useAccount } from "./account/index.tsx";
 import { account as accountContract } from "./account/store.ts";
 import useAccounts, { AccountRemove } from "./accounts/index.tsx";
-import AuthSession, {
-  AuthSessionEmail,
-  AuthSessionPlan,
-  useAuthSessions,
-} from "./authSessions/index.tsx";
+import AuthSession, { useAuthSessions } from "./authSessions/index.tsx";
 import RateLimits, { useRateLimits } from "./rateLimits/index.tsx";
 import Scheduler from "./scheduler/index.tsx";
 import Usage, { useUsage } from "./usage/index.tsx";
@@ -39,6 +34,9 @@ const AccountPage = () => {
   useAuthSessions();
   useRateLimits();
   useUsage();
+  const authSession = store(
+    state => state.authSessions.byAccountId[accountId],
+  );
   return (
     <div style={pageStyle}>
       <Hyperspeed />
@@ -50,7 +48,7 @@ const AccountPage = () => {
             children: (
               <Account
                 accountId={accountId}
-                title={<AuthSessionEmail accountId={accountId} fallback="账号" />}
+                title={authSession?.email ?? "账号"}
               >
                 <Space direction="vertical" size="large" style={{ width: "100%" }}>
                   <AuthSession accountId={accountId} interactive />
@@ -68,9 +66,49 @@ const AccountPage = () => {
   );
 };
 
+const AccountListItem = ({ accountId }: { accountId: string }) => {
+  const authSession = store(
+    state => state.authSessions.byAccountId[accountId],
+  );
+  return (
+    <Account
+      accountId={accountId}
+      summary={(
+        <Flex align="center" justify="space-between">
+          {authSession?.planType ? (
+            <Typography.Text>{authSession.planType}</Typography.Text>
+          ) : null}
+          <AccountRemove accountId={accountId} />
+        </Flex>
+      )}
+      title={<Typography.Text strong>{authSession?.email ?? "账号"}</Typography.Text>}
+    >
+      <Space direction="vertical" size={8} style={{ width: "100%" }}>
+        <RateLimits accountId={accountId} />
+        <Collapse
+          ghost
+          items={[{
+            children: (
+              <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                <AccountSource accountId={accountId} />
+                <AuthSession accountId={accountId} />
+                <Usage accountId={accountId} />
+              </Space>
+            ),
+            key: "account-details",
+            label: "账号信息",
+          }]}
+          size="small"
+          styles={{ body: { paddingInline: 0 }, header: { paddingInline: 0 } }}
+        />
+      </Space>
+    </Account>
+  );
+};
+
 const AccountList = () => {
   const order = useAccounts();
-  const settings = useStore(store, state => state.globalSettings);
+  const settings = store(state => state.globalSettings);
   useAccount();
   useAuthSessions();
   useRateLimits();
@@ -94,42 +132,7 @@ const AccountList = () => {
     ...order.map(accountId => ({
       key: accountId,
       data: null,
-      children: (
-        <Account
-          accountId={accountId}
-          summary={(
-            <Flex align="center" justify="space-between">
-              <AuthSessionPlan accountId={accountId} />
-              <AccountRemove accountId={accountId} />
-            </Flex>
-          )}
-          title={(
-            <Typography.Text strong>
-              <AuthSessionEmail accountId={accountId} fallback="账号" />
-            </Typography.Text>
-          )}
-        >
-          <Space direction="vertical" size={8} style={{ width: "100%" }}>
-            <RateLimits accountId={accountId} />
-            <Collapse
-              ghost
-              items={[{
-                children: (
-                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                    <AccountSource accountId={accountId} />
-                    <AuthSession accountId={accountId} />
-                    <Usage accountId={accountId} />
-                  </Space>
-                ),
-                key: "account-details",
-                label: "账号信息",
-              }]}
-              size="small"
-              styles={{ body: { paddingInline: 0 }, header: { paddingInline: 0 } }}
-            />
-          </Space>
-        </Account>
-      ),
+      children: <AccountListItem accountId={accountId} />,
     })),
   ];
   return (

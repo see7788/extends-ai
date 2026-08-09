@@ -1,7 +1,6 @@
 import { App as AntdApp, Button, Flex, Progress, Space, Tag, Typography } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
-import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { rateLimits } from "./store.ts";
@@ -60,7 +59,7 @@ const RateLimits = ({
   secondaryColor = "inherit",
 }: RateLimitsProps) => {
   const { message } = AntdApp.useApp();
-  const value = useStore(store, state => state.rateLimits.byAccountId[accountId]);
+  const value = store(state => state.rateLimits.byAccountId[accountId]);
   const [pending, setPending] = useState(false);
   const refresh = async (): Promise<void> => {
     setPending(true);

@@ -1,4 +1,4 @@
-import { createStore } from "zustand/vanilla";
+import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import accountsStore from "./accounts/store.ts";
 import cookieImportStore from "./cookieImport/store.ts";
@@ -8,7 +8,7 @@ type Store = ReturnType<typeof accountsStore>
   & ReturnType<typeof cookieImportStore>
   & ReturnType<typeof loginStore>;
 
-const store = createStore<Store>()(
+const store = create<Store>()(
   immer((...options) => ({
     ...accountsStore(...options),
     ...cookieImportStore(...options),

@@ -1,4 +1,4 @@
-import { createStore } from "zustand/vanilla";
+import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import authJsonCreateStore from "./accountAdd/authJsonCreate/store.ts";
 import authJsonImportStore from "./accountAdd/authJsonImport/store.ts";
@@ -22,7 +22,7 @@ type Store = ReturnType<typeof accountStore>
   & ReturnType<typeof schedulerStore>
   & ReturnType<typeof themeStore>;
 
-const store = createStore<Store>()(
+const store = create<Store>()(
   immer((...options) => ({
     ...accountStore(...options),
     ...authJsonCreateStore(...options),

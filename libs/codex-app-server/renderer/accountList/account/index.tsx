@@ -12,7 +12,6 @@ import {
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
@@ -46,7 +45,7 @@ const Account = ({ accountId, children, summary, title }: {
   title?: ReactNode;
 }) => {
   const { message } = AntdApp.useApp();
-  const account = useStore(store, state => state.account[accountId]);
+  const account = store(state => state.account[accountId]);
   const { token } = theme.useToken();
   const colorPrimary = token.colorPrimary;
   const [officialOpening, setOfficialOpening] = useState(false);
@@ -130,7 +129,7 @@ const Account = ({ accountId, children, summary, title }: {
 };
 
 const AccountSource = ({ accountId }: { accountId: string }) => {
-  const account = useStore(store, state => state.account[accountId]);
+  const account = store(state => state.account[accountId]);
   if (!account) return null;
   return (
     <Typography.Text>

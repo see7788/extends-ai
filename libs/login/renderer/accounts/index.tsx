@@ -12,16 +12,9 @@ import {
 } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
-import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
 import { accounts } from "./store.ts";
-
-const stateSet = (input: unknown): void => {
-  store.getState().accountsActions.stateSet(
-    accounts.accountsValidator.parse(input),
-  );
-};
 
 const statusText = {
   expired: "已过期",
@@ -31,7 +24,7 @@ const statusText = {
 
 const useAccounts = () => {
   const { message } = AntdApp.useApp();
-  const accountsState = useStore(store, state => state.accounts);
+  const accountsState = store(state => state.accounts);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
@@ -39,11 +32,11 @@ const useAccounts = () => {
     void read({
       channel: accounts.channel.stateRead,
       resultValidator: accounts.accountsValidator,
-    }).then(stateSet).catch(errorShow);
+    }).then(store.getState().accountsActions.stateSet).catch(errorShow);
     return subscribe({
       channel: accounts.channel.stateUpdated,
       resultValidator: accounts.accountsValidator,
-      run: stateSet,
+      run: store.getState().accountsActions.stateSet,
     });
   }, []);
 

@@ -1,7 +1,6 @@
 import { App as AntdApp, Button, Flex, Space, Typography } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
-import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
 import { usage } from "./store.ts";
@@ -49,7 +48,7 @@ const Usage = ({
   secondaryColor?: string;
 }) => {
   const { message } = AntdApp.useApp();
-  const value = useStore(store, state => state.usage.byAccountId[accountId]);
+  const value = store(state => state.usage.byAccountId[accountId]);
   const [pending, setPending] = useState(false);
   const refresh = async (): Promise<void> => {
     setPending(true);

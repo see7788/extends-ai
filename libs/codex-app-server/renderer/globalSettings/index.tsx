@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useStore } from "zustand";
 import {
   CheckOutlined,
   DeleteOutlined,
@@ -33,7 +32,7 @@ type Pending = keyof typeof globalSettings.channel | null;
 
 const GlobalSettings = () => {
   const { message } = AntdApp.useApp();
-  const value = useStore(store, state => state.globalSettings);
+  const value = store(state => state.globalSettings);
   const codexHomeInput = useRef<InputRef>(null);
   const [form, setForm] = useState(value);
   const [editingCodexHome, setEditingCodexHome] = useState(false);

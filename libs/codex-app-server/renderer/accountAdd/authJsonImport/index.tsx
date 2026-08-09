@@ -6,31 +6,25 @@ import {
 import { Alert, App as AntdApp, Space, Tree, type TreeDataNode } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
-import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
 import { authJsonImport } from "./store.ts";
 
-const stateSet = (input: unknown): void => {
-  store.getState().authJsonImportActions.stateSet(
-    authJsonImport.authJsonImportValidator.parse(input),
-  );
-};
 const AuthJsonImport = () => {
   const { message } = AntdApp.useApp();
-  const state = useStore(store, value => value.authJsonImport);
+  const state = store(value => value.authJsonImport);
   useEffect(() => {
     void read({
       channel: authJsonImport.channel.stateRead,
       resultValidator: authJsonImport.authJsonImportValidator,
-    }).then(stateSet).catch(error => {
+    }).then(store.getState().authJsonImportActions.stateSet).catch(error => {
       void message.error(errorText(error));
     });
     return subscribe({
       channel: authJsonImport.channel.stateUpdated,
       resultValidator: authJsonImport.authJsonImportValidator,
-      run: stateSet,
+      run: store.getState().authJsonImportActions.stateSet,
     });
   }, []);
   const run = async (channel: string): Promise<void> => {

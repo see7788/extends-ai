@@ -9,16 +9,9 @@ import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import { browser } from "browser-partition-main/browser/store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
-import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
 import { cookieImport } from "./store.ts";
-
-const stateSet = (input: unknown): void => {
-  store.getState().cookieImportActions.stateSet(
-    cookieImport.cookieImportValidator.parse(input),
-  );
-};
 
 type BrowserApplication = ReturnType<
   typeof browser.browserApplicationsValidator.parse
@@ -32,7 +25,7 @@ const useCookieImport = ({
   identify: () => Promise<unknown>;
 }) => {
   const { message } = AntdApp.useApp();
-  const cookieImportState = useStore(store, state => state.cookieImport);
+  const cookieImportState = store(state => state.cookieImport);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [identifying, setIdentifying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,11 +38,11 @@ const useCookieImport = ({
     void read({
       channel: cookieImport.channel.stateRead,
       resultValidator: cookieImport.cookieImportValidator,
-    }).then(stateSet).catch(errorShow);
+    }).then(store.getState().cookieImportActions.stateSet).catch(errorShow);
     const dispose = subscribe({
       channel: cookieImport.channel.stateUpdated,
       resultValidator: cookieImport.cookieImportValidator,
-      run: stateSet,
+      run: store.getState().cookieImportActions.stateSet,
     });
     setLoading(true);
     void invoke({

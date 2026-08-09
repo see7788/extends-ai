@@ -2,18 +2,13 @@ import { CloseCircleOutlined, LoginOutlined } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
-import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
 import { login } from "./store.ts";
 
-const stateSet = (input: unknown): void => {
-  store.getState().loginActions.stateSet(login.loginValidator.parse(input));
-};
-
 const useLogin = () => {
   const { message } = AntdApp.useApp();
-  const loginState = useStore(store, state => state.login);
+  const loginState = store(state => state.login);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
@@ -21,11 +16,11 @@ const useLogin = () => {
     void read({
       channel: login.channel.stateRead,
       resultValidator: login.loginValidator,
-    }).then(stateSet).catch(errorShow);
+    }).then(store.getState().loginActions.stateSet).catch(errorShow);
     return subscribe({
       channel: login.channel.stateUpdated,
       resultValidator: login.loginValidator,
-      run: stateSet,
+      run: store.getState().loginActions.stateSet,
     });
   }, []);
 
