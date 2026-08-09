@@ -6,8 +6,8 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
-import applicationsRead from "browser-partition-renderer/browser/index.ts";
-import browserPartitionRenderer from "browser-partition-renderer/public.ts";
+import { browser } from "browser-partition-main/browser/store.ts";
+import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
@@ -20,9 +20,9 @@ const stateSet = (input: unknown): void => {
   );
 };
 
-type BrowserApplication = Awaited<ReturnType<
-  typeof applicationsRead
->>[number];
+type BrowserApplication = ReturnType<
+  typeof browser.browserApplicationsValidator.parse
+>[number];
 
 const useCookieImport = ({
   identifiedBrowserIds,
@@ -42,17 +42,22 @@ const useCookieImport = ({
   };
 
   useEffect(() => {
-    void browserPartitionRenderer.read({
+    void read({
       channel: cookieImport.channel.stateRead,
       resultValidator: cookieImport.cookieImportValidator,
     }).then(stateSet).catch(errorShow);
-    const dispose = browserPartitionRenderer.subscribe({
+    const dispose = subscribe({
       channel: cookieImport.channel.stateUpdated,
       resultValidator: cookieImport.cookieImportValidator,
       run: stateSet,
     });
     setLoading(true);
-    void applicationsRead(browserPartitionRenderer.invoke)
+    void invoke({
+      channel: browser.channel.applicationsRead,
+      input: {},
+      inputValidator: browser.input.command,
+      resultValidator: browser.browserApplicationsValidator,
+    })
       .then(setApplications)
       .catch(errorShow)
       .finally(() => setLoading(false));
@@ -143,7 +148,7 @@ const useCookieImport = ({
                 style={{ whiteSpace: "nowrap" }}
                 title="取消"
                 type="text"
-                onClick={() => void browserPartitionRenderer.invoke({
+                onClick={() => void invoke({
                   channel: cookieImport.channel.cancel,
                   input: {},
                   inputValidator: cookieImport.input.command,
@@ -161,7 +166,7 @@ const useCookieImport = ({
                 style={{ whiteSpace: "nowrap" }}
                 title={imported ? "重新导入" : "导入"}
                 type="text"
-                onClick={() => void browserPartitionRenderer.invoke({
+                onClick={() => void invoke({
                   channel: cookieImport.channel.start,
                   input: { browserId: application.id },
                   inputValidator: cookieImport.input.create,

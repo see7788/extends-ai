@@ -116,7 +116,7 @@ extends-ai/
 │  │  ├─ browser/                     # 发现、校验并打开系统浏览器
 │  │  └─ BrowserWindow/               # 创建指定 Electron Session 的隔离窗口
 │  ├─ preload/                        # 唯一通用安全 bridge；被所有业务窗口直接加载
-│  └─ renderer/                       # 唯一公共类型化 invoke/read/subscribe 与浏览器调用
+│  └─ renderer/public.ts             # 唯一公共类型化 invoke/read/subscribe；只具名导出
 │     └─ 已验收：无主仓库、无业务状态
 ├─ libs/login/                         # ChatGPT.com 登录态工具，独立于 Codex 账号业务
 │  ├─ main/
@@ -145,7 +145,7 @@ extends-ai/
       │  └─ authJsonImport/           # 文件导入：自身 store、通信、操作与 Card/Tree
       ├─ accountList/
       │  ├─ account/                  # 单账号启用、官网访问与账号卡片
-      │  ├─ accounts/                 # 账号集合监听、移除操作与空状态
+      │  ├─ accounts/                 # 账号集合监听与移除操作；零账号时不伪造占位卡片
       │  ├─ authSessions/             # 登录态监听、查询与本切片 UI
       │  ├─ rateLimits/               # 额度监听、查询与本切片 UI
       │  ├─ scheduler/                # 全账号查询执行状态与本切片 UI
@@ -180,6 +180,7 @@ extends-ai/
 - renderer 业务切片的 `index.tsx` 只负责自身通信、监听、操作和 UI；根切片的 `index.tsx` 可以透明组合自己的子切片。
 - `app.tsx` 只负责应用主题上下文与路由 `Outlet`，不转发页面、不拥有业务 store，也不替根切片组合业务 UI。
 - `public/` 只保存无业务的公共组件与工具，不保存页面壳或业务转发。
+- 公共通信只具名导出 `invoke / read / subscribe`；消费者直接写明通道和验证器，不保留默认对象、纯转发函数或无消费者的入口导出。
 - `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
 - `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
 - `login` 与 `codex-app-server` 相互独立，只共同消费 `browser-partition`。

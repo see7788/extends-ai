@@ -2,13 +2,11 @@ import { DeleteOutlined } from "@ant-design/icons";
 import {
   App as AntdApp,
   Button,
-  Empty,
 } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
 import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
-import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
 import { accounts } from "./store.ts";
 
@@ -59,11 +57,5 @@ const AccountRemove = ({ accountId }: { accountId: string }) => {
   );
 };
 
-const AccountsEmpty = () => (
-  <GlassCard title="已有账号">
-    <Empty description="尚未添加账号" />
-  </GlassCard>
-);
-
-export { AccountRemove, AccountsEmpty };
+export { AccountRemove };
 export default useAccounts;

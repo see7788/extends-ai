@@ -1,6 +1,6 @@
 import { CloseCircleOutlined, LoginOutlined } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
-import loginRenderer from "browser-partition-renderer/public.ts";
+import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
@@ -18,11 +18,11 @@ const useLogin = () => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
   useEffect(() => {
-    void loginRenderer.read({
+    void read({
       channel: login.channel.stateRead,
       resultValidator: login.loginValidator,
     }).then(stateSet).catch(errorShow);
-    return loginRenderer.subscribe({
+    return subscribe({
       channel: login.channel.stateUpdated,
       resultValidator: login.loginValidator,
       run: stateSet,
@@ -45,7 +45,7 @@ const useLogin = () => {
                   <Button
                     icon={<CloseCircleOutlined />}
                     type="text"
-                    onClick={() => void loginRenderer.invoke({
+                    onClick={() => void invoke({
                       channel: login.channel.cancel,
                       input: {},
                       inputValidator: login.input.command,
@@ -58,7 +58,7 @@ const useLogin = () => {
                   <Button
                     icon={<LoginOutlined />}
                     type="text"
-                    onClick={() => void loginRenderer.invoke({
+                    onClick={() => void invoke({
                       channel: login.channel.start,
                       input: {},
                       inputValidator: login.input.command,

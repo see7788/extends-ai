@@ -52,7 +52,4 @@ const subscribe = <TResult>(options: {
   return () => preload.removeListener(options.channel, listenerId);
 };
 
-const renderer = { invoke, read, subscribe };
-
 export { invoke, read, subscribe };
-export default renderer;

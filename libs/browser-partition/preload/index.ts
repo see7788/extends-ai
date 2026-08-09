@@ -25,5 +25,3 @@ const bridge = {
 };
 
 contextBridge.exposeInMainWorld("electron", bridge);
-
-export default bridge;

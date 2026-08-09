@@ -4,7 +4,7 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
-import applicationsRead from "browser-partition-renderer/browser/index.ts";
+import { browser } from "browser-partition-main/browser/store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
@@ -13,7 +13,9 @@ import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
 import { authJsonCreate } from "./store.ts";
 
-type BrowserApplication = Awaited<ReturnType<typeof applicationsRead>>[number];
+type BrowserApplication = ReturnType<
+  typeof browser.browserApplicationsValidator.parse
+>[number];
 
 const stateSet = (input: unknown): void => {
   store.getState().authJsonCreateActions.stateSet(
@@ -42,7 +44,12 @@ const AuthJsonCreate = () => {
       run: stateSet,
     });
     setLoading(true);
-    void applicationsRead(invoke)
+    void invoke({
+      channel: browser.channel.applicationsRead,
+      input: {},
+      inputValidator: browser.input.command,
+      resultValidator: browser.browserApplicationsValidator,
+    })
       .then(setApplications)
       .catch(errorShow)
       .finally(() => setLoading(false));

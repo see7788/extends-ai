@@ -7,11 +7,10 @@ import {
   App as AntdApp,
   Button,
   Flex,
-  Popconfirm,
   Tag,
   Typography,
 } from "antd";
-import browserPartitionRenderer from "browser-partition-renderer/public.ts";
+import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
@@ -37,11 +36,11 @@ const useAccounts = () => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
   useEffect(() => {
-    void browserPartitionRenderer.read({
+    void read({
       channel: accounts.channel.stateRead,
       resultValidator: accounts.accountsValidator,
     }).then(stateSet).catch(errorShow);
-    return browserPartitionRenderer.subscribe({
+    return subscribe({
       channel: accounts.channel.stateUpdated,
       resultValidator: accounts.accountsValidator,
       run: stateSet,
@@ -69,7 +68,7 @@ const useAccounts = () => {
               <Button
                 icon={<GlobalOutlined />}
                 type="text"
-                onClick={() => void browserPartitionRenderer.invoke({
+                onClick={() => void invoke({
                   channel: accounts.channel.open,
                   input: { email: account.email },
                   inputValidator: accounts.input.email,
@@ -81,7 +80,7 @@ const useAccounts = () => {
               <Button
                 icon={<SafetyCertificateOutlined />}
                 type="text"
-                onClick={() => void browserPartitionRenderer.invoke({
+                onClick={() => void invoke({
                   channel: accounts.channel.validate,
                   input: { email: account.email },
                   inputValidator: accounts.input.email,
@@ -90,18 +89,18 @@ const useAccounts = () => {
               >
                 验证
               </Button>
-              <Popconfirm
-                description="只移除本应用保存的隔离登录态"
-                title="移除账号？"
-                onConfirm={() => browserPartitionRenderer.invoke({
+              <Button
+                icon={<DeleteOutlined />}
+                type="text"
+                onClick={() => void invoke({
                   channel: accounts.channel.remove,
                   input: { email: account.email },
                   inputValidator: accounts.input.email,
                   resultValidator: accounts.result.command,
                 }).catch(errorShow)}
               >
-                <Button danger icon={<DeleteOutlined />} type="text">移除</Button>
-              </Popconfirm>
+                移除
+              </Button>
             </Flex>
           </Flex>
         </GlassCard>
@@ -110,7 +109,7 @@ const useAccounts = () => {
       key: `account:${account.email}`,
     }));
   return {
-    cookieImportConsume: async () => (await browserPartitionRenderer.invoke({
+    cookieImportConsume: async () => (await invoke({
       channel: accounts.channel.cookieImportConsume,
       input: {},
       inputValidator: accounts.input.command,

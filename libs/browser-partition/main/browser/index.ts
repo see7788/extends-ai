@@ -6,7 +6,6 @@ import { basename, join, resolve } from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 import { app, ipcMain } from "electron";
-import { z } from "zod";
 import { browser } from "./store.ts";
 type BrowserApplication = ReturnType<typeof browser.browserApplicationValidator.parse>;
 
@@ -17,7 +16,7 @@ const registryRoots = [
   "HKEY_LOCAL_MACHINE\\Software\\WOW6432Node\\Clients\\StartMenuInternet",
 ];
 const environmentTextRead = (value: string | undefined): string | undefined => {
-  const result = z.string().trim().min(1).safeParse(value);
+  const result = browser.environmentTextValidator.safeParse(value);
   return result.success ? result.data : undefined;
 };
 const registryValueRead = (output: string): string | undefined => {
@@ -88,13 +87,6 @@ const commandArgumentsRead = (commandLine: string): string[] => {
   if (current) result.push(current);
   return result;
 };
-const shortcutValidator = z.object({
-  arguments: z.string(),
-  executablePath: z.string().trim().min(1),
-  name: z.string().trim().min(1),
-  sourcePath: z.string().trim().min(1),
-});
-const shortcutsResultValidator = z.object({ shortcuts: z.array(shortcutValidator) });
 const executableNames = new Set([
   "brave.exe",
   "chrome.exe",
@@ -123,7 +115,7 @@ const shortcutsRead = async (desktopPath: string): Promise<BrowserApplication[]>
         windowsHide: true,
       },
     );
-    const value = shortcutsResultValidator.parse(JSON.parse(stdout));
+    const value = browser.shortcutsResultValidator.parse(JSON.parse(stdout));
     const shortcuts = await Promise.all(value.shortcuts.map(async shortcut => {
       if (!executableNames.has(basename(shortcut.executablePath).toLowerCase())) return undefined;
       try {
@@ -221,7 +213,7 @@ export const executableOpen = async (
     launchArguments: string[] = [],
   ): Promise<void> => {
     await access(executablePath);
-    const validUrl = z.string().url().parse(url);
+    const validUrl = browser.urlValidator.parse(url);
     await new Promise<void>((resolveOpen, reject) => {
       const child = spawn(executablePath, [...launchArguments, validUrl], {
         detached: true,

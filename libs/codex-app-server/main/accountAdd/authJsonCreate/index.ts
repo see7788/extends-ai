@@ -2,12 +2,11 @@ import {
   applicationRead,
   windowOpen,
 } from "browser-partition-main/browser/index.ts";
-import { z } from "zod";
 import store from "../../store.ts";
-import { authJsonCreate } from "./store.ts";
+import type { AuthJsonCreateInput } from "./store.ts";
 
 const create = async (input: {
-  carrier: z.infer<typeof authJsonCreate.input.create>;
+  carrier: AuthJsonCreateInput;
 }) => {
   const application = await applicationRead({ browserId: input.carrier.browserId });
   let opened: Awaited<ReturnType<typeof windowOpen>> | undefined;

@@ -34,6 +34,7 @@ type AuthJsonCreateSlice = {
 
 const commandValidator = z.object({});
 const createInputValidator = z.object({ browserId: browser.browserIdValidator });
+type AuthJsonCreateInput = z.infer<typeof createInputValidator>;
 const createResultValidator = z.object({ created: z.boolean() });
 const cancelResultValidator = z.object({ canceled: z.boolean() });
 const authJsonCreate = {
@@ -145,5 +146,5 @@ const authJsonCreateStore: ImmerStateCreator<AuthJsonCreateSlice> = (set, get) =
   },
 });
 
-export { authJsonCreate };
+export { authJsonCreate, type AuthJsonCreateInput };
 export default authJsonCreateStore;

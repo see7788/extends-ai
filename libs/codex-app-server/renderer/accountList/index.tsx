@@ -8,7 +8,7 @@ import GlobalSettings from "../globalSettings/index.tsx";
 import store from "../store.ts";
 import Account, { AccountSource, useAccount } from "./account/index.tsx";
 import { account as accountContract } from "./account/store.ts";
-import useAccounts, { AccountRemove, AccountsEmpty } from "./accounts/index.tsx";
+import useAccounts, { AccountRemove } from "./accounts/index.tsx";
 import AuthSession, {
   AuthSessionEmail,
   AuthSessionPlan,
@@ -131,9 +131,6 @@ const AccountList = () => {
         </Account>
       ),
     })),
-    ...(order.length === 0
-      ? [{ key: "accounts-empty", data: null, children: <AccountsEmpty /> }]
-      : []),
   ];
   return (
     <div style={pageStyle}>

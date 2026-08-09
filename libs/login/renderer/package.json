@@ -13,6 +13,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
     "antd": "^6.0.0",
+    "browser-partition-main": "workspace:*",
     "browser-partition-renderer": "workspace:*",
     "extends-react": "workspace:*",
     "extends-zustand": "workspace:*",

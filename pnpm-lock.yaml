@@ -310,6 +310,9 @@ importers:
       antd:
         specifier: ^6.0.0
         version: 6.5.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      browser-partition-main:
+        specifier: workspace:*
+        version: link:../../browser-partition/main
       browser-partition-renderer:
         specifier: workspace:*
         version: link:../../browser-partition/renderer
