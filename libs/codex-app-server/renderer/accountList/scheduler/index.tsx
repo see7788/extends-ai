@@ -8,7 +8,7 @@ import {
   type TreeDataNode,
 } from "antd";
 import { read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useStore } from "zustand";
 import { errorText, timeText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
@@ -30,7 +30,6 @@ const Scheduler = ({
 }: SchedulerProps) => {
   const { message } = AntdApp.useApp();
   const value = useStore(store, state => state.scheduler);
-  const [pending, setPending] = useState(false);
   useEffect(() => {
     void read({
       channel: scheduler.channel.stateRead,
@@ -45,23 +44,13 @@ const Scheduler = ({
     });
   }, []);
   const runNow = async (): Promise<void> => {
-    setPending(true);
     try {
       await read({
         channel: scheduler.channel.runNow,
         resultValidator: scheduler.resultValidator,
       });
-      store.getState().schedulerActions.stateSet(await read({
-        channel: scheduler.channel.stateRead,
-        resultValidator: scheduler.schedulerValidator,
-      }));
-      const error = store.getState().scheduler.error;
-      if (error) throw new Error(error);
-      void message.success("全部账号查询完成");
     } catch (error) {
       void message.error(errorText(error));
-    } finally {
-      setPending(false);
     }
   };
   const retry = Boolean(value.error)
@@ -102,10 +91,8 @@ const Scheduler = ({
           if (node.key === "run") {
             return (
               <Button
-                disabled={value.running}
-                icon={<ReloadOutlined spin={value.running} />}
+                icon={<ReloadOutlined />}
                 iconPosition="end"
-                loading={pending || value.running}
                 type="text"
                 onClick={() => void runNow()}
               >
