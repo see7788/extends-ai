@@ -9,6 +9,7 @@ const GlassCard = ({ style, ...props }: CardProps) => (
       WebkitBackdropFilter: "blur(20px) saturate(140%)",
       ...style,
     }}
+    size={props.size ?? "small"}
     variant={props.variant ?? "borderless"}
   />
 );
