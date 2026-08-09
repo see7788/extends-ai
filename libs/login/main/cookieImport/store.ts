@@ -7,6 +7,13 @@ const candidateValidator = z.object({
   browserName: z.string().trim().min(1).max(120),
   partition: z.string().trim().min(1),
 });
+const importRecordValidator = candidateValidator.omit({ partition: true }).extend({
+  importedAt: z.string().datetime({ offset: true }),
+});
+const importHistoryValidator = z.record(
+  browser.browserIdValidator,
+  importRecordValidator,
+);
 const cookieImportValidator = z.object({
   activeBrowserId: browser.browserIdValidator.nullable(),
   authorizationExpiresAt: z.string().datetime({ offset: true }).nullable(),
@@ -14,6 +21,7 @@ const cookieImportValidator = z.object({
   candidate: candidateValidator.nullable(),
   error: z.string().nullable(),
   errorBrowserId: browser.browserIdValidator.nullable(),
+  history: importHistoryValidator.default({}),
   status: z.enum(["idle", "working", "ready", "error"]),
 });
 const createValidator = z.object({ browserId: browser.browserIdValidator });
@@ -92,6 +100,7 @@ const initial: CookieImport = {
   candidate: null,
   error: null,
   errorBrowserId: null,
+  history: {},
   status: "idle",
 };
 const cookieImport = {
@@ -108,6 +117,7 @@ const cookieImport = {
   devToolsAttachedValidator,
   devToolsMessageValidator,
   devToolsTargetsValidator,
+  importHistoryValidator,
   initial,
   input: {
     authorizationStart: authorizationStartValidator,
@@ -150,10 +160,12 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = set => ({
       set(state => {
         if (state.cookieImport.status !== "ready"
           || state.cookieImport.candidate?.partition !== value.partition) return;
-        state.cookieImport = {
-          ...structuredClone(initial),
-          authorizationTimeoutSeconds: state.cookieImport.authorizationTimeoutSeconds,
-        };
+        state.cookieImport.activeBrowserId = null;
+        state.cookieImport.authorizationExpiresAt = null;
+        state.cookieImport.candidate = null;
+        state.cookieImport.error = null;
+        state.cookieImport.errorBrowserId = null;
+        state.cookieImport.status = "idle";
         cleared = true;
       });
       return cleared;
@@ -169,44 +181,51 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = set => ({
     },
     operationCancel() {
       set(state => {
-        state.cookieImport = {
-          ...structuredClone(initial),
-          authorizationTimeoutSeconds: state.cookieImport.authorizationTimeoutSeconds,
-        };
+        state.cookieImport.activeBrowserId = null;
+        state.cookieImport.authorizationExpiresAt = null;
+        state.cookieImport.candidate = null;
+        state.cookieImport.error = null;
+        state.cookieImport.errorBrowserId = null;
+        state.cookieImport.status = "idle";
       });
     },
     operationFail(input) {
       const value = operationFailValidator.parse(input);
       set(state => {
-        state.cookieImport = {
-          ...structuredClone(initial),
-          authorizationTimeoutSeconds: state.cookieImport.authorizationTimeoutSeconds,
-          error: value.error,
-          errorBrowserId: state.cookieImport.activeBrowserId,
-          status: "error",
-        };
+        const browserId = state.cookieImport.activeBrowserId;
+        state.cookieImport.activeBrowserId = null;
+        state.cookieImport.authorizationExpiresAt = null;
+        state.cookieImport.candidate = null;
+        state.cookieImport.error = value.error;
+        state.cookieImport.errorBrowserId = browserId;
+        state.cookieImport.status = "error";
       });
     },
     operationStart(input) {
       const value = createValidator.parse(input);
       set(state => {
-        state.cookieImport = {
-          ...structuredClone(initial),
-          activeBrowserId: value.browserId,
-          authorizationTimeoutSeconds: state.cookieImport.authorizationTimeoutSeconds,
-          status: "working",
-        };
+        state.cookieImport.activeBrowserId = value.browserId;
+        state.cookieImport.authorizationExpiresAt = null;
+        state.cookieImport.candidate = null;
+        state.cookieImport.error = null;
+        state.cookieImport.errorBrowserId = null;
+        state.cookieImport.status = "working";
       });
     },
     operationSucceed(input) {
       const value = candidateValidator.parse(input);
       set(state => {
-        state.cookieImport = {
-          ...structuredClone(initial),
-          authorizationTimeoutSeconds: state.cookieImport.authorizationTimeoutSeconds,
-          candidate: value,
-          status: "ready",
+        state.cookieImport.activeBrowserId = null;
+        state.cookieImport.authorizationExpiresAt = null;
+        state.cookieImport.candidate = value;
+        state.cookieImport.error = null;
+        state.cookieImport.errorBrowserId = null;
+        state.cookieImport.history[value.browserId] = {
+          browserId: value.browserId,
+          browserName: value.browserName,
+          importedAt: new Date().toISOString(),
         };
+        state.cookieImport.status = "ready";
       });
     },
     async run<T>(execute: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {

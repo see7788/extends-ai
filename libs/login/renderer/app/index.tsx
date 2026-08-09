@@ -1,14 +1,12 @@
 import { Masonry } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
-import useAccounts, { accountsIndex } from "../accounts/index.tsx";
+import useAccounts from "../accounts/index.tsx";
 import useCookieImport from "../cookieImport/index.tsx";
 import useLogin from "../login/index.tsx";
 
 const App = () => {
-  const loginItems = useLogin({ identify: accountsIndex.loginConsume });
-  const cookieImportItems = useCookieImport({
-    identify: accountsIndex.cookieImportConsume,
-  });
+  const loginItems = useLogin();
+  const cookieImportItems = useCookieImport();
   const accountItems = useAccounts();
 
   return (

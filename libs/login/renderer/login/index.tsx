@@ -45,11 +45,7 @@ const loginIndex = {
   },
 };
 
-type LoginProps = {
-  identify(): Promise<unknown>;
-};
-
-const useLogin = ({ identify }: LoginProps) => {
+const useLogin = () => {
   const { message } = AntdApp.useApp();
   const login = useStore(store, state => state.login);
   const errorShow = (error: unknown): void => {
@@ -81,15 +77,7 @@ const useLogin = ({ identify }: LoginProps) => {
                     取消
                   </Button>
                 ) : login.status === "ready" ? (
-                  <Flex align="center" gap={4}>
-                    <Typography.Text>待识别</Typography.Text>
-                    <Button
-                      type="text"
-                      onClick={() => void identify().catch(errorShow)}
-                    >
-                      识别账号
-                    </Button>
-                  </Flex>
+                  <Typography.Text>登录完成</Typography.Text>
                 ) : (
                   <Button
                     icon={<LoginOutlined />}

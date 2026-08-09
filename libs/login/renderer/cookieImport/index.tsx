@@ -61,13 +61,9 @@ const cookieImportIndex = {
 type BrowserApplication = Awaited<ReturnType<
   typeof browserIndex.applicationsRead
 >>[number];
-type CookieImportProps = {
-  identify(): Promise<unknown>;
-};
 
-const useCookieImport = ({ identify }: CookieImportProps) => {
+const useCookieImport = () => {
   const { message } = AntdApp.useApp();
-  const accounts = useStore(store, state => state.accounts);
   const cookieImport = useStore(store, state => state.cookieImport);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,13 +95,8 @@ const useCookieImport = ({ identify }: CookieImportProps) => {
       (Date.parse(cookieImport.authorizationExpiresAt) - now) / 1_000,
     ))
     : null;
-  const accountValues = accounts.order
-    .map(email => accounts.byEmail[email])
-    .filter(value => value !== undefined);
   const treeData = applications.map(application => {
-    const importedAccount = accountValues.find(account => account.sources.some(
-      source => source.browserId === application.id,
-    ));
+    const imported = cookieImport.history[application.id] !== undefined;
     const active = cookieImport.activeBrowserId === application.id;
     const ready = cookieImport.status === "ready"
       && cookieImport.candidate?.browserId === application.id;
@@ -131,13 +122,6 @@ const useCookieImport = ({ identify }: CookieImportProps) => {
                 取消
               </Button>
             ) : ready ? (
-              <Flex align="center" gap={4}>
-                <Typography.Text>待识别</Typography.Text>
-                <Button type="text" onClick={() => void identify().catch(errorShow)}>
-                  识别账号
-                </Button>
-              </Flex>
-            ) : importedAccount ? (
               <Typography.Text>已导入</Typography.Text>
             ) : (
               <Button
@@ -145,7 +129,7 @@ const useCookieImport = ({ identify }: CookieImportProps) => {
                 type="text"
                 onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
               >
-                导入
+                {imported ? "再次导入" : "导入"}
               </Button>
             )}
           </Flex>
