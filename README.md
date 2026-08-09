@@ -167,7 +167,7 @@ extends-ai/
 - `login-main` 的 cookieImport 只在 Zustand 保存浏览器导入历史元数据；Cookie 内容仍只存在 Electron Session。
 - renderer store 不持久化；查询结果 `authSessions`、`rateLimits`、`usage` 只保留在主进程内存并推送。
 - `codex-app-server` 仅持久化账号记录、唯一 CODEX_HOME 和全局查询配置；任意时刻最多物化一个 `auth.json`。
-- auth.json 导入只校验并保存账号副本，不清空或切换已有使用中账号；只有此前没有使用中账号时，消费层才通过账号切片启用首个账号。
+- auth.json 导入只校验并保存账号副本；启用账号只由账号切片的明确操作执行。
 - 主 store 使用明确白名单持久化；当前 `login-main.json` 与 `codex-app-server-main.json` 只包含所属切片。
 - 拆库前的 `browser-partition-main.json` 是不再读取的静态遗留文件，不属于当前运行仓库。
 

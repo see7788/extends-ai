@@ -5,8 +5,7 @@ import {
 } from "@ant-design/icons";
 import { Alert, App as AntdApp, Space, Tree, type TreeDataNode } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
@@ -20,9 +19,7 @@ const stateSet = (input: unknown): void => {
 };
 const AuthJsonImport = () => {
   const { message } = AntdApp.useApp();
-  const navigate = useNavigate();
   const state = useStore(store, value => value.authJsonImport);
-  const running = useRef(false);
   useEffect(() => {
     void read({
       channel: authJsonImport.channel.stateRead,
@@ -37,19 +34,15 @@ const AuthJsonImport = () => {
     });
   }, []);
   const run = async (channel: string): Promise<void> => {
-    if (running.current || state.status === "working") return;
-    running.current = true;
     try {
-      if ((await invoke({
+      await invoke({
         channel,
         input: {},
         inputValidator: authJsonImport.input.command,
         resultValidator: authJsonImport.result.import,
-      })).imported) navigate("/accounts");
+      });
     } catch (error) {
       void message.error(errorText(error));
-    } finally {
-      running.current = false;
     }
   };
   const treeData: TreeDataNode[] = [

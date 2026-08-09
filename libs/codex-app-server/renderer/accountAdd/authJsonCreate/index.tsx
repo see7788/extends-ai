@@ -7,7 +7,6 @@ import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import applicationsRead from "browser-partition-renderer/browser/index.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useStore } from "zustand";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
@@ -24,7 +23,6 @@ const stateSet = (input: unknown): void => {
 
 const AuthJsonCreate = () => {
   const { message } = AntdApp.useApp();
-  const navigate = useNavigate();
   const state = useStore(store, value => value.authJsonCreate);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,12 +63,12 @@ const AuthJsonCreate = () => {
     : null;
   const run = async (browserId: string): Promise<void> => {
     try {
-      if ((await invoke({
+      await invoke({
         channel: authJsonCreate.channel.create,
         input: { browserId },
         inputValidator: authJsonCreate.input.create,
         resultValidator: authJsonCreate.result.create,
-      })).created) navigate("/accounts");
+      });
     } catch (error) {
       errorShow(error);
     }

@@ -6,7 +6,6 @@ import {
 } from "electron";
 import { errorText } from "../public.ts";
 import store from "../store.ts";
-import { enabledSet } from "../accountList/account/index.ts";
 import authJsonCreateRun from "./authJsonCreate/index.ts";
 import { authJsonCreate } from "./authJsonCreate/store.ts";
 import authJsonImportRun, {
@@ -36,20 +35,13 @@ const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
 const canceled = (error: unknown): boolean => (
   error instanceof Error && error.name === "AbortError"
 );
-const enabledAccountIdRead = (): string | null => (
-  Object.values(store.getState().account).find(account => account.enabled)?.id ?? null
-);
 const accountImport = async (
   run: () => Promise<string>,
   actions?: AccountOperationActions,
 ): Promise<string> => {
-  const previousAccountId = enabledAccountIdRead();
   actions?.operationStart();
   try {
     const accountId = await run();
-    if (!previousAccountId && store.getState().globalSettings.codexHome) {
-      await enabledSet({ accountId, enabled: true });
-    }
     actions?.operationSucceed();
     return accountId;
   } catch (error) {
