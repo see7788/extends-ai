@@ -21,7 +21,7 @@
 - 两棵生产者 Tree 只呈现各自状态。内嵌登录由 main 入口把 `login` 生产者与 `accounts` 识别者串联，识别成功后自动关闭窗口并直接显示账号；`cookieImport` 的浏览器根节点按状态显示“导入 / 重新导入 / 取消”的文字与图标及授权倒计时。候选存在时显示“已导入待识别”，accounts 自己提供已识别 browserId，只有 app 消费层将它组合为“已导入已识别 / 识别完成”。
 - “其他浏览器导入”只响应用户单击的一个 browserId；罗列浏览器不触发串行、并行或批量导入。
 - cookieImport 为授权流程固定打开一个新增浏览器窗口，并在成功、手动取消或自动取消后关闭该窗口；用户原有浏览器窗口不属于本次资源，不关闭。
-- main/renderer 同构；每个 `store.ts` 只定义自身切片，跨切片串联只允许在消费者 `index.ts`。
+- main/renderer 同构；每个 `store.ts` 只定义自身切片，Action 只接收明确业务输入，不接收 runtime 对象或任意执行回调；跨切片串联只允许在消费者 `index.ts`。
 - 框架要求的 preload 在 dev 中编译为 `.cjs`；所有业务窗口共用唯一公共 preload，不再保留重复业务 preload 子包。
 - 开发期间保持 `electron-vite dev --watch` 与 renderer HMR，不执行生产打包。
 

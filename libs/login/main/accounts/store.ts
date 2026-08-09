@@ -1,4 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import { BrowserWindow as ElectronBrowserWindow, session } from "electron";
+import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
 import { z } from "zod";
 import { browser } from "browser-partition-main/browser/store.ts";
 
@@ -50,16 +52,6 @@ type Verification = {
 };
 type Candidate = z.infer<typeof candidateValidator>;
 type AccountWindow = { dispose(): void };
-type AccountsRuntime = {
-  fetch(partition: string, url: string, signal?: AbortSignal): Promise<Response>;
-  storageClear(partition: string): Promise<void>;
-  windowOpen(input: {
-    onClose(): void;
-    parent: unknown;
-    partition: string;
-    title: string;
-  }): Promise<AccountWindow>;
-};
 type AccountsSlice = {
   accounts: Accounts;
   accountsActions: {
@@ -68,14 +60,13 @@ type AccountsSlice = {
     accountStatusSet(input: z.infer<typeof accountStatusSetValidator>): void;
     candidateConsume(
       input: unknown,
-      runtime: AccountsRuntime,
       signal?: AbortSignal,
     ): Promise<z.infer<typeof accountValidator>>;
     dispose(): void;
-    loginIdentify(partition: string, runtime: AccountsRuntime): Promise<boolean>;
-    open(input: unknown, parent: unknown, runtime: AccountsRuntime): Promise<boolean>;
-    remove(input: unknown, runtime: AccountsRuntime): Promise<boolean>;
-    validate(input: unknown, runtime: AccountsRuntime): Promise<boolean>;
+    loginIdentify(partition: string): Promise<boolean>;
+    open(input: unknown, parent: ElectronBrowserWindow): Promise<boolean>;
+    remove(input: unknown): Promise<boolean>;
+    validate(input: unknown): Promise<boolean>;
   };
 };
 
@@ -112,16 +103,17 @@ const canceled = (error: unknown): boolean => (
   error instanceof Error && error.name === "AbortError"
 );
 const verificationRead = async (
-  runtime: AccountsRuntime,
   partition: string,
   signal?: AbortSignal,
 ): Promise<Verification> => {
   const checkedAt = new Date().toISOString();
   try {
-    const response = await runtime.fetch(
-      partition,
+    const response = await session.fromPartition(partition).fetch(
       "https://chatgpt.com/api/auth/session",
-      signal,
+      {
+        credentials: "include",
+        ...(signal ? { signal } : {}),
+      },
     );
     if (response.status === 401) {
       return { checkedAt, email: null, error: null, status: "expired" };
@@ -197,9 +189,9 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
         account.status = value.status;
       });
     },
-    async candidateConsume(input, runtime, signal) {
+    async candidateConsume(input, signal) {
       const candidate: Candidate = candidateValidator.parse(input);
-      const verification = await verificationRead(runtime, candidate.partition, signal);
+      const verification = await verificationRead(candidate.partition, signal);
       if (verification.status !== "valid" || !verification.email) {
         throw new Error(verification.error ?? "未检测到有效的 ChatGPT 登录态");
       }
@@ -222,7 +214,7 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
       });
       const previousPartition = get().accountsActions.accountSet(account);
       if (previousPartition && previousPartition !== account.partition) {
-        await runtime.storageClear(previousPartition).catch(() => undefined);
+        await BrowserPartitionWindow.storageClear(previousPartition).catch(() => undefined);
       }
       return account;
     },
@@ -230,9 +222,9 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
       accountWindow?.dispose();
       accountWindow = undefined;
     },
-    async loginIdentify(partition, runtime) {
+    async loginIdentify(partition) {
       const candidate = candidateValidator.parse({ partition });
-      const verification = await verificationRead(runtime, candidate.partition);
+      const verification = await verificationRead(candidate.partition);
       if (verification.status !== "valid" || !verification.email) return false;
       const previous = get().accounts.byEmail[verification.email];
       const account = accountValidator.parse({
@@ -245,39 +237,44 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
       });
       const previousPartition = get().accountsActions.accountSet(account);
       if (previousPartition && previousPartition !== account.partition) {
-        await runtime.storageClear(previousPartition).catch(() => undefined);
+        await BrowserPartitionWindow.storageClear(previousPartition).catch(() => undefined);
       }
       return true;
     },
-    async open(input, parent, runtime) {
+    async open(input, parent) {
       const { email } = emailValidator.parse(input);
       const account = get().accounts.byEmail[email];
       if (!account) throw new Error("账号不存在");
       accountWindow?.dispose();
-      accountWindow = await runtime.windowOpen({
+      accountWindow = await BrowserPartitionWindow.open({
+        height: 760,
+        minHeight: 520,
+        minWidth: 760,
         onClose: () => {
           accountWindow = undefined;
         },
         parent,
         partition: account.partition,
         title: email,
+        url: "https://chatgpt.com/",
+        width: 920,
       });
       return true;
     },
-    async remove(input, runtime) {
+    async remove(input) {
       const value = emailValidator.parse(input);
       const partition = get().accountsActions.accountRemove(value);
       if (!partition) return false;
       accountWindow?.dispose();
       accountWindow = undefined;
-      await runtime.storageClear(partition).catch(() => undefined);
+      await BrowserPartitionWindow.storageClear(partition).catch(() => undefined);
       return true;
     },
-    async validate(input, runtime) {
+    async validate(input) {
       const { email } = emailValidator.parse(input);
       const account = get().accounts.byEmail[email];
       if (!account) throw new Error("账号不存在");
-      const verification = await verificationRead(runtime, account.partition);
+      const verification = await verificationRead(account.partition);
       const identityChanged = verification.email !== null && verification.email !== email;
       get().accountsActions.accountStatusSet({
         checkedAt: verification.checkedAt,

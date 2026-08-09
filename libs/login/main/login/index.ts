@@ -4,8 +4,6 @@ import {
   type IpcMainInvokeEvent,
   type WebContents,
 } from "electron";
-import { randomUUID } from "node:crypto";
-import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
 import store from "../store.ts";
 import { login } from "./store.ts";
 
@@ -32,33 +30,7 @@ const install = (identify: Identify): (() => void) => {
       rendererSet(event);
       login.input.command.parse(input);
       try {
-        await store.getState().loginActions.create(parentRead(event), identify, {
-          idCreate: randomUUID,
-          storageClear: BrowserPartitionWindow.storageClear,
-          windowOpen: async value => {
-            const window = await BrowserPartitionWindow.open({
-              height: 760,
-              minHeight: 520,
-              minWidth: 760,
-              onClose: value.onClose,
-              parent: value.parent as ElectronBrowserWindow,
-              partition: value.partition,
-              title: "ChatGPT.com",
-              url: "https://chatgpt.com/",
-              width: 920,
-            });
-            return {
-              contents: {
-                cookies: window.value.webContents.session.cookies,
-                on: window.value.webContents.on.bind(window.value.webContents),
-                removeListener: window.value.webContents.removeListener.bind(
-                  window.value.webContents,
-                ),
-              },
-              dispose: () => window.dispose(),
-            };
-          },
-        });
+        await store.getState().loginActions.create(parentRead(event), identify);
         return login.result.start.parse({ completed: true });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {

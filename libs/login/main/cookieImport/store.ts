@@ -1,5 +1,12 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import type { CookiesSetDetails } from "electron";
+import { randomUUID } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
+import { session, type CookiesSetDetails } from "electron";
+import {
+  applicationRead,
+  remoteDebugRead,
+  windowOpen,
+} from "browser-partition-main/browser/index.ts";
 import { browser } from "browser-partition-main/browser/store.ts";
 import { z } from "zod";
 
@@ -77,31 +84,6 @@ type BrowserImport = {
   dispose(): Promise<void>;
   webAccessCreate(): Promise<string>;
 };
-type CookieImportRuntime = {
-  applicationRead(input: { browserId: string }): Promise<{
-    executablePath: string;
-    launchArguments: string[];
-    name: string;
-  }>;
-  fileRead(path: string): Promise<string>;
-  fileStat(path: string): Promise<{ isFile(): boolean; size: number }>;
-  idCreate(): string;
-  remoteDebugRead(executablePath: string, launchArguments: string[]): {
-    devToolsActivePortPath: string;
-    inspectUrl: string;
-  };
-  sessionRead(partition: string): {
-    clearData(): Promise<void>;
-    cookies: { set(details: CookiesSetDetails): Promise<void> };
-    flushStorageData(): Promise<void> | void;
-  };
-  windowOpen(
-    executablePath: string,
-    url: string,
-    launchArguments: string[],
-    signal: AbortSignal,
-  ): Promise<{ close(): Promise<boolean> }>;
-};
 type CookieImportSlice = {
   cookieImport: CookieImport;
   cookieImportActions: {
@@ -116,20 +98,19 @@ type CookieImportSlice = {
       authorizationTimeoutSeconds: number;
       browserId: string;
       signal: AbortSignal;
-    }, runtime: CookieImportRuntime): Promise<z.infer<typeof candidateValidator>>;
+    }): Promise<z.infer<typeof candidateValidator>>;
     dispose(): void;
     importOpen(
       browserId: string,
       signal: AbortSignal,
       authorizationTimeoutMs: number,
-      runtime: CookieImportRuntime,
     ): Promise<BrowserImport>;
     historyRemove(input: z.infer<typeof historyRemoveValidator>): string | undefined;
     operationCancel(): void;
     operationFail(input: z.infer<typeof operationFailValidator>): void;
     operationStart(input: z.infer<typeof createValidator>): void;
     operationSucceed(input: z.infer<typeof candidateValidator>): void;
-    start(browserId: string, runtime: CookieImportRuntime): Promise<boolean>;
+    start(browserId: string): Promise<boolean>;
   };
 };
 
@@ -210,17 +191,14 @@ const wait = (milliseconds: number, signal: AbortSignal): Promise<void> => (
     else signal.addEventListener("abort", abort, { once: true });
   })
 );
-const endpointRead = async (
-  activePortPath: string,
-  runtime: CookieImportRuntime,
-): Promise<string | undefined> => {
+const endpointRead = async (activePortPath: string): Promise<string | undefined> => {
   let text: string;
   try {
-    const value = await runtime.fileStat(activePortPath);
+    const value = await stat(activePortPath);
     if (!value.isFile() || value.size > 4096) {
       throw new Error("浏览器 DevToolsActivePort 文件无效");
     }
-    text = await runtime.fileRead(activePortPath);
+    text = await readFile(activePortPath, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
@@ -386,17 +364,16 @@ class DevToolsConnection {
 const connect = async (
   executablePath: string,
   launchArguments: string[],
-  debug: ReturnType<CookieImportRuntime["remoteDebugRead"]>,
+  debug: ReturnType<typeof remoteDebugRead>,
   signal: AbortSignal,
   authorizationTimeoutMs: number,
-  runtime: CookieImportRuntime,
 ): Promise<{
   connection: DevToolsConnection;
   windowClose?: () => Promise<boolean>;
 }> => {
   const deadline = Date.now() + authorizationTimeoutMs;
   try {
-    const endpoint = await endpointRead(debug.devToolsActivePortPath, runtime);
+    const endpoint = await endpointRead(debug.devToolsActivePortPath);
     if (endpoint) {
       return {
         connection: await DevToolsConnection.open(endpoint, signal, deadline - Date.now()),
@@ -405,7 +382,7 @@ const connect = async (
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
   }
-  const openedWindow = await runtime.windowOpen(
+  const openedWindow = await windowOpen(
     executablePath,
     debug.inspectUrl,
     launchArguments,
@@ -415,7 +392,7 @@ const connect = async (
     while (Date.now() < deadline) {
       canceledAssert(signal);
       try {
-        const endpoint = await endpointRead(debug.devToolsActivePortPath, runtime);
+        const endpoint = await endpointRead(debug.devToolsActivePortPath);
         if (endpoint) {
           return {
             connection: await DevToolsConnection.open(
@@ -540,11 +517,10 @@ const webAccessCreate = async (
   preferredTargetUrl: string,
   browserId: string,
   signal: AbortSignal,
-  runtime: CookieImportRuntime,
 ) => {
   canceledAssert(signal);
-  const partition = `persist:login.cookie-import.${browserId}.${runtime.idCreate()}`;
-  const targetSession = runtime.sessionRead(partition);
+  const partition = `persist:login.cookie-import.${browserId}.${randomUUID()}`;
+  const targetSession = session.fromPartition(partition);
   try {
     await targetSession.clearData();
     const cookies = await cookiesRead(connection, preferredTargetUrl);
@@ -569,7 +545,7 @@ const webAccessCreate = async (
 const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
   cookieImport: structuredClone(initial),
   cookieImportActions: {
-    async create(input, runtime) {
+    async create(input) {
       const authorizationTimeoutMs = input.authorizationTimeoutSeconds * 1_000;
       let browserImport: BrowserImport | undefined;
       let partition: string | undefined;
@@ -581,7 +557,6 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
           input.browserId,
           input.signal,
           authorizationTimeoutMs,
-          runtime,
         );
       } finally {
         get().cookieImportActions.authorizationFinish();
@@ -600,14 +575,14 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
       } finally {
         await browserImport?.dispose();
         if (partition) {
-          await runtime.sessionRead(partition).clearData().catch(() => undefined);
+          await session.fromPartition(partition).clearData().catch(() => undefined);
         }
       }
     },
-    async importOpen(browserId, signal, authorizationTimeoutMs, runtime) {
+    async importOpen(browserId, signal, authorizationTimeoutMs) {
       const input = createValidator.parse({ browserId });
-      const application = await runtime.applicationRead(input);
-      const debug = runtime.remoteDebugRead(
+      const application = await applicationRead(input);
+      const debug = remoteDebugRead(
         application.executablePath,
         application.launchArguments,
       );
@@ -617,7 +592,6 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
         debug,
         signal,
         authorizationTimeoutMs,
-        runtime,
       );
       return {
         browserName: application.name,
@@ -630,7 +604,6 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
           debug.inspectUrl,
           input.browserId,
           signal,
-          runtime,
         ),
       };
     },
@@ -743,7 +716,7 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
         state.cookieImport.status = "ready";
       });
     },
-    async start(browserId, runtime) {
+    async start(browserId) {
       if (active) throw new Error("已有 Cookie 导入操作正在进行");
       const input = createValidator.parse({ browserId });
       const controller = new AbortController();
@@ -758,13 +731,13 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
         actions.operationStart(input);
         try {
           if (previousPartition) {
-            await runtime.sessionRead(previousPartition).clearData().catch(() => undefined);
+            await session.fromPartition(previousPartition).clearData().catch(() => undefined);
           }
           const candidate = await actions.create({
             authorizationTimeoutSeconds: get().cookieImport.authorizationTimeoutSeconds,
             browserId: input.browserId,
             signal: controller.signal,
-          }, runtime);
+          });
           actions.operationSucceed(candidate);
           return true;
         } catch (error) {

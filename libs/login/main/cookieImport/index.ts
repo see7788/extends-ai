@@ -1,16 +1,8 @@
 import {
   ipcMain,
-  session,
   type IpcMainInvokeEvent,
   type WebContents,
 } from "electron";
-import { randomUUID } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
-import {
-  applicationRead,
-  remoteDebugRead,
-  windowOpen,
-} from "browser-partition-main/browser/index.ts";
 import store from "../store.ts";
 import { cookieImport } from "./store.ts";
 
@@ -40,19 +32,7 @@ const install = (): (() => void) => {
     rendererSet(event);
     const value = cookieImport.input.create.parse(input);
     return cookieImport.result.start.parse({
-      completed: await store.getState().cookieImportActions.start(value.browserId, {
-        applicationRead,
-        fileRead: path => readFile(path, "utf8"),
-        fileStat: path => stat(path),
-        idCreate: randomUUID,
-        remoteDebugRead: (executablePath, launchArguments) => (
-          remoteDebugRead(executablePath, launchArguments)
-        ),
-        sessionRead: partition => session.fromPartition(partition),
-        windowOpen: (executablePath, url, launchArguments, signal) => (
-          windowOpen(executablePath, url, launchArguments, signal)
-        ),
-      }),
+      completed: await store.getState().cookieImportActions.start(value.browserId),
     });
   });
   ipcMain.handle(cookieImport.channel.stateRead, event => {

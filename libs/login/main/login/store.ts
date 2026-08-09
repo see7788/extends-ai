@@ -1,4 +1,7 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import { randomUUID } from "node:crypto";
+import type { BrowserWindow as ElectronBrowserWindow } from "electron";
+import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
 import { z } from "zod";
 
 const loginValidator = z.object({
@@ -9,34 +12,13 @@ const operationStartValidator = loginValidator.pick({ partition: true });
 const commandValidator = z.object({});
 type Login = z.infer<typeof loginValidator>;
 type Identify = (partition: string) => Promise<boolean>;
-type LoginWindow = {
-  dispose(): void;
-  contents: {
-    cookies: {
-      on(event: "changed", listener: () => void): void;
-      removeListener(event: "changed", listener: () => void): void;
-    };
-    on(event: "did-stop-loading", listener: () => void): void;
-    removeListener(event: "did-stop-loading", listener: () => void): void;
-  };
-};
-type LoginRuntime = {
-  idCreate(): string;
-  storageClear(partition: string): Promise<void>;
-  windowOpen(input: {
-    onClose(): void;
-    parent: unknown;
-    partition: string;
-  }): Promise<LoginWindow>;
-};
 type LoginSlice = {
   login: Login;
   loginActions: {
     cancel(): boolean;
     create(
-      parent: unknown,
+      parent: ElectronBrowserWindow,
       identify: Identify,
-      runtime: LoginRuntime,
     ): Promise<{ partition: string }>;
     operationCancel(): void;
     operationSucceed(): void;
@@ -80,15 +62,15 @@ const loginStore: ImmerStateCreator<LoginSlice> = (set, get) => ({
       active.cancel();
       return true;
     },
-    create(parent, identify, runtime) {
+    create(parent, identify) {
       if (active) throw new Error("已有内嵌登录窗口正在使用");
-      const partition = `persist:login.chatgpt.${runtime.idCreate()}`;
+      const partition = `persist:login.chatgpt.${randomUUID()}`;
       get().loginActions.operationStart({ partition });
       return new Promise((resolve, reject) => {
         let identifying = false;
         let settled = false;
         let watchingStop = (): void => undefined;
-        let window: LoginWindow | undefined;
+        let window: Awaited<ReturnType<typeof BrowserPartitionWindow.open>> | undefined;
         const finish = (error?: Error): void => {
           if (settled) return;
           settled = true;
@@ -97,7 +79,7 @@ const loginStore: ImmerStateCreator<LoginSlice> = (set, get) => ({
           if (error) {
             get().loginActions.operationCancel();
             window?.dispose();
-            void runtime.storageClear(partition).catch(() => undefined);
+            void BrowserPartitionWindow.storageClear(partition).catch(() => undefined);
             reject(error);
           } else {
             get().loginActions.operationSucceed();
@@ -119,18 +101,24 @@ const loginStore: ImmerStateCreator<LoginSlice> = (set, get) => ({
           }
         };
         active = { cancel: () => finish(canceledError()) };
-        void runtime.windowOpen({
+        void BrowserPartitionWindow.open({
+          height: 760,
+          minHeight: 520,
+          minWidth: 760,
           onClose: () => finish(canceledError()),
           parent,
           partition,
+          title: "ChatGPT.com",
+          url: "https://chatgpt.com/",
+          width: 920,
         }).then(value => {
           window = value;
           if (settled) {
             value.dispose();
             return;
           }
-          const contents = value.contents;
-          const cookies = contents.cookies;
+          const contents = value.value.webContents;
+          const cookies = contents.session.cookies;
           const identifySchedule = (): void => {
             void identifyRun();
           };

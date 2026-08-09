@@ -4,12 +4,9 @@ import {
   type IpcMainInvokeEvent,
   type WebContents,
 } from "electron";
+import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
 import store from "../store.ts";
 import { accounts } from "./store.ts";
-
-type AccountsRuntime = Parameters<
-  ReturnType<typeof store.getState>["accountsActions"]["candidateConsume"]
->[1];
 
 const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
   const parent = ElectronBrowserWindow.fromWebContents(event.sender);
@@ -17,7 +14,7 @@ const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
   return parent;
 };
 
-const install = (runtime: AccountsRuntime): (() => void) => {
+const install = (): (() => void) => {
   const renderers = new Set<WebContents>();
   const rendererSet = (event: IpcMainInvokeEvent): void => {
     renderers.add(event.sender);
@@ -35,7 +32,7 @@ const install = (runtime: AccountsRuntime): (() => void) => {
         browserId: candidate.browserId,
         browserName: candidate.browserName,
       },
-    }, runtime);
+    });
     store.getState().cookieImportActions.candidateClear({
       partition: candidate.partition,
     });
@@ -47,7 +44,6 @@ const install = (runtime: AccountsRuntime): (() => void) => {
       completed: await store.getState().accountsActions.open(
         input,
         parentRead(event),
-        runtime,
       ),
     });
   });
@@ -55,14 +51,14 @@ const install = (runtime: AccountsRuntime): (() => void) => {
     rendererSet(event);
     const value = accounts.input.email.parse(input);
     const sources = store.getState().accounts.byEmail[value.email]?.sources ?? [];
-    const completed = await store.getState().accountsActions.remove(value, runtime);
+    const completed = await store.getState().accountsActions.remove(value);
     if (completed) {
       for (const source of sources) {
         const candidatePartition = store.getState().cookieImportActions.historyRemove({
           browserId: source.browserId,
         });
         if (candidatePartition) {
-          await runtime.storageClear(candidatePartition).catch(() => undefined);
+          await BrowserPartitionWindow.storageClear(candidatePartition).catch(() => undefined);
         }
       }
     }
@@ -73,7 +69,7 @@ const install = (runtime: AccountsRuntime): (() => void) => {
   ipcMain.handle(accounts.channel.validate, async (event, input: unknown) => {
     rendererSet(event);
     return accounts.result.command.parse({
-      completed: await store.getState().accountsActions.validate(input, runtime),
+      completed: await store.getState().accountsActions.validate(input),
     });
   });
   ipcMain.handle(accounts.channel.stateRead, event => {
