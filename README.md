@@ -1,0 +1,158 @@
+# extends-ai
+
+## Login 执行约定
+
+- 从其他浏览器导入是纯生产过程：发现浏览器、取得授权、读取 Cookie、写入新的候选 Electron partition、返回候选结果。
+- `cookieImport` 不访问账号接口、不解析 email、不判断有效期、不打开预览窗口、不记录业务账号。
+- `accounts` 是候选结果的唯一消费者：识别 email、检查状态、同 email 合并、保存账号并提供账号操作。
+- 同一个 email 永远只显示和持久化为一个业务账号；来源浏览器只是该账号的元数据。
+- 账号状态只有 `valid / expired / unknown`。网络失败、服务端 5xx 或响应结构变化必须是 `unknown`，不得删除账号。
+- 新候选验证成功以后才替换旧 partition；任一前置步骤失败都保留旧登录态。
+- 打开 Login 只发现并展示浏览器，不自动启动或导入任何外部浏览器；用户选择一个来源后只处理该来源。
+- 系统浏览器“可发现”不等于“可导入”：当前仅对提供用户授权远程调试入口的 Chrome / Edge 系列开放 Cookie 导入；旧版 Chromium / Firefox 仍以禁用暗色显示“暂不支持”，但不提供点击事件，避免固定等待超时。
+- Login 的业务操作按切片直接对应两张透明 AntD Card：Card 使用自身标题，内部只放常开、无额外配色的原始 AntD Tree。`login → 内嵌登录`、`cookieImport → 其他浏览器导入`；后者每行只呈现浏览器名称与真实状态或操作。
+- 两棵 Tree 只呈现各自生产者状态。生产成功后停在持久化的 `ready / 待识别` 候选，不自动访问账号接口；用户再次明确点击“识别账号”时，`accounts` 才消费现有候选、识别 email 并持久化结果。生产者之间不互调，也不调用 `accounts`。
+- “其他浏览器导入”只响应用户单击的一个 browserId；罗列浏览器不触发串行、并行或批量导入。
+- cookieImport 为授权流程固定打开一个新增浏览器窗口，并在成功、手动取消或自动取消后关闭该窗口；用户原有浏览器窗口不属于本次资源，不关闭。
+- main/renderer 同构；每个 `store.ts` 只定义自身切片，跨切片串联只允许在消费者 `index.ts`。
+- 框架要求的 preload 在 dev 中编译为 `.cjs`；所有业务窗口共用唯一公共 preload，不再保留重复业务 preload 子包。
+- 开发期间保持 `electron-vite dev --watch` 与 renderer HMR，不执行生产打包。
+
+## Login 逐步待办与验收
+
+### 0. 公共通信去重
+
+- [x] `browser-partition/preload` 是唯一 `contextBridge / ipcRenderer` 实现。
+- [x] `browser-partition/renderer/public.ts` 是唯一 renderer 类型化 `invoke / read / subscribe` 实现。
+- [x] Login 与 Codex 窗口共同加载 `browser-partition-preload.cjs`。
+- [x] 删除 `login-preload`、`codex-app-server-preload` 及两个重复 renderer `public.ts`。
+- 验收：全仓库检索只允许公共目录出现 `contextBridge`、`ipcRenderer`、`preloadRead`。
+
+### 1. 纯化 cookieImport
+
+- [x] `cookieImport.create` 只返回 `{ browserId, browserName, partition }` 候选结果。
+- [x] 每次导入使用新的临时候选 partition；失败只清理本次候选。
+- [x] renderer 的同名切片只同步主进程进度、59 秒授权倒计时、取消和错误。
+- [x] 删除旧的 `importsByBrowserId`、email、`/api/auth/session`、预览窗口和“导入并预览”契约。
+- 验收：`cookieImport` 目录不存在账号请求与 `BrowserPartitionWindow.open`，main/renderer 分别通过类型检查。
+
+### 2. main/accounts 消费者切片
+
+- [x] 消费候选 partition 后才请求登录态信息并识别 email。
+- [x] 将结果分类为 `valid / expired / unknown`，同 email 原子合并来源信息。
+- [x] 验证成功后替换旧 partition；失败保留旧 partition 并清理候选。
+- [x] 持久化账号、partition 引用、来源、最后检查时间和状态；不把 Cookie 内容写入 Zustand。
+- 验收：同 email 多来源只有一个账号；失败、取消和 unknown 均不损坏原账号。
+
+### 3. renderer/accounts 同构切片
+
+- [x] 直接消费 main/accounts 的验证器与类型，不复制验证器，不消费切片仓库实例。
+- [x] 提供手工消费现有候选、打开、重新验证和移除的透明调用。
+- [x] 页面只响应 main 推送的账号及进度状态，不伪造成功或启用状态。
+- 验收：renderer store 不持久化；主进程状态变化能完整推送并通过验证器。
+
+### 4. Login 单来源人工交接
+
+- [x] Login 打开时只读取并展示浏览器列表，不自动启动或导入浏览器。
+- [x] 用户选择一个来源后，`cookieImport` 只生产候选并停在 `ready`；第二次人工点击才由 `accounts` 消费。
+- [x] 当前来源的进度、倒计时、取消和错误准确归属；失败或取消只结束该来源。
+- 验收：不存在批量授权窗口、自动循环、并发导入和生产者调用消费者的逆向依赖。
+
+### 5. 内嵌登录归一
+
+- [x] `login` 只创建/打开隔离登录 partition，不在生产者内识别或持久化账号。
+- [x] 用户完成登录后保留候选 partition 并停在 `ready`；第二次人工点击才交给 `accounts` 消费者。
+- [x] 关闭或取消不产生虚假账号，也不破坏已有账号。
+- 验收：外部浏览器导入与内嵌登录最终进入完全相同的 accounts 提交流程。
+
+### 6. 账号操作与页面收口
+
+- [x] 账号卡片支持打开 ChatGPT.com、重新验证、重新导入和移除。
+- [x] 保留原动画背景；操作卡片透明、无额外背景色、边框、高亮或页面壳，内部只放原始 AntD Tree。
+- [x] email 是卡片标题；状态、来源、检查时间与操作紧凑呈现。
+- [x] 当前操作只显示一个 spinner、一个倒计时和一个取消入口。
+- 验收：同 email 单卡片；所有按钮均由 main 执行并以 main 状态为准。
+
+### 7. 持久化与开发态总验收
+
+- [x] `login-main` 的 `cwdPersist` 只保存自身 accounts、可配置参数和等待人工识别的候选引用；运行中的瞬时状态重启后恢复为 idle。
+- [x] Cookie、IndexedDB 和缓存仅由 Electron Session 管理。
+- [x] 同步本 README 与最终源码目录；完成相关子包 typecheck 和 dev 实际运行观察。
+- [x] 保持 dev/HMR；生产打包只在项目最后统一执行。
+- [ ] 人工验收：本次新增的浏览器授权窗口在手动取消、自动取消和成功导入后关闭，用户原有窗口保持不变。
+- [ ] 人工验收：选择一个外部浏览器、允许远程调试、状态停在“待识别”；点击“识别账号”后形成 email 账号卡片。
+- [ ] 人工验收：在内嵌窗口完成登录并关闭，状态停在“待识别”；点击“识别账号”后进入同一个 accounts 消费流程。
+
+### 8. 后置工作
+
+- [ ] Login 全部完成以后，再继续 `codex-app-server` 的 auth.json 创建与导入对接。
+
+### 当前工作树中间状态
+
+- 公共通信去重已完成并通过公共 preload/renderer 类型检查。
+- `cookieImport` 生产者已经纯化并完成目录级验收；页面不存在预览契约、批量导入或账号识别逻辑。
+- `cookieImport`、main/renderer accounts、单来源串联和内嵌登录归一均已完成类型验收。
+- 公共 preload、双窗口、Login 页面、动画瀑布流和持久化白名单已经完成 dev 运行验收。
+- 当前剩余三项必须由用户完成浏览器授权/官方登录的人工验收；生产打包仍明确后置。
+
+本文件是 pnpm 工作区唯一维护文档。具体库不再单独维护 README；未完成事项记录在下方目录树对应节点。
+
+```text
+extends-ai/
+├─ apps/main/                         # Electron 生命周期、托盘、业务窗口实例化及公共 preload 构建入口
+│  └─ 已验收：开发态每个 renderer 只有一个入口并保持 HMR
+├─ libs/browser-partition/            # 无业务状态的浏览器与隔离窗口生产者
+│  ├─ main/
+│  │  ├─ browser/                     # 发现、校验并打开系统浏览器
+│  │  └─ BrowserWindow/               # 创建指定 Electron Session 的隔离窗口
+│  ├─ preload/                        # 唯一通用安全 bridge；被所有业务窗口直接加载
+│  └─ renderer/                       # 唯一公共类型化 invoke/read/subscribe 与浏览器调用
+│     └─ 已验收：无主仓库、无业务状态
+├─ libs/login/                         # ChatGPT.com 登录态工具，独立于 Codex 账号业务
+│  ├─ main/
+│  │  ├─ login/                       # 内嵌登录 partition 生产者
+│  │  ├─ cookieImport/                # 外部浏览器 Cookie 候选 partition 生产者
+│  │  └─ accounts/                    # 登录态识别、同 email 合并、持久化与账号操作消费者
+│  └─ renderer/                       # 登录态页面
+│     ├─ login/                       # 同构镜像主进程 login 状态
+│     ├─ cookieImport/                # 同构镜像主进程 cookieImport 进度状态
+│     └─ accounts/                    # 同构镜像业务账号状态与透明操作
+└─ libs/codex-app-server/              # auth.json 导入、账号管理、查询和唯一物化 CODEX_HOME
+   ├─ main/
+   │  ├─ accountAdd/
+   │  │  ├─ authJsonCreate/           # 官方 Codex 登录创建 auth.json
+   │  │  └─ authJsonImport/           # 导入并验证已有 auth.json
+   │  ├─ accountList/                 # 已有账号、认证、额度、用量与定时查询
+   │  └─ globalSettings/              # 唯一 CODEX_HOME 与查询设置
+   └─ renderer/                       # 账号添加、列表、详情和全局设置页面；消费公共 bridge
+      └─ 已验收：auth.json 三个入口在开发态正常呈现
+```
+
+## 持久化边界
+
+- 自有业务数据统一使用 `cwdPersist({ cwd: app.getPath("userData"), name: package.name })`，实际写入 `userData/.zustand/<package.name>.json`。
+- Cookie、IndexedDB、缓存等 Chromium 数据由 Electron Session 管理，不复制到 Zustand，也不视为业务仓库数据。
+- renderer store 不持久化；查询结果 `authSessions`、`rateLimits`、`usage` 只保留在主进程内存并推送。
+- `codex-app-server` 仅持久化账号记录、唯一 CODEX_HOME 和全局查询配置；任意时刻最多物化一个 `auth.json`。
+- 主 store 使用明确白名单持久化；当前 `login-main.json` 与 `codex-app-server-main.json` 只包含所属切片。
+- 拆库前的 `browser-partition-main.json` 是不再读取的静态遗留文件，不属于当前运行仓库。
+
+## 已确认原则
+
+- main/renderer 以业务切片同构：main 切片拥有数据、Actions、验证器与执行方法；renderer 同名切片消费其验证器、镜像状态并呈现交互。
+- 每个 `store.ts` 只定义本切片；主 `store.ts` 只组合切片；跨切片调用只允许出现在透明的 `index.ts` 消费者中。
+- `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
+- `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
+- `login` 与 `codex-app-server` 相互独立，只共同消费 `browser-partition`。
+- `authJsonCreate` 只有一个官方创建流程；Electron 隔离窗口或指定外部浏览器只是 `openAuthUrl` 载体。
+- 自动查询与立即查询只查询账号信息；Token 是否刷新交给官方 Codex App Server 判断，不实现强制刷新。
+- 启用账号由主进程唯一控制，renderer 不伪造启用状态。
+
+## 当前执行顺序
+
+- [x] 修复开发态重复 renderer 入口并恢复 auth.json 页面。
+- [x] 验证 `browser-partition` 无主仓库、公共 preload 工厂以及两端消费者。
+- [x] 主 store 采用持久化白名单，确保当前 JSON 只写入所属切片。
+- [x] login 的 `login` 与 `cookieImport` 状态由 main 持久化、推送并在 renderer 同构呈现。
+- [ ] 接入成人端权限通信后限制 CODEX_HOME 可见性开关。
+- [x] 完成相关包 typecheck、主应用生产构建与开发态 main/preload/renderer 运行验收。

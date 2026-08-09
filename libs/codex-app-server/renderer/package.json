@@ -1,0 +1,24 @@
+{
+  "name": "codex-app-server-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.3.2",
+    "antd": "^6.0.0",
+    "browser-partition-main": "workspace:*",
+    "browser-partition-renderer": "workspace:*",
+    "codex-app-server-main": "workspace:*",
+    "extends-react": "workspace:*",
+    "extends-zustand": "workspace:*",
+    "immer": "10.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
+    "zod": "^4.0.0",
+    "zustand": "5.0.13"
+  }
+}

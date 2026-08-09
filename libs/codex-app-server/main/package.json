@@ -1,0 +1,26 @@
+{
+  "name": "codex-app-server-main",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "browser-partition-main": "workspace:*",
+    "extends-zustand": "workspace:*",
+    "immer": "10.2.0",
+    "zod": "^4.0.0",
+    "zustand": "5.0.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  },
+  "peerDependencies": {
+    "electron": ">=39"
+  }
+}

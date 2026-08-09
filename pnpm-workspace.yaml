@@ -1,0 +1,10 @@
+packages:
+  - "libs/*"
+  - "libs/browser-partition/*"
+  - "libs/codex-app-server/*"
+  - "libs/login/*"
+  - "apps/*"
+  - "../extends-zustand"
+  - "../extends-react"
+  - "../extends-vite"
+  - "../extends-electron-vite/libs/electron.vite.config"

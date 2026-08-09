@@ -1,0 +1,13 @@
+node_modules/
+.audit/
+.dev/
+.runtime/
+.zustand/
+.pnpm-store/**
+**/node_modules/**
+**/dist/**
+**/out/**
+**/.zustand/**
+**/**_bak/
+**/**.bak
+.dist/**

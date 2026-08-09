@@ -1,0 +1,35 @@
+{
+  "name": "extends-ai-main",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "pnpm typecheck && electron-vite build",
+    "start": "electron-vite preview"
+  },
+  "dependencies": {
+    "browser-partition-main": "workspace:*",
+    "browser-partition-preload": "workspace:*",
+    "codex-app-server-main": "workspace:*",
+    "codex-app-server-renderer": "workspace:*",
+    "login-main": "workspace:*",
+    "login-renderer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "39.2.6",
+    "electron-vite": "6.0.0-beta.1",
+    "electron-vite-config-lib": "workspace:*",
+    "extends-vite": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}
