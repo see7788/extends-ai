@@ -1,20 +1,11 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import {
-  app,
   BrowserWindow as ElectronBrowserWindow,
   ipcMain,
   type IpcMainInvokeEvent,
   type WebContents,
 } from "electron";
 import { errorText } from "../public.ts";
-import { accountAuthPath, authFileCopy, authFileCopySync } from "../process.ts";
 import store from "../store.ts";
-import {
-  pause as accountListPause,
-  refresh as accountListRefresh,
-  resume as accountListResume,
-} from "../accountList/index.ts";
 import { enabledSet } from "../accountList/account/index.ts";
 import authJsonCreateRun from "./authJsonCreate/index.ts";
 import { authJsonCreate } from "./authJsonCreate/store.ts";
@@ -29,7 +20,7 @@ import { authJsonImport } from "./authJsonImport/store.ts";
 type AccountOperationActions = {
   operationCancel(): void;
   operationFail(input: { error: string }): void;
-  operationStart(input: { previousAccountId: string | null }): void;
+  operationStart(): void;
   operationSucceed(): void;
 };
 let renderer: WebContents | undefined;
@@ -48,73 +39,29 @@ const canceled = (error: unknown): boolean => (
 const enabledAccountIdRead = (): string | null => (
   Object.values(store.getState().account).find(account => account.enabled)?.id ?? null
 );
-const codexHomeRead = (): string => {
-  const codexHome = store.getState().globalSettings.codexHome;
-  if (!codexHome) throw new Error("请先配置 CODEX_HOME");
-  return codexHome;
-};
-const enabledAccountRestore = async (accountId: string | null): Promise<void> => {
-  const actions = store.getState().accountActions;
-  if (accountId && store.getState().account[accountId]) {
-    await enabledSet({ accountId, enabled: true });
-    return;
-  }
-  actions.enabledClear();
-};
-const enabledAccountRestoreSync = (accountId: string | null): void => {
-  const actions = store.getState().accountActions;
-  const account = accountId ? store.getState().account[accountId] : undefined;
-  const codexHome = store.getState().globalSettings.codexHome;
-  if (account && codexHome) {
-    const backupAuth = accountAuthPath(app.getPath("userData"), account.id);
-    if (existsSync(backupAuth)) {
-      authFileCopySync(backupAuth, join(codexHome, "auth.json"));
-      actions.enabledSet({ accountId: account.id, enabled: true });
-      return;
-    }
-  }
-  actions.enabledClear();
-};
-const accountRun = async (
+const accountImport = async (
   run: () => Promise<string>,
   actions?: AccountOperationActions,
 ): Promise<string> => {
-  const codexHome = codexHomeRead();
-  await accountListPause();
+  const previousAccountId = enabledAccountIdRead();
+  actions?.operationStart();
   try {
-    const previousAccountId = enabledAccountIdRead();
-    const materializedAuth = join(codexHome, "auth.json");
-    if (previousAccountId && existsSync(materializedAuth)) {
-      await authFileCopy(
-        materializedAuth,
-        accountAuthPath(app.getPath("userData"), previousAccountId),
-      );
-    }
-    actions?.operationStart({ previousAccountId });
-    try {
-      store.getState().accountActions.enabledClear();
-      const accountId = await run();
+    const accountId = await run();
+    if (!previousAccountId && store.getState().globalSettings.codexHome) {
       await enabledSet({ accountId, enabled: true });
-      actions?.operationSucceed();
-      void accountListRefresh();
-      return accountId;
-    } catch (error) {
-      await enabledAccountRestore(previousAccountId);
-      if (canceled(error)) actions?.operationCancel();
-      else actions?.operationFail({ error: errorText(error) });
-      throw error;
     }
-  } finally {
-    accountListResume();
+    actions?.operationSucceed();
+    return accountId;
+  } catch (error) {
+    if (canceled(error)) actions?.operationCancel();
+    else actions?.operationFail({ error: errorText(error) });
+    throw error;
   }
 };
 const send = (channel: string, value: unknown): void => {
   if (renderer && !renderer.isDestroyed()) renderer.send(channel, value);
 };
 const install = (): (() => void) => {
-    const interrupted = [store.getState().authJsonImport]
-      .find(value => value.status === "working");
-    if (interrupted) enabledAccountRestoreSync(interrupted.previousAccountId);
     store.getState().authJsonImportActions.operationCancel();
 
     ipcMain.handle(authJsonCreate.channel.create, async (event, input: unknown) => {
@@ -132,7 +79,7 @@ const install = (): (() => void) => {
           );
           signal.addEventListener("abort", () => controller.abort(), { once: true });
           try {
-            const accountId = await accountRun(async () => {
+            const accountId = await accountImport(async () => {
               const result = await authJsonCreateRun({ carrier, controller });
               return authJsonImportRun(result.source);
             });
@@ -167,7 +114,7 @@ const install = (): (() => void) => {
       authJsonImport.input.command.parse(input);
       const imported = await store.getState().authJsonImportActions.run({
         type: "authJsonImport",
-        execute: () => accountRun(
+        execute: () => accountImport(
           () => importClipboard(),
           store.getState().authJsonImportActions,
         ),
@@ -179,7 +126,7 @@ const install = (): (() => void) => {
       authJsonImport.input.command.parse(input);
       const imported = await store.getState().authJsonImportActions.run({
         type: "authJsonImport",
-        execute: () => accountRun(
+        execute: () => accountImport(
           () => importDefault(),
           store.getState().authJsonImportActions,
         ),
@@ -193,7 +140,7 @@ const install = (): (() => void) => {
       if (!sourcePath) return authJsonImport.result.import.parse({ imported: false });
       const imported = await store.getState().authJsonImportActions.run({
         type: "authJsonImport",
-        execute: () => accountRun(
+        execute: () => accountImport(
           () => importPath(sourcePath),
           store.getState().authJsonImportActions,
         ),

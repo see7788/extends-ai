@@ -3,10 +3,8 @@ import { z } from "zod";
 
 type AuthJsonImportOperation = "authJsonCreate" | "authJsonImport";
 
-const accountIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
 const authJsonImportValidator = z.object({
   error: z.string().nullable(),
-  previousAccountId: accountIdValidator.nullable(),
   status: z.enum(["idle", "working", "error"]),
 });
 const authJsonValidator = z.object({
@@ -32,9 +30,6 @@ const accountReadResultValidator = z.object({
   }),
   requiresOpenaiAuth: z.boolean(),
 }).passthrough();
-const operationStartValidator = z.object({
-  previousAccountId: accountIdValidator.nullable(),
-});
 const operationFailValidator = z.object({ error: z.string().min(1) });
 const commandValidator = z.object({});
 const importResultValidator = z.object({ imported: z.boolean() });
@@ -47,7 +42,7 @@ type AuthJsonImportSlice = {
     dispose(): void;
     operationCancel(): void;
     operationFail(input: z.infer<typeof operationFailValidator>): void;
-    operationStart(input: z.infer<typeof operationStartValidator>): void;
+    operationStart(): void;
     operationSucceed(): void;
     running(): boolean;
     run<T>(options: {
@@ -63,7 +58,6 @@ const canceled = (error: unknown): boolean => (
 );
 const initial: AuthJsonImport = {
   error: null,
-  previousAccountId: null,
   status: "idle",
 };
 const authJsonImport = {
@@ -81,7 +75,6 @@ const authJsonImport = {
   input: {
     command: commandValidator,
     operationFail: operationFailValidator,
-    operationStart: operationStartValidator,
   },
   result: { import: importResultValidator },
   sourceValidator,
@@ -109,17 +102,14 @@ const authJsonImportStore: ImmerStateCreator<AuthJsonImportSlice> = (set, get) =
       set(state => {
         state.authJsonImport = {
           error: value.error,
-          previousAccountId: null,
           status: "error",
         };
       });
     },
-    operationStart(input) {
-      const value = operationStartValidator.parse(input);
+    operationStart() {
       set(state => {
         state.authJsonImport = {
           error: null,
-          previousAccountId: value.previousAccountId,
           status: "working",
         };
       });

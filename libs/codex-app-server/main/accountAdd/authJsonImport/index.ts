@@ -86,7 +86,7 @@ const commit = async (options: {
     label: previous?.label
       ?? accountRead.account.email
       ?? options.sourceFileName.replace(/\.json$/i, ""),
-    enabled: previous?.enabled ?? true,
+    enabled: previous?.enabled ?? false,
     importedAt: new Date().toISOString(),
     sourceFileName: basename(options.sourceFileName),
     webAccess: options.webAccess ?? previous?.webAccess ?? null,

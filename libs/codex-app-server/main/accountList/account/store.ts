@@ -72,14 +72,12 @@ const accountStore: ImmerStateCreator<AccountSlice> = (set, get) => ({
     accountSet(input) {
       const value = accountValidator.parse(input);
       set(state => {
-        const enabled = value.enabled
-          || !Object.values(state.account).some(current => current.enabled);
-        if (enabled) {
+        if (value.enabled) {
           for (const current of Object.values(state.account)) {
             current.enabled = false;
           }
         }
-        state.account[value.id] = { ...value, enabled };
+        state.account[value.id] = value;
       });
     },
     accountDelete(input) {
