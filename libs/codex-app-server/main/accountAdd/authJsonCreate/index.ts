@@ -8,25 +8,24 @@ import { authJsonCreate } from "./store.ts";
 
 const create = async (input: {
   carrier: z.infer<typeof authJsonCreate.input.create>;
-  controller: AbortController;
 }) => {
   const application = await applicationRead({ browserId: input.carrier.browserId });
   let opened: Awaited<ReturnType<typeof windowOpen>> | undefined;
   try {
     const source = await store.getState().authJsonCreateActions.create({
-      openAuthUrl: async authUrl => {
+      browserId: input.carrier.browserId,
+      openAuthUrl: async (authUrl, signal) => {
         opened = await windowOpen(
           application.executablePath,
           authUrl,
           application.launchArguments,
-          input.controller.signal,
+          signal,
         );
         void opened.closed.then(
-          () => input.controller.abort(),
-          () => input.controller.abort(),
+          () => store.getState().authJsonCreateActions.cancel(),
+          () => store.getState().authJsonCreateActions.cancel(),
         );
       },
-      signal: input.controller.signal,
     });
     return { source };
   } finally {

@@ -129,7 +129,6 @@ type CookieImportSlice = {
     operationFail(input: z.infer<typeof operationFailValidator>): void;
     operationStart(input: z.infer<typeof createValidator>): void;
     operationSucceed(input: z.infer<typeof candidateValidator>): void;
-    run<T>(execute: (signal: AbortSignal) => Promise<T>): Promise<T | undefined>;
     start(browserId: string, runtime: CookieImportRuntime): Promise<boolean>;
   };
 };
@@ -745,8 +744,11 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
       });
     },
     async start(browserId, runtime) {
+      if (active) throw new Error("已有 Cookie 导入操作正在进行");
       const input = createValidator.parse({ browserId });
-      const result = await get().cookieImportActions.run(async signal => {
+      const controller = new AbortController();
+      active = controller;
+      try {
         const actions = get().cookieImportActions;
         const current = get().cookieImport;
         const previousPartition = current.status === "ready"
@@ -761,27 +763,18 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
           const candidate = await actions.create({
             authorizationTimeoutSeconds: get().cookieImport.authorizationTimeoutSeconds,
             browserId: input.browserId,
-            signal,
+            signal: controller.signal,
           }, runtime);
           actions.operationSucceed(candidate);
           return true;
         } catch (error) {
-          if (canceled(error)) actions.operationCancel();
-          else actions.operationFail({ error: errorText(error) });
+          if (canceled(error)) {
+            actions.operationCancel();
+            return false;
+          }
+          actions.operationFail({ error: errorText(error) });
           throw error;
         }
-      });
-      return result ?? false;
-    },
-    async run<T>(execute: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
-      if (active) throw new Error("已有 Cookie 导入操作正在进行");
-      const controller = new AbortController();
-      active = controller;
-      try {
-        return await execute(controller.signal);
-      } catch (error) {
-        if (canceled(error)) return undefined;
-        throw error;
       } finally {
         if (active === controller) active = undefined;
       }

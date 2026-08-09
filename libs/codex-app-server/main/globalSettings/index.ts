@@ -18,7 +18,7 @@ const codexHomeSet = async (input: unknown): Promise<void> => {
     const codexHome = pathNormalize(value.codexHome);
     const current = store.getState().globalSettings.codexHome;
     if (current && pathSame(current, codexHome)) return;
-    if (store.getState().authJsonImportActions.running()) {
+    if (store.getState().authJsonImport.status === "working") {
       throw new Error("账号添加期间不能迁移 CODEX_HOME");
     }
     await accountListPause();
@@ -34,7 +34,7 @@ const codexHomeSet = async (input: unknown): Promise<void> => {
 };
 
 const codexHomeDelete = async (): Promise<void> => {
-    if (store.getState().authJsonImportActions.running()) {
+    if (store.getState().authJsonImport.status === "working") {
       throw new Error("账号添加期间不能删除 CODEX_HOME 配置");
     }
     await accountListPause();

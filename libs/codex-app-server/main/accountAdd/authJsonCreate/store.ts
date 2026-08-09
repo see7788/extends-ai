@@ -18,21 +18,17 @@ const authJsonCreateValidator = z.object({
   history: z.record(browser.browserIdValidator, historyEntryValidator),
   status: z.enum(["idle", "working"]),
 });
-const operationStartValidator = z.object({
-  browserId: browser.browserIdValidator,
-});
 type AuthJsonCreate = z.infer<typeof authJsonCreateValidator>;
 type AuthJsonCreateOptions = {
-  openAuthUrl(authUrl: string): Promise<void>;
-  signal: AbortSignal;
+  browserId: z.infer<typeof browser.browserIdValidator>;
+  openAuthUrl(authUrl: string, signal: AbortSignal): Promise<void>;
 };
 type AuthJsonCreateSlice = {
   authJsonCreate: AuthJsonCreate;
   authJsonCreateActions: {
+    cancel(): boolean;
     create(options: AuthJsonCreateOptions): Promise<z.infer<typeof sourceValidator>>;
-    operationCancel(): void;
-    operationStart(input: z.infer<typeof operationStartValidator>): void;
-    operationSucceed(): void;
+    dispose(): void;
   };
 };
 
@@ -58,7 +54,6 @@ const authJsonCreate = {
   input: {
     command: commandValidator,
     create: createInputValidator,
-    operationStart: operationStartValidator,
   },
   result: {
     cancel: cancelResultValidator,
@@ -73,10 +68,18 @@ const canceledError = (): Error => {
   return error;
 };
 
-const authJsonCreateStore: ImmerStateCreator<AuthJsonCreateSlice> = set => ({
+let active: AbortController | undefined;
+
+const authJsonCreateStore: ImmerStateCreator<AuthJsonCreateSlice> = (set, get) => ({
   authJsonCreate: structuredClone(authJsonCreate.initial),
   authJsonCreateActions: {
+    cancel() {
+      if (!active || active.signal.aborted) return false;
+      active.abort();
+      return true;
+    },
     async create(options) {
+      if (active) throw new Error("已有 auth.json 创建操作正在进行");
       const [electron, filesystem, path, processModule] = await Promise.all([
         import("electron"),
         import("node:fs/promises"),
@@ -91,53 +94,53 @@ const authJsonCreateStore: ImmerStateCreator<AuthJsonCreateSlice> = set => ({
         app.getPath("temp"),
         "codex-app-server-login-",
       ));
-      try {
-        await connectionLoginChatGpt({
-          codexHome: loginHome,
-          openAuthUrl: options.openAuthUrl,
-          signal: options.signal,
-        });
-        if (options.signal.aborted) throw canceledError();
-        const sourcePath = join(loginHome, "auth.json");
-        return sourceValidator.parse({
-          sourceFileName: "auth.json",
-          sourcePath,
-          sourceText: await readFile(sourcePath, "utf8"),
-        });
-      } finally {
-        await rm(loginHome, { force: true, recursive: true }).catch(() => undefined);
-      }
-    },
-    operationCancel() {
+      const controller = new AbortController();
+      active = controller;
       set(state => {
-        state.authJsonCreate.activeBrowserId = null;
-        state.authJsonCreate.authorizationExpiresAt = null;
-        state.authJsonCreate.status = "idle";
-      });
-    },
-    operationStart(input) {
-      const value = operationStartValidator.parse(input);
-      set(state => {
-        state.authJsonCreate.activeBrowserId = value.browserId;
+        state.authJsonCreate.activeBrowserId = options.browserId;
         state.authJsonCreate.authorizationExpiresAt = new Date(
           Date.now() + state.authJsonCreate.authorizationTimeoutSeconds * 1_000,
         ).toISOString();
         state.authJsonCreate.status = "working";
       });
-    },
-    operationSucceed() {
-      set(state => {
-        const browserId = state.authJsonCreate.activeBrowserId;
-        if (browserId) {
-          state.authJsonCreate.history[browserId] = {
-            browserId,
+      const timeout = setTimeout(
+        () => controller.abort(),
+        get().authJsonCreate.authorizationTimeoutSeconds * 1_000,
+      );
+      try {
+        await connectionLoginChatGpt({
+          codexHome: loginHome,
+          openAuthUrl: authUrl => options.openAuthUrl(authUrl, controller.signal),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) throw canceledError();
+        const sourcePath = join(loginHome, "auth.json");
+        const source = sourceValidator.parse({
+          sourceFileName: "auth.json",
+          sourcePath,
+          sourceText: await readFile(sourcePath, "utf8"),
+        });
+        set(state => {
+          state.authJsonCreate.history[options.browserId] = {
+            browserId: options.browserId,
             completedAt: new Date().toISOString(),
           };
-        }
-        state.authJsonCreate.activeBrowserId = null;
-        state.authJsonCreate.authorizationExpiresAt = null;
-        state.authJsonCreate.status = "idle";
-      });
+        });
+        return source;
+      } finally {
+        clearTimeout(timeout);
+        if (active === controller) active = undefined;
+        set(state => {
+          state.authJsonCreate.activeBrowserId = null;
+          state.authJsonCreate.authorizationExpiresAt = null;
+          state.authJsonCreate.status = "idle";
+        });
+        await rm(loginHome, { force: true, recursive: true }).catch(() => undefined);
+      }
+    },
+    dispose() {
+      active?.abort();
+      active = undefined;
     },
   },
 });

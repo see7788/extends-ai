@@ -36,7 +36,6 @@ type AccountSlice = {
     accountSet(input: Account): void;
     accountDelete(input: z.infer<typeof readValidator>): void;
     enabledClear(): void;
-    enabledNormalize(): void;
     normalize(): void;
     labelSet(input: LabelSetInput): void;
     enabledSet(input: EnabledSetInput): void;
@@ -83,24 +82,12 @@ const accountStore: ImmerStateCreator<AccountSlice> = (set, get) => ({
     accountDelete(input) {
       const { accountId } = readValidator.parse(input);
       set(state => {
-        const wasEnabled = state.account[accountId]?.enabled === true;
         delete state.account[accountId];
-        if (wasEnabled) {
-          const replacement = Object.values(state.account)[0];
-          if (replacement) replacement.enabled = true;
-        }
       });
     },
     enabledClear() {
       set(state => {
         for (const item of Object.values(state.account)) item.enabled = false;
-      });
-    },
-    enabledNormalize() {
-      set(state => {
-        const values = Object.values(state.account);
-        const enabled = values.find(item => item.enabled) ?? values[0];
-        for (const item of values) item.enabled = item === enabled;
       });
     },
     normalize() {

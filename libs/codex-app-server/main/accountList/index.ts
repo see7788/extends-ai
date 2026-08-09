@@ -58,11 +58,6 @@ export const refresh = (): Promise<void> => {
 
 const start = (): void => {
     queryStateClear();
-    if (store.getState().globalSettings.codexHome) {
-      store.getState().accountActions.enabledNormalize();
-    } else {
-      store.getState().accountActions.enabledClear();
-    }
     schedulerStart(refresh);
     if (dataMissing()) void refresh();
 };
