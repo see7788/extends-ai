@@ -6,18 +6,15 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
-import { browser } from "browser-partition-main/browser/store.ts";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
-import { cookieImport } from "./store.ts";
 
-type BrowserApplication = ReturnType<
-  typeof browser.browserApplicationsValidator.parse
->[number];
+type BrowserApplication = Awaited<ReturnType<
+  ReturnType<typeof store.getState>["cookieImportActions"]["applicationsRead"]
+>>[number];
 
-const useCookieImport = ({
+const CookieImport = ({
   identifiedBrowserIds,
   identify,
 }: {
@@ -26,6 +23,7 @@ const useCookieImport = ({
 }) => {
   const { message } = AntdApp.useApp();
   const cookieImportState = store(state => state.cookieImport);
+  const actions = store(state => state.cookieImportActions);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [identifying, setIdentifying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,26 +33,11 @@ const useCookieImport = ({
   };
 
   useEffect(() => {
-    void read({
-      channel: cookieImport.channel.stateRead,
-      resultValidator: cookieImport.cookieImportValidator,
-    }).then(store.getState().cookieImportActions.stateSet).catch(errorShow);
-    const dispose = subscribe({
-      channel: cookieImport.channel.stateUpdated,
-      resultValidator: cookieImport.cookieImportValidator,
-      run: store.getState().cookieImportActions.stateSet,
-    });
     setLoading(true);
-    void invoke({
-      channel: browser.channel.applicationsRead,
-      input: {},
-      inputValidator: browser.input.command,
-      resultValidator: browser.browserApplicationsValidator,
-    })
+    void actions.applicationsRead()
       .then(setApplications)
       .catch(errorShow)
       .finally(() => setLoading(false));
-    return dispose;
   }, []);
 
   useEffect(() => {
@@ -141,12 +124,7 @@ const useCookieImport = ({
                 style={{ whiteSpace: "nowrap" }}
                 title="取消"
                 type="text"
-                onClick={() => void invoke({
-                  channel: cookieImport.channel.cancel,
-                  input: {},
-                  inputValidator: cookieImport.input.command,
-                  resultValidator: cookieImport.result.cancel,
-                }).catch(errorShow)}
+                onClick={() => void actions.cancel().catch(errorShow)}
               >
                 取消
               </Button>
@@ -159,11 +137,8 @@ const useCookieImport = ({
                 style={{ whiteSpace: "nowrap" }}
                 title={imported ? "重新导入" : "导入"}
                 type="text"
-                onClick={() => void invoke({
-                  channel: cookieImport.channel.start,
-                  input: { browserId: application.id },
-                  inputValidator: cookieImport.input.create,
-                  resultValidator: cookieImport.result.start,
+                onClick={() => void actions.start({
+                  browserId: application.id,
                 }).catch(errorShow)}
               >
                 {imported ? "重新导入" : "导入"}
@@ -189,21 +164,17 @@ const useCookieImport = ({
     });
   }
 
-  return [{
-    children: (
-      <GlassCard title="其他浏览器导入">
-        <Tree
-          blockNode
-          expandedKeys={treeData.map(node => node.key)}
-          selectable={false}
-          styles={{ root: { background: "transparent" } }}
-          treeData={treeData}
-        />
-      </GlassCard>
-    ),
-    data: null,
-    key: "cookieImport",
-  }];
+  return (
+    <GlassCard title="其他浏览器导入">
+      <Tree
+        blockNode
+        expandedKeys={treeData.map(node => node.key)}
+        selectable={false}
+        styles={{ root: { background: "transparent" } }}
+        treeData={treeData}
+      />
+    </GlassCard>
+  );
 };
 
-export default useCookieImport;
+export default CookieImport;

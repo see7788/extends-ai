@@ -1,9 +1,7 @@
 import { App as AntdApp, Button, Flex, Space, Typography } from "antd";
-import { invoke } from "browser-partition-renderer/public.ts";
 import { useState } from "react";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { usage } from "./store.ts";
 
 const numberText = (value: number | null | undefined): string => value === null
   || value === undefined
@@ -32,16 +30,12 @@ const Usage = ({
 }) => {
   const { message } = AntdApp.useApp();
   const value = store(state => state.usage.byAccountId[accountId]);
+  const read = store(state => state.usageActions.read);
   const [pending, setPending] = useState(false);
   const refresh = async (): Promise<void> => {
     setPending(true);
     try {
-      await invoke({
-        channel: usage.channel.read,
-        input: { accountId },
-        inputValidator: usage.input.command,
-        resultValidator: usage.commandResultValidator,
-      });
+      await read({ accountId });
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -50,7 +44,7 @@ const Usage = ({
   };
   const summary = value?.value?.summary;
   return (
-    <Space direction="vertical" size={4} style={{ width: "100%" }}>
+    <Space orientation="vertical" size={4} style={{ width: "100%" }}>
       {summary ? (
         <Flex gap={10} wrap>
           <Typography.Text style={{ color: secondaryColor }}>
@@ -71,7 +65,7 @@ const Usage = ({
         </Flex>
       ) : null}
       {value?.value?.dailyUsageBuckets?.length ? (
-        <Space direction="vertical" size={2} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={2} style={{ width: "100%" }}>
           <Typography.Text style={{ color }}>每日用量</Typography.Text>
           <Flex gap={12} wrap>
             {value.value.dailyUsageBuckets.map(bucket => (

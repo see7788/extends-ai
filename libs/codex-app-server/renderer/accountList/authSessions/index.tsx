@@ -1,9 +1,7 @@
 import { App as AntdApp, Button, Space, Tag, Typography } from "antd";
-import { invoke } from "browser-partition-renderer/public.ts";
 import { useState } from "react";
 import { errorText, timeText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { authSessions } from "./store.ts";
 
 const statusText = {
   authenticated: "已登录",
@@ -23,16 +21,12 @@ const AuthSession = ({
 }: AuthSessionProps) => {
   const { message } = AntdApp.useApp();
   const value = store(state => state.authSessions.byAccountId[accountId]);
+  const read = store(state => state.authSessionsActions.read);
   const [pending, setPending] = useState(false);
   const refresh = async (): Promise<void> => {
     setPending(true);
     try {
-      await invoke({
-        channel: authSessions.channel.read,
-        input: { accountId },
-        inputValidator: authSessions.input.command,
-        resultValidator: authSessions.resultValidator,
-      });
+      await read({ accountId });
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -40,7 +34,7 @@ const AuthSession = ({
     }
   };
   return (
-    <Space direction="vertical" size={4} style={{ width: "100%" }}>
+    <Space orientation="vertical" size={4} style={{ width: "100%" }}>
       {value?.status && value.status !== "authenticated" ? (
         <Tag color={value.status === "error" || value.status === "requiresLogin"
           ? "red"

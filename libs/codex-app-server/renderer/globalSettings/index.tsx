@@ -23,16 +23,22 @@ import {
 import { errorText } from "../public/index.ts";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { globalSettings } from "./store.ts";
 
 const { Text } = Typography;
 
-type Pending = keyof typeof globalSettings.channel | null;
+type Pending = "codexHomeDefaultRestore"
+  | "codexHomeDelete"
+  | "codexHomeSet"
+  | "maintenanceEnabledSet"
+  | "maintenanceIntervalHoursSet"
+  | "maintenanceRetryCountSet"
+  | "maintenanceRetryIntervalMinutesSet"
+  | null;
 
 const GlobalSettings = () => {
   const { message } = AntdApp.useApp();
   const value = store(state => state.globalSettings);
+  const actions = store(state => state.globalSettingsActions);
   const codexHomeInput = useRef<InputRef>(null);
   const [form, setForm] = useState(value);
   const [editingCodexHome, setEditingCodexHome] = useState(false);
@@ -42,20 +48,6 @@ const GlobalSettings = () => {
     "codex-home-path",
     "maintenance-automatic",
   ]);
-  const stateRead = async (): Promise<void> => {
-    store.getState().globalSettingsActions.stateSet(await read({
-      channel: globalSettings.channel.stateRead,
-      resultValidator: globalSettings.globalSettingsValidator,
-    }));
-  };
-  useEffect(() => {
-    void stateRead();
-    return subscribe({
-      channel: globalSettings.channel.stateUpdated,
-      resultValidator: globalSettings.globalSettingsValidator,
-      run: store.getState().globalSettingsActions.stateSet,
-    });
-  }, []);
   useEffect(() => setForm(value), [value]);
   useEffect(() => {
     if (!editingCodexHome) return;
@@ -66,7 +58,7 @@ const GlobalSettings = () => {
     try {
       await action();
     } catch (error) {
-      await stateRead().catch(() => undefined);
+      setForm(value);
       void message.error(errorText(error));
     } finally {
       setPending(null);
@@ -81,37 +73,23 @@ const GlobalSettings = () => {
       return;
     }
     void update("codexHomeSet", async () => {
-      await invoke({
-        channel: globalSettings.channel.codexHomeSet,
-        input: { codexHome },
-        inputValidator: globalSettings.input.codexHomeSet,
-        resultValidator: globalSettings.resultValidator,
-      });
-      await stateRead();
+      await actions.codexHomeSet({ codexHome });
     });
   };
   const maintenanceIntervalHoursCommit = () => {
     if (form.maintenanceIntervalHours === value.maintenanceIntervalHours) return;
     void update("maintenanceIntervalHoursSet", async () => {
-      await invoke({
-        channel: globalSettings.channel.maintenanceIntervalHoursSet,
-        input: { maintenanceIntervalHours: form.maintenanceIntervalHours },
-        inputValidator: globalSettings.input.maintenanceIntervalHoursSet,
-        resultValidator: globalSettings.resultValidator,
+      await actions.maintenanceIntervalHoursSet({
+        maintenanceIntervalHours: form.maintenanceIntervalHours,
       });
-      await stateRead();
     });
   };
   const maintenanceRetryCountCommit = () => {
     if (form.maintenanceRetryCount === value.maintenanceRetryCount) return;
     void update("maintenanceRetryCountSet", async () => {
-      await invoke({
-        channel: globalSettings.channel.maintenanceRetryCountSet,
-        input: { maintenanceRetryCount: form.maintenanceRetryCount },
-        inputValidator: globalSettings.input.maintenanceRetryCountSet,
-        resultValidator: globalSettings.resultValidator,
+      await actions.maintenanceRetryCountSet({
+        maintenanceRetryCount: form.maintenanceRetryCount,
       });
-      await stateRead();
     });
   };
   const maintenanceRetryIntervalMinutesCommit = () => {
@@ -120,13 +98,9 @@ const GlobalSettings = () => {
       === value.maintenanceRetryIntervalMinutes
     ) return;
     void update("maintenanceRetryIntervalMinutesSet", async () => {
-      await invoke({
-        channel: globalSettings.channel.maintenanceRetryIntervalMinutesSet,
-        input: { maintenanceRetryIntervalMinutes: form.maintenanceRetryIntervalMinutes },
-        inputValidator: globalSettings.input.maintenanceRetryIntervalMinutesSet,
-        resultValidator: globalSettings.resultValidator,
+      await actions.maintenanceRetryIntervalMinutesSet({
+        maintenanceRetryIntervalMinutes: form.maintenanceRetryIntervalMinutes,
       });
-      await stateRead();
     });
   };
   const disabled = pending !== null;
@@ -216,13 +190,7 @@ const GlobalSettings = () => {
                 onClick={() => void update(
                   "codexHomeDefaultRestore",
                   async () => {
-                    await invoke({
-                      channel: globalSettings.channel.codexHomeDefaultRestore,
-                      input: {},
-                      inputValidator: globalSettings.input.command,
-                      resultValidator: globalSettings.resultValidator,
-                    });
-                    await stateRead();
+                    await actions.codexHomeDefaultRestore();
                   },
                 )}
               />
@@ -236,13 +204,7 @@ const GlobalSettings = () => {
                 onClick={() => void update(
                   "codexHomeDelete",
                   async () => {
-                    await invoke({
-                      channel: globalSettings.channel.codexHomeDelete,
-                      input: {},
-                      inputValidator: globalSettings.input.command,
-                      resultValidator: globalSettings.resultValidator,
-                    });
-                    await stateRead();
+                    await actions.codexHomeDelete();
                   },
                 )}
               />
@@ -269,13 +231,7 @@ const GlobalSettings = () => {
               onChange={maintenanceEnabled => {
                 setForm(current => ({ ...current, maintenanceEnabled }));
                 void update("maintenanceEnabledSet", async () => {
-                  await invoke({
-                    channel: globalSettings.channel.maintenanceEnabledSet,
-                    input: { maintenanceEnabled },
-                    inputValidator: globalSettings.input.maintenanceEnabledSet,
-                    resultValidator: globalSettings.resultValidator,
-                  });
-                  await stateRead();
+                  await actions.maintenanceEnabledSet({ maintenanceEnabled });
                 });
               }}
             />
@@ -286,7 +242,7 @@ const GlobalSettings = () => {
           <Space size={4}>
             <Text>查询间隔</Text>
             <InputNumber
-              addonAfter="小时"
+              suffix="小时"
               disabled={disabled}
               max={720}
               min={1}
@@ -307,7 +263,7 @@ const GlobalSettings = () => {
           <Space size={4}>
             <Text>失败重试</Text>
             <InputNumber
-              addonAfter="次"
+              suffix="次"
               disabled={disabled}
               max={5}
               min={0}
@@ -328,7 +284,7 @@ const GlobalSettings = () => {
           <Space size={4}>
             <Text>重试间隔</Text>
             <InputNumber
-              addonAfter="分钟"
+              suffix="分钟"
               disabled={disabled}
               max={1_440}
               min={1}

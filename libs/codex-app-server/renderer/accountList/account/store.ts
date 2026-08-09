@@ -1,5 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { account as producer } from "codex-app-server-main/accountList/account/store.ts";
+import { invoke } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
 const accountValidator = producer.accountStateValidator;
@@ -11,6 +12,9 @@ type AccountOfficialOpenInput = z.infer<typeof producer.input.officialOpen>;
 type AccountSlice = {
   account: AccountState;
   accountActions: {
+    enabledSet(input: AccountEnabledSetInput): Promise<void>;
+    labelSet(input: AccountLabelSetInput): Promise<void>;
+    officialOpen(input: AccountOfficialOpenInput): Promise<void>;
     stateSet(input: AccountState): void;
   };
 };
@@ -25,6 +29,30 @@ const account = {
 const accountStore: ImmerStateCreator<AccountSlice> = set => ({
   account: structuredClone(producer.initial),
   accountActions: {
+    async enabledSet(input) {
+      await invoke({
+        channel: account.channel.enabledSet,
+        input,
+        inputValidator: account.input.enabledSet,
+        resultValidator: account.resultValidator,
+      });
+    },
+    async labelSet(input) {
+      await invoke({
+        channel: account.channel.labelSet,
+        input,
+        inputValidator: account.input.labelSet,
+        resultValidator: account.resultValidator,
+      });
+    },
+    async officialOpen(input) {
+      await invoke({
+        channel: account.channel.officialOpen,
+        input,
+        inputValidator: account.input.officialOpen,
+        resultValidator: account.resultValidator,
+      });
+    },
     stateSet(input) {
       const value = accountValidator.parse(input);
       set(state => {

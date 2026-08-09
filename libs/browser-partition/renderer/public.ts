@@ -52,4 +52,22 @@ const subscribe = <TResult>(options: {
   return () => preload.removeListener(options.channel, listenerId);
 };
 
-export { invoke, read, subscribe };
+const stateConnect = <TState>(options: {
+  error(error: unknown): void;
+  readChannel: string;
+  stateSet(value: TState): void;
+  stateUpdatedChannel: string;
+  validator: ZodType<TState>;
+}): (() => void) => {
+  void read({
+    channel: options.readChannel,
+    resultValidator: options.validator,
+  }).then(options.stateSet).catch(options.error);
+  return subscribe({
+    channel: options.stateUpdatedChannel,
+    resultValidator: options.validator,
+    run: options.stateSet,
+  });
+};
+
+export { invoke, read, stateConnect, subscribe };

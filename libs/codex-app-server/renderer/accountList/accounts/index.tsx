@@ -3,21 +3,15 @@ import {
   App as AntdApp,
   Button,
 } from "antd";
-import { invoke } from "browser-partition-renderer/public.ts";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { accounts } from "./store.ts";
 
 const AccountRemove = ({ accountId }: { accountId: string }) => {
   const { message } = AntdApp.useApp();
+  const accountDelete = store(state => state.accountsActions.accountDelete);
   const remove = (): void => {
     void (async () => {
-      await invoke({
-        channel: accounts.channel.accountDelete,
-        input: { accountId },
-        inputValidator: accounts.input.accountDelete,
-        resultValidator: accounts.resultValidator,
-      });
+      await accountDelete({ accountId });
     })().catch(error => void message.error(errorText(error)));
   };
   return (

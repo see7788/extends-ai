@@ -175,13 +175,13 @@ extends-ai/
 
 - main/renderer 以业务切片同构：main 切片拥有数据、Actions、验证器与执行方法；renderer 同名切片消费其验证器、镜像状态并呈现交互。
 - 每个独立业务 renderer 根目录固定存在 `store.ts / routers.tsx / index.tsx`；即使只有一个页面，也使用 `react-router-dom` 的 Hash Router。
-- renderer 业务切片目录固定只有 `store.ts / index.tsx`：`store.ts` 定义同名镜像切片，`index.tsx` 只呈现本切片 UI 并发起明确操作；不再并存 `index.ts` 与 `index.tsx`，也不保留套壳转发入口。
-- 每个 `store.ts` 只定义本切片的 `<切片名>` 与 `<切片名>Actions`；主 `store.ts` 只组合切片。
+- renderer 业务切片目录固定只有 `store.ts / index.tsx`：`store.ts` 定义同名镜像状态及向 main 发起明确方法的 Actions，`index.tsx` 只渲染状态并调用 Actions；不再并存 `index.ts` 与 `index.tsx`，也不保留套壳转发入口。
+- 每个切片 `store.ts` 只定义本切片的 `<切片名>` 与 `<切片名>Actions`；renderer 主 `store.ts` 组合切片，并在建仓后把 main 的首次状态和后续推送接入对应 `stateSet`。
 - renderer 主仓库使用 Zustand `create`，组件直接调用 `store(selector)`；不再额外引入 `useStore(store, selector)` 适配层。
-- renderer 根消费者显式完成子切片的首次读取与状态监听；子切片不导出 `useXxx` IPC 生命周期包装，只负责本切片 UI 与明确操作。
+- renderer 不导出 `useXxx` IPC 生命周期包装；UI 不直接导入 `invoke / read / subscribe / stateConnect`。
 - `app.tsx` 只负责应用主题上下文与路由 `Outlet`，不转发页面、不拥有业务 store，也不替根切片组合业务 UI。
 - `public/` 只保存无业务的公共组件与工具，不保存页面壳或业务转发。
-- 公共通信只具名导出 `invoke / read / subscribe`；消费者直接写明通道和验证器，不保留默认对象、纯转发函数或无消费者的入口导出。
+- 公共通信只具名导出 `invoke / read / subscribe / stateConnect`；`stateConnect` 仅统一首次读取、后续推送和监听销毁，不承载业务判断。
 - `browser-partition` 是纯能力生产者，不拥有 Zustand 主仓库和业务状态。
 - `browser-partition-preload` 只提供公共 bridge 工厂；真正的 preload 所有权属于 `login` 与 `codex-app-server`。
 - `login` 与 `codex-app-server` 相互独立，只共同消费 `browser-partition`。

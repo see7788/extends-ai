@@ -10,11 +10,8 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect } from "react";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
-import { accounts } from "./store.ts";
 
 const statusText = {
   expired: "已过期",
@@ -22,99 +19,54 @@ const statusText = {
   valid: "有效",
 } as const;
 
-const useAccounts = () => {
+const Account = ({ email }: { email: string }) => {
   const { message } = AntdApp.useApp();
-  const accountsState = store(state => state.accounts);
+  const account = store(state => state.accounts.byEmail[email]);
+  const actions = store(state => state.accountsActions);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
-  useEffect(() => {
-    void read({
-      channel: accounts.channel.stateRead,
-      resultValidator: accounts.accountsValidator,
-    }).then(store.getState().accountsActions.stateSet).catch(errorShow);
-    return subscribe({
-      channel: accounts.channel.stateUpdated,
-      resultValidator: accounts.accountsValidator,
-      run: store.getState().accountsActions.stateSet,
-    });
-  }, []);
+  if (!account) return null;
 
-  const accountItems = accountsState.order
-    .map(email => accountsState.byEmail[email])
-    .filter(account => account !== undefined)
-    .map(account => ({
-      children: (
-        <GlassCard title={account.email}>
-          <Flex gap={8} vertical>
-            <Flex align="center" gap={8} wrap>
-              <Tag>{statusText[account.status]}</Tag>
-              <Typography.Text>
-                {account.sources.map(source => source.browserName).join("、") || "内嵌登录"}
-              </Typography.Text>
-            </Flex>
-            <Typography.Text>
-              检查于 {new Date(account.checkedAt).toLocaleString()}
-            </Typography.Text>
-            {account.error ? <Typography.Text>{account.error}</Typography.Text> : null}
-            <Flex gap={4} wrap>
-              <Button
-                icon={<GlobalOutlined />}
-                type="text"
-                onClick={() => void invoke({
-                  channel: accounts.channel.open,
-                  input: { email: account.email },
-                  inputValidator: accounts.input.email,
-                  resultValidator: accounts.result.command,
-                }).catch(errorShow)}
-              >
-                打开
-              </Button>
-              <Button
-                icon={<SafetyCertificateOutlined />}
-                type="text"
-                onClick={() => void invoke({
-                  channel: accounts.channel.validate,
-                  input: { email: account.email },
-                  inputValidator: accounts.input.email,
-                  resultValidator: accounts.result.command,
-                }).catch(errorShow)}
-              >
-                验证
-              </Button>
-              <Button
-                icon={<DeleteOutlined />}
-                type="text"
-                onClick={() => void invoke({
-                  channel: accounts.channel.remove,
-                  input: { email: account.email },
-                  inputValidator: accounts.input.email,
-                  resultValidator: accounts.result.command,
-                }).catch(errorShow)}
-              >
-                移除
-              </Button>
-            </Flex>
-          </Flex>
-        </GlassCard>
-      ),
-      data: null,
-      key: `account:${account.email}`,
-    }));
-  return {
-    cookieImportConsume: async () => (await invoke({
-      channel: accounts.channel.cookieImportConsume,
-      input: {},
-      inputValidator: accounts.input.command,
-      resultValidator: accounts.result.account,
-    })).account,
-    identifiedBrowserIds: new Set(accountsState.order.flatMap(email => (
-      accountsState.byEmail[email]?.sources.map(
-        source => source.browserId,
-      ) ?? []
-    ))),
-    items: accountItems,
-  };
+  return (
+    <GlassCard title={account.email}>
+      <Flex gap={8} vertical>
+        <Flex align="center" gap={8} wrap>
+          <Tag>{statusText[account.status]}</Tag>
+          <Typography.Text>
+            {account.sources.map(source => source.browserName).join("、") || "内嵌登录"}
+          </Typography.Text>
+        </Flex>
+        <Typography.Text>
+          检查于 {new Date(account.checkedAt).toLocaleString()}
+        </Typography.Text>
+        {account.error ? <Typography.Text>{account.error}</Typography.Text> : null}
+        <Flex gap={4} wrap>
+          <Button
+            icon={<GlobalOutlined />}
+            type="text"
+            onClick={() => void actions.open({ email: account.email }).catch(errorShow)}
+          >
+            打开
+          </Button>
+          <Button
+            icon={<SafetyCertificateOutlined />}
+            type="text"
+            onClick={() => void actions.validate({ email: account.email }).catch(errorShow)}
+          >
+            验证
+          </Button>
+          <Button
+            icon={<DeleteOutlined />}
+            type="text"
+            onClick={() => void actions.remove({ email: account.email }).catch(errorShow)}
+          >
+            移除
+          </Button>
+        </Flex>
+      </Flex>
+    </GlassCard>
+  );
 };
 
-export default useAccounts;
+export default Account;

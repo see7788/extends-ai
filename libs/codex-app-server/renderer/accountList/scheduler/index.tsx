@@ -7,12 +7,9 @@ import {
   Typography,
   type TreeDataNode,
 } from "antd";
-import { read, subscribe } from "browser-partition-renderer/public.ts";
-import { useEffect } from "react";
 import { errorText, timeText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
-import { scheduler } from "./store.ts";
 
 type SchedulerProps = {
   maintenanceEnabled: boolean;
@@ -29,25 +26,10 @@ const Scheduler = ({
 }: SchedulerProps) => {
   const { message } = AntdApp.useApp();
   const value = store(state => state.scheduler);
-  useEffect(() => {
-    void read({
-      channel: scheduler.channel.stateRead,
-      resultValidator: scheduler.schedulerValidator,
-    }).then(store.getState().schedulerActions.stateSet).catch(error => {
-      void message.error(errorText(error));
-    });
-    return subscribe({
-      channel: scheduler.channel.stateUpdated,
-      resultValidator: scheduler.schedulerValidator,
-      run: store.getState().schedulerActions.stateSet,
-    });
-  }, []);
+  const runNowAction = store(state => state.schedulerActions.runNow);
   const runNow = async (): Promise<void> => {
     try {
-      await read({
-        channel: scheduler.channel.runNow,
-        resultValidator: scheduler.resultValidator,
-      });
+      await runNowAction();
     } catch (error) {
       void message.error(errorText(error));
     }
@@ -91,7 +73,7 @@ const Scheduler = ({
             return (
               <Button
                 icon={<ReloadOutlined />}
-                iconPosition="end"
+                iconPlacement="end"
                 type="text"
                 onClick={() => void runNow()}
               >

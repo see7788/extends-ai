@@ -1,9 +1,7 @@
 import { App as AntdApp, Button, Flex, Progress, Space, Tag, Typography } from "antd";
-import { invoke } from "browser-partition-renderer/public.ts";
 import { useState } from "react";
 import { errorText } from "../../public/index.ts";
 import store from "../../store.ts";
-import { rateLimits } from "./store.ts";
 
 const dateTimeText = (value: number | string | null | undefined): string => {
   if (value === null || value === undefined) return "—";
@@ -43,16 +41,12 @@ const RateLimits = ({
 }: RateLimitsProps) => {
   const { message } = AntdApp.useApp();
   const value = store(state => state.rateLimits.byAccountId[accountId]);
+  const read = store(state => state.rateLimitsActions.read);
   const [pending, setPending] = useState(false);
   const refresh = async (): Promise<void> => {
     setPending(true);
     try {
-      await invoke({
-        channel: rateLimits.channel.read,
-        input: { accountId },
-        inputValidator: rateLimits.input.command,
-        resultValidator: rateLimits.commandResultValidator,
-      });
+      await read({ accountId });
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -66,9 +60,9 @@ const RateLimits = ({
   }
   const resetCredits = value?.value?.rateLimitResetCredits;
   return (
-    <Space direction="vertical" size={4} style={{ width: "100%" }}>
+    <Space orientation="vertical" size={4} style={{ width: "100%" }}>
       {buckets.map(bucket => (
-        <Space direction="vertical" key={bucket.limitId} size={4} style={{ width: "100%" }}>
+        <Space orientation="vertical" key={bucket.limitId} size={4} style={{ width: "100%" }}>
           {(["primary", "secondary"] as const).map((name, index) => {
             const window = bucket[name];
             if (!window) return null;
@@ -105,7 +99,7 @@ const RateLimits = ({
         </Space>
       ))}
       {resetCredits ? (
-        <Space direction="vertical" size={2} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={2} style={{ width: "100%" }}>
           <Typography.Text style={{ color }}>
             可用重置额度：{resetCredits.availableCount}
           </Typography.Text>

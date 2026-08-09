@@ -9,15 +9,11 @@ import {
   theme,
   Typography,
 } from "antd";
-import { invoke } from "browser-partition-renderer/public.ts";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
-import {
-  account as accountContract,
-} from "./store.ts";
 
 const timeText = (value: string): string => new Date(value).toLocaleString("zh-CN");
 
@@ -29,31 +25,23 @@ const Account = ({ accountId, children, summary, title }: {
 }) => {
   const { message } = AntdApp.useApp();
   const account = store(state => state.account[accountId]);
+  const enabledSet = store(state => state.accountActions.enabledSet);
+  const officialOpen = store(state => state.accountActions.officialOpen);
   const { token } = theme.useToken();
   const colorPrimary = token.colorPrimary;
   const [officialOpening, setOfficialOpening] = useState(false);
   if (!account) return <GlassCard><Empty description="账号不存在或已移除" /></GlassCard>;
-  const enabledSet = async (enabled: boolean): Promise<void> => {
+  const enabledSetRun = async (enabled: boolean): Promise<void> => {
     try {
-      await invoke({
-        channel: accountContract.channel.enabledSet,
-        input: { accountId, enabled },
-        inputValidator: accountContract.input.enabledSet,
-        resultValidator: accountContract.resultValidator,
-      });
+      await enabledSet({ accountId, enabled });
     } catch (error) {
       void message.error(errorText(error));
     }
   };
-  const officialOpen = async (): Promise<void> => {
+  const officialOpenRun = async (): Promise<void> => {
     setOfficialOpening(true);
     try {
-      await invoke({
-        channel: accountContract.channel.officialOpen,
-        input: { accountId },
-        inputValidator: accountContract.input.officialOpen,
-        resultValidator: accountContract.resultValidator,
-      });
+      await officialOpen({ accountId });
     } catch (error) {
       void message.error(errorText(error));
     } finally {
@@ -70,7 +58,7 @@ const Account = ({ accountId, children, summary, title }: {
             disabled={account.enabled}
             unCheckedChildren="启用"
             onChange={enabled => {
-              if (enabled) void enabledSet(true);
+              if (enabled) void enabledSetRun(true);
             }}
           />
           {account.webAccess ? (
@@ -78,7 +66,7 @@ const Account = ({ accountId, children, summary, title }: {
               icon={<GlobalOutlined />}
               loading={officialOpening}
               type="text"
-              onClick={() => void officialOpen()}
+              onClick={() => void officialOpenRun()}
             >
               访问官网
             </Button>

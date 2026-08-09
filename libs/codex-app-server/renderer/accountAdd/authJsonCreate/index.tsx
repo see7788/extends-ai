@@ -4,21 +4,18 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
-import { browser } from "browser-partition-main/browser/store.ts";
-import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
-import { authJsonCreate } from "./store.ts";
-
-type BrowserApplication = ReturnType<
-  typeof browser.browserApplicationsValidator.parse
->[number];
+type BrowserApplication = Awaited<ReturnType<
+  ReturnType<typeof store.getState>["authJsonCreateActions"]["applicationsRead"]
+>>[number];
 
 const AuthJsonCreate = () => {
   const { message } = AntdApp.useApp();
   const state = store(value => value.authJsonCreate);
+  const actions = store(value => value.authJsonCreateActions);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -27,26 +24,11 @@ const AuthJsonCreate = () => {
   };
 
   useEffect(() => {
-    void read({
-      channel: authJsonCreate.channel.stateRead,
-      resultValidator: authJsonCreate.authJsonCreateValidator,
-    }).then(store.getState().authJsonCreateActions.stateSet).catch(errorShow);
-    const dispose = subscribe({
-      channel: authJsonCreate.channel.stateUpdated,
-      resultValidator: authJsonCreate.authJsonCreateValidator,
-      run: store.getState().authJsonCreateActions.stateSet,
-    });
     setLoading(true);
-    void invoke({
-      channel: browser.channel.applicationsRead,
-      input: {},
-      inputValidator: browser.input.command,
-      resultValidator: browser.browserApplicationsValidator,
-    })
+    void actions.applicationsRead()
       .then(setApplications)
       .catch(errorShow)
       .finally(() => setLoading(false));
-    return dispose;
   }, []);
 
   useEffect(() => {
@@ -63,23 +45,13 @@ const AuthJsonCreate = () => {
     : null;
   const run = async (browserId: string): Promise<void> => {
     try {
-      await invoke({
-        channel: authJsonCreate.channel.create,
-        input: { browserId },
-        inputValidator: authJsonCreate.input.create,
-        resultValidator: authJsonCreate.result.create,
-      });
+      await actions.create({ browserId });
     } catch (error) {
       errorShow(error);
     }
   };
   const cancel = (): void => {
-    void invoke({
-      channel: authJsonCreate.channel.cancel,
-      input: {},
-      inputValidator: authJsonCreate.input.command,
-      resultValidator: authJsonCreate.result.cancel,
-    }).catch(errorShow);
+    void actions.cancel().catch(errorShow);
   };
   const treeData = applications.map(application => {
     const active = state.activeBrowserId === application.id;

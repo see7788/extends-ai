@@ -1,16 +1,35 @@
 import { Masonry } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
-import useAccounts from "./accounts/index.tsx";
-import useCookieImport from "./cookieImport/index.tsx";
-import useLogin from "./login/index.tsx";
+import Account from "./accounts/index.tsx";
+import CookieImport from "./cookieImport/index.tsx";
+import Login from "./login/index.tsx";
+import store from "./store.ts";
 
 const App = () => {
-  const loginItems = useLogin();
-  const accounts = useAccounts();
-  const cookieImportItems = useCookieImport({
-    identifiedBrowserIds: accounts.identifiedBrowserIds,
-    identify: accounts.cookieImportConsume,
-  });
+  const accountsState = store(state => state.accounts);
+  const identify = store(state => state.accountsActions.cookieImportConsume);
+
+  const identifiedBrowserIds = new Set(accountsState.order.flatMap(email => (
+    accountsState.byEmail[email]?.sources.map(source => source.browserId) ?? []
+  )));
+  const items = [
+    { children: <Login />, data: null, key: "login" },
+    {
+      children: (
+        <CookieImport
+          identifiedBrowserIds={identifiedBrowserIds}
+          identify={identify}
+        />
+      ),
+      data: null,
+      key: "cookieImport",
+    },
+    ...accountsState.order.map(email => ({
+      children: <Account email={email} />,
+      data: null,
+      key: `account:${email}`,
+    })),
+  ];
 
   return (
     <div style={{ background: "#000", minHeight: "100vh", overflow: "hidden", position: "relative" }}>
@@ -26,7 +45,7 @@ const App = () => {
         <Masonry
           columns={{ xs: 1, sm: 2, lg: 3, xl: 4 }}
           gutter={16}
-          items={[...loginItems, ...cookieImportItems, ...accounts.items]}
+          items={items}
         />
       </div>
     </div>
