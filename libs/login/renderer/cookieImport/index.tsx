@@ -141,7 +141,6 @@ const useCookieImport = ({ identify }: CookieImportProps) => {
               <Typography.Text>已导入</Typography.Text>
             ) : (
               <Button
-                disabled={cookieImport.status === "ready"}
                 icon={<GlobalOutlined />}
                 type="text"
                 onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}

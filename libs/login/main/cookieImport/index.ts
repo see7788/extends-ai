@@ -398,8 +398,12 @@ const webAccessCreate = async (
 const cookieImportIndex = {
   async start(browserId: string): Promise<boolean> {
     const input = cookieImport.input.create.parse({ browserId });
-    if (store.getState().cookieImport.status === "ready") {
-      throw new Error("已有待识别的浏览器登录态");
+    const current = store.getState().cookieImport;
+    if (current.status === "ready" && current.candidate) {
+      await session.fromPartition(current.candidate.partition).clearData().catch(() => undefined);
+      store.getState().cookieImportActions.candidateClear({
+        partition: current.candidate.partition,
+      });
     }
     const result = await store.getState().cookieImportActions.run(async signal => {
       const actions = store.getState().cookieImportActions;
