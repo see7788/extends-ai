@@ -26,7 +26,7 @@ const globalSettings = {
   resultValidator: producer.resultValidator,
 };
 
-const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice> = (set, get) => ({
+const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice> = set => ({
   globalSettings: globalSettingsStateValidator.parse({
     ...structuredClone(producer.initial),
     codexHomeVisible: false,

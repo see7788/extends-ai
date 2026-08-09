@@ -22,7 +22,8 @@ import {
   type InputRef,
   type TreeDataNode,
 } from "antd";
-import { errorText, type TreeSection } from "../public.tsx";
+import { errorText } from "../public/index.ts";
+import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { globalSettings } from "./store.ts";
@@ -119,7 +120,7 @@ const globalSettingsIndex = {
 
 type Pending = keyof typeof globalSettings.channel | null;
 
-const GlobalSettings = ({ section }: { section?: TreeSection }) => {
+const GlobalSettings = () => {
   const { message } = AntdApp.useApp();
   const value = globalSettingsIndex.use();
   const codexHomeInput = useRef<InputRef>(null);
@@ -129,9 +130,7 @@ const GlobalSettings = ({ section }: { section?: TreeSection }) => {
   const [expandedKeys, setExpandedKeys] = useState<string[]>([
     "codex-home",
     "codex-home-path",
-    "account-query",
     "maintenance-automatic",
-    "scheduler-last-run",
   ]);
   useEffect(() => {
     void globalSettingsIndex.stateRead();
@@ -201,23 +200,15 @@ const GlobalSettings = ({ section }: { section?: TreeSection }) => {
   const treeData: TreeDataNode[] = [
     codexHomeNode,
     {
-      key: "account-query",
-      title: "查询全部账号",
-      children: [
-        ...(section?.items ?? []),
-        {
-          key: "maintenance-automatic",
-          title: "自动查询",
-          children: form.maintenanceEnabled
-            ? [
-              { key: "maintenance-interval", title: "查询间隔" },
-              { key: "maintenance-retry-count", title: "失败重试" },
-              { key: "maintenance-retry-interval", title: "重试间隔" },
-              { key: "scheduler-next-run", title: "下次查询" },
-            ]
-            : [],
-        },
-      ],
+      key: "maintenance-automatic",
+      title: "自动查询",
+      children: form.maintenanceEnabled
+        ? [
+          { key: "maintenance-interval", title: "查询间隔" },
+          { key: "maintenance-retry-count", title: "失败重试" },
+          { key: "maintenance-retry-interval", title: "重试间隔" },
+        ]
+        : [],
     },
   ];
   const titleRender = (node: TreeDataNode) => {
@@ -398,32 +389,33 @@ const GlobalSettings = ({ section }: { section?: TreeSection }) => {
           </Space>
         );
       default:
-        return section?.titleRender(node)
-          ?? (typeof node.title === "function" ? node.title(node) : node.title);
+        return typeof node.title === "function" ? node.title(node) : node.title;
     }
   };
   return (
-    <ConfigProvider theme={{
-      components: {
-        Tree: {
-          nodeHoverBg: "transparent",
-          nodeSelectedBg: "transparent",
+    <GlassCard title="全局设置">
+      <ConfigProvider theme={{
+        components: {
+          Tree: {
+            nodeHoverBg: "transparent",
+            nodeSelectedBg: "transparent",
+          },
         },
-      },
-      token: { colorBgContainer: "transparent" },
-    }}>
-      <Tree.DirectoryTree
-        blockNode
-        expandAction="doubleClick"
-        expandedKeys={expandedKeys}
-        selectedKeys={[]}
-        style={{ background: "transparent", width: "100%" }}
-        styles={{ itemSwitcher: { display: "none" } }}
-        titleRender={titleRender}
-        treeData={treeData}
-        onExpand={keys => setExpandedKeys(keys.map(String))}
-      />
-    </ConfigProvider>
+        token: { colorBgContainer: "transparent" },
+      }}>
+        <Tree.DirectoryTree
+          blockNode
+          expandAction="doubleClick"
+          expandedKeys={expandedKeys}
+          selectedKeys={[]}
+          style={{ background: "transparent", width: "100%" }}
+          styles={{ itemSwitcher: { display: "none" } }}
+          titleRender={titleRender}
+          treeData={treeData}
+          onExpand={keys => setExpandedKeys(keys.map(String))}
+        />
+      </ConfigProvider>
+    </GlassCard>
   );
 };
 

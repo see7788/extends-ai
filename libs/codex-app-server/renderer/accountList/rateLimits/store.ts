@@ -18,7 +18,7 @@ const rateLimits = {
   input: producer.input,
   rateLimitsValidator,
 };
-const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = (set, get) => ({
+const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = set => ({
   rateLimits: structuredClone(producer.initial),
   rateLimitsActions: {
     stateSet(input) {

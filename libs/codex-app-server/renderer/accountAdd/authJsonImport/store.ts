@@ -3,10 +3,20 @@ import { authJsonImport as producer } from "codex-app-server-main/accountAdd/aut
 
 type AuthJsonImportSlice = {
   authJsonImport: ReturnType<typeof producer.authJsonImportValidator.parse>;
+  authJsonImportActions: {
+    stateSet(input: ReturnType<typeof producer.authJsonImportValidator.parse>): void;
+  };
 };
 
-const authJsonImportStore: ImmerStateCreator<AuthJsonImportSlice> = (set, get) => ({
+const authJsonImportStore: ImmerStateCreator<AuthJsonImportSlice> = set => ({
   authJsonImport: structuredClone(producer.initial),
+  authJsonImportActions: {
+    stateSet(input) {
+      set(state => {
+        state.authJsonImport = structuredClone(input);
+      });
+    },
+  },
 });
 
 export { producer as authJsonImport };

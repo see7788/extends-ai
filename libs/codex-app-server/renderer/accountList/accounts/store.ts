@@ -19,7 +19,7 @@ const accounts = {
   resultValidator: producer.resultValidator,
 };
 
-const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
+const accountsStore: ImmerStateCreator<AccountsSlice> = set => ({
   accounts: structuredClone(producer.initial),
   accountsActions: {
     stateSet(input) {

@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
+import authJsonCreateStore from "./accountAdd/authJsonCreate/store.ts";
 import authJsonImportStore from "./accountAdd/authJsonImport/store.ts";
 import globalSettingsStore from "./globalSettings/store.ts";
 import accountStore from "./accountList/account/store.ts";
@@ -11,6 +12,7 @@ import usageStore from "./accountList/usage/store.ts";
 import themeStore from "./theme/store.ts";
 
 type Store = ReturnType<typeof accountStore>
+  & ReturnType<typeof authJsonCreateStore>
   & ReturnType<typeof authJsonImportStore>
   & ReturnType<typeof globalSettingsStore>
   & ReturnType<typeof accountsStore>
@@ -23,6 +25,7 @@ type Store = ReturnType<typeof accountStore>
 const store = createStore<Store>()(
   immer((...options) => ({
     ...accountStore(...options),
+    ...authJsonCreateStore(...options),
     ...authJsonImportStore(...options),
     ...globalSettingsStore(...options),
     ...accountsStore(...options),

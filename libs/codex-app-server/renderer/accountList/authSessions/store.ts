@@ -18,7 +18,7 @@ const authSessions = {
   input: producer.input,
   resultValidator: producer.resultValidator,
 };
-const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = (set, get) => ({
+const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = set => ({
   authSessions: structuredClone(producer.initial),
   authSessionsActions: {
     stateSet(input) {

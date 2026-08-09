@@ -1,25 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { useStore } from "zustand";
+import { GlobalOutlined } from "@ant-design/icons";
 import {
-  Alert,
   App as AntdApp,
+  BorderBeam,
   Button,
-  Card,
-  Descriptions,
   Empty,
   Flex,
-  Progress,
-  Space,
-  Tag,
+  Switch,
+  theme,
   Typography,
 } from "antd";
-import { errorText, Shell, timeText } from "../../public.tsx";
-import store from "../../store.ts";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
-import authSessionsIndex from "../authSessions/index.ts";
-import rateLimitsIndex from "../rateLimits/index.ts";
-import usageIndex from "../usage/index.ts";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { useStore } from "zustand";
+import { errorText } from "../../public/index.ts";
+import GlassCard from "../../public/GlassCard.tsx";
+import store from "../../store.ts";
 import {
   account as accountContract,
   type AccountEnabledSetInput,
@@ -27,7 +23,7 @@ import {
   type AccountOfficialOpenInput,
 } from "./store.ts";
 
-const { Text } = Typography;
+const timeText = (value: string): string => new Date(value).toLocaleString("zh-CN");
 
 const accountIndex = {
   async enabledSet(input: AccountEnabledSetInput): Promise<void> {
@@ -72,140 +68,104 @@ const accountIndex = {
   },
 };
 
-const Account = () => {
+const useAccount = (): void => {
   const { message } = AntdApp.useApp();
-  const accountId = accountContract.accountIdValidator.parse(useParams().accountId);
-  const account = useStore(store, state => state.account[accountId]);
-  const session = authSessionsIndex.use(accountId);
-  const limits = rateLimitsIndex.use(accountId);
-  const usage = usageIndex.use(accountId);
-  const [pending, setPending] = useState<string | null>(null);
   useEffect(() => {
-    void Promise.all([
-      accountIndex.stateRead(),
-      authSessionsIndex.stateRead(),
-      rateLimitsIndex.stateRead(),
-      usageIndex.stateRead(),
-    ]);
-    const dispose = [
-      accountIndex.stateSubscribe(),
-      authSessionsIndex.stateSubscribe(),
-      rateLimitsIndex.stateSubscribe(),
-      usageIndex.stateSubscribe(),
-    ];
-    return () => dispose.forEach(run => run());
+    void accountIndex.stateRead().catch(error => {
+      void message.error(errorText(error));
+    });
+    return accountIndex.stateSubscribe();
   }, []);
-  const buckets = useMemo(() => {
-    const values = Object.values(limits?.value?.rateLimitsByLimitId ?? {});
-    const primary = limits?.value?.rateLimits;
-    if (primary && !values.some(value => value.limitId === primary.limitId)) {
-      values.unshift(primary);
-    }
-    return values;
-  }, [limits]);
-  const run = async (key: string, action: () => Promise<void>, success: string) => {
-    setPending(key);
+};
+
+const Account = ({ accountId, actions, children, title }: {
+  accountId: string;
+  actions?: ReactNode;
+  children?: ReactNode;
+  title?: ReactNode;
+}) => {
+  const { message } = AntdApp.useApp();
+  const account = useStore(store, state => state.account[accountId]);
+  const { token } = theme.useToken();
+  const colorPrimary = token.colorPrimary;
+  const [officialOpening, setOfficialOpening] = useState(false);
+  if (!account) return <GlassCard><Empty description="账号不存在或已移除" /></GlassCard>;
+  const enabledSet = async (enabled: boolean): Promise<void> => {
     try {
-      await action();
-      void message.success(success);
+      await accountIndex.enabledSet({ accountId, enabled });
+    } catch (error) {
+      void message.error(errorText(error));
+    }
+  };
+  const officialOpen = async (): Promise<void> => {
+    setOfficialOpening(true);
+    try {
+      await accountIndex.officialOpen({ accountId });
     } catch (error) {
       void message.error(errorText(error));
     } finally {
-      setPending(null);
+      setOfficialOpening(false);
     }
   };
-
-  if (!account) {
-    return <Shell subtitle="账号详情"><Empty description="账号不存在或已移除" /></Shell>;
-  }
-  return (
-    <Shell subtitle={account.label}>
-      <Space direction="vertical" size="large" style={{ width: "100%" }}>
-        <Card
-          title={(
-            <Flex gap={8} align="center">
-              <Text strong>{account.label}</Text>
-              <Tag color={session?.status === "authenticated"
-                ? "green"
-                : session?.status === "error" ? "red" : "default"}
-              >
-                {session?.status ?? "unknown"}
-              </Tag>
-              {session?.planType && <Tag color="blue">{session.planType}</Tag>}
-            </Flex>
-          )}
-        >
-          <Descriptions column={2} size="small">
-            <Descriptions.Item label="邮箱">{session?.email ?? "—"}</Descriptions.Item>
-            <Descriptions.Item label="最近检查">
-              {timeText(session?.lastCheckedAt)}
-            </Descriptions.Item>
-          </Descriptions>
-          <Space wrap>
-            <Button loading={pending === "read"} onClick={() => run(
-              "read",
-              () => authSessionsIndex.read({ accountId }),
-              "登录态检查完成",
-            )}>检查登录态</Button>
-            <Button loading={pending === "limits"} onClick={() => run(
-              "limits",
-              () => rateLimitsIndex.read({ accountId }),
-              "额度查询完成",
-            )}>查询额度</Button>
-            <Button loading={pending === "usage"} onClick={() => run(
-              "usage",
-              () => usageIndex.read({ accountId }),
-              "用量查询完成",
-            )}>查询用量</Button>
-          </Space>
-          {session?.error && (
-            <Alert type="error" showIcon message={session.error} style={{ marginTop: 16 }} />
-          )}
-        </Card>
-
-        {buckets.length > 0 && (
-          <Card title="额度">
-            <Flex gap={16} wrap>
-              {buckets.map(bucket => {
-                const remaining = Math.max(
-                  0,
-                  Math.min(100, 100 - (bucket.primary?.usedPercent ?? 0)),
-                );
-                return (
-                  <Card key={bucket.limitId} size="small" style={{ width: 280 }}>
-                    <Text>{bucket.limitName ?? bucket.limitId}</Text>
-                    <Progress percent={remaining} format={value => `剩余 ${value}%`} />
-                    <Text type="secondary">
-                      重置：{bucket.primary?.resetsAt
-                        ? new Date(bucket.primary.resetsAt * 1000).toLocaleString()
-                        : "—"}
-                    </Text>
-                  </Card>
-                );
-              })}
-            </Flex>
-          </Card>
-        )}
-
-        {usage?.value && (
-          <Card title="用量">
-            <Descriptions column={3} size="small">
-              <Descriptions.Item label="累计 Tokens">
-                {usage.value.summary.lifetimeTokens ?? "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label="单日峰值">
-                {usage.value.summary.peakDailyTokens ?? "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label="连续使用">
-                {usage.value.summary.currentStreakDays ?? "—"} 天
-              </Descriptions.Item>
-            </Descriptions>
-          </Card>
-        )}
-      </Space>
-    </Shell>
+  const card = (
+    <GlassCard
+      extra={(
+        <Flex gap={4}>
+          {actions}
+          <Switch
+            checked={account.enabled}
+            checkedChildren="使用中"
+            disabled={account.enabled}
+            unCheckedChildren="启用"
+            onChange={enabled => {
+              if (enabled) void enabledSet(true);
+            }}
+          />
+          {account.webAccess ? (
+            <Button
+              icon={<GlobalOutlined />}
+              loading={officialOpening}
+              style={{ color: account.enabled ? "#ffffff" : undefined }}
+              type="text"
+              onClick={() => void officialOpen()}
+            >
+              访问官网
+            </Button>
+          ) : null}
+        </Flex>
+      )}
+      style={account.enabled ? {
+        backdropFilter: "blur(22px) saturate(155%)",
+        background: `color-mix(in srgb, ${colorPrimary} 72%, transparent)`,
+        boxShadow: `0 18px 48px color-mix(in srgb, ${colorPrimary} 34%, transparent)`,
+        color: "#ffffff",
+        position: "relative",
+        WebkitBackdropFilter: "blur(22px) saturate(155%)",
+      } : undefined}
+      title={title ?? <Typography.Text strong>{account.label}</Typography.Text>}
+    >
+      <Typography.Text style={{ color: "inherit" }}>
+        来源：{account.sourceFileName} · 导入：{timeText(account.importedAt)}
+      </Typography.Text>
+      {children}
+    </GlassCard>
   );
+  return account.enabled ? (
+    <BorderBeam
+      color={[
+        { color: colorPrimary, percent: 0 },
+        { color: "#ffffff", percent: 50 },
+        { color: colorPrimary, percent: 100 },
+      ]}
+      duration={7}
+      lineWidth={2}
+      outset={0}
+      size={120}
+    >
+      {card}
+    </BorderBeam>
+  ) : card;
 };
 
-export { accountIndex };
+export { useAccount };
 export default Account;

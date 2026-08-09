@@ -20,7 +20,7 @@ const initial: Theme = {
   colorPrimaryGlass: "rgba(34, 197, 94, 0.72)",
 };
 
-const themeStore: ImmerStateCreator<ThemeSlice> = (set, get) => ({
+const themeStore: ImmerStateCreator<ThemeSlice> = set => ({
   theme: structuredClone(initial),
   themeActions: {
     colorPrimarySet(input) {

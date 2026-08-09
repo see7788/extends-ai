@@ -1,8 +1,8 @@
 import { Masonry } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
-import useAccounts from "../accounts/index.tsx";
-import useCookieImport from "../cookieImport/index.tsx";
-import useLogin from "../login/index.tsx";
+import useAccounts from "./accounts/index.tsx";
+import useCookieImport from "./cookieImport/index.tsx";
+import useLogin from "./login/index.tsx";
 
 const App = () => {
   const loginItems = useLogin();

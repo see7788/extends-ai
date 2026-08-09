@@ -18,7 +18,7 @@ const usage = {
   input: producer.input,
   usageValidator,
 };
-const usageStore: ImmerStateCreator<UsageSlice> = (set, get) => ({
+const usageStore: ImmerStateCreator<UsageSlice> = set => ({
   usage: structuredClone(producer.initial),
   usageActions: {
     stateSet(input) {

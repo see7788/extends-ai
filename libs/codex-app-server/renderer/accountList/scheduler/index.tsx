@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
-import { useStore } from "zustand";
 import { ReloadOutlined } from "@ant-design/icons";
 import {
   Alert,
   App as AntdApp,
   Button,
+  Tree,
   Typography,
+  type TreeDataNode,
 } from "antd";
-import { errorText, timeText, type TreeSection } from "../../public.tsx";
-import store from "../../store.ts";
 import { read, subscribe } from "browser-partition-renderer/public.ts";
+import { useEffect, useState } from "react";
+import { useStore } from "zustand";
+import { errorText, timeText } from "../../public/index.ts";
+import GlassCard from "../../public/GlassCard.tsx";
+import store from "../../store.ts";
 import { scheduler } from "./store.ts";
-
-const { Text } = Typography;
 
 const schedulerIndex = {
   async stateRead(): Promise<void> {
@@ -38,21 +39,31 @@ const schedulerIndex = {
       run: store.getState().schedulerActions.stateSet,
     });
   },
-  use() {
-    return useStore(store, state => state.scheduler);
-  },
 };
 
-const useSchedulerTreeSection = (): TreeSection => {
+type SchedulerProps = {
+  maintenanceEnabled: boolean;
+  maintenanceIntervalHours: number;
+  maintenanceRetryCount: number;
+  maintenanceRetryIntervalMinutes: number;
+};
+
+const Scheduler = ({
+  maintenanceEnabled,
+  maintenanceIntervalHours,
+  maintenanceRetryCount,
+  maintenanceRetryIntervalMinutes,
+}: SchedulerProps) => {
   const { message } = AntdApp.useApp();
-  const value = schedulerIndex.use();
-  const settings = useStore(store, state => state.globalSettings);
+  const value = useStore(store, state => state.scheduler);
   const [pending, setPending] = useState(false);
   useEffect(() => {
-    void schedulerIndex.stateRead();
+    void schedulerIndex.stateRead().catch(error => {
+      void message.error(errorText(error));
+    });
     return schedulerIndex.stateSubscribe();
   }, []);
-  const runNow = async () => {
+  const runNow = async (): Promise<void> => {
     setPending(true);
     try {
       await schedulerIndex.runNow();
@@ -64,65 +75,60 @@ const useSchedulerTreeSection = (): TreeSection => {
     }
   };
   const retry = Boolean(value.error)
-    && value.consecutiveFailures <= settings.maintenanceRetryCount;
+    && value.consecutiveFailures <= maintenanceRetryCount;
   const delay = retry
-    ? settings.maintenanceRetryIntervalMinutes * 60 * 1000
-    : settings.maintenanceIntervalHours * 60 * 60 * 1000;
+    ? maintenanceRetryIntervalMinutes * 60 * 1_000
+    : maintenanceIntervalHours * 60 * 60 * 1_000;
   const lastRunAt = value.lastRunAt ? Date.parse(value.lastRunAt) : Number.NaN;
-  const nextRunAt = settings.maintenanceEnabled
+  const nextRunAt = maintenanceEnabled
     ? new Date(Number.isFinite(lastRunAt)
       ? Math.max(Date.now(), lastRunAt + delay)
       : Date.now()).toISOString()
     : null;
-
-  return {
-    items: [
-      {
-        key: "scheduler-last-run",
-        title: "上次查询",
-        children: value.error
-          ? [{ key: "scheduler-error", title: "查询错误" }]
-          : [],
-      },
-      { key: "scheduler-failures", title: "连续失败" },
-      { key: "scheduler-run-now", title: "立即查询" },
-    ],
-    titleRender(node) {
-      switch (node.key) {
-        case "scheduler-run-now":
-          return (
-            <Button
-              disabled={value.running}
-              icon={<ReloadOutlined spin={value.running} />}
-              iconPosition="end"
-              loading={pending || value.running}
-              style={{ height: "auto", padding: 0 }}
-              type="text"
-              onClick={() => void runNow()}
-            >
-              立即查询
-            </Button>
-          );
-        case "scheduler-last-run":
-          return <Text>上次查询：{timeText(value.lastRunAt)}</Text>;
-        case "scheduler-failures":
-          return <Text>连续失败：{value.consecutiveFailures} 次</Text>;
-        case "scheduler-next-run":
-          return (
-            <Text>
-              下次查询：{settings.maintenanceEnabled ? timeText(nextRunAt) : "已停用"}
-            </Text>
-          );
-        case "scheduler-error":
-          return value.error
-            ? <Alert type="warning" showIcon message={value.error} />
-            : undefined;
-        default:
-          return undefined;
-      }
-    },
-  };
+  const treeData: TreeDataNode[] = [
+    { key: "last", title: "上次查询" },
+    { key: "failures", title: "连续失败" },
+    { key: "next", title: "下次查询" },
+    { key: "run", title: "立即查询" },
+    ...(value.error ? [{ key: "error", title: "查询错误" }] : []),
+  ];
+  return (
+    <GlassCard title="查询全部账号">
+      <Tree
+        blockNode
+        selectedKeys={[]}
+        styles={{ root: { background: "transparent" } }}
+        treeData={treeData}
+        titleRender={node => {
+          if (node.key === "last") {
+            return <Typography.Text>上次查询：{timeText(value.lastRunAt)}</Typography.Text>;
+          }
+          if (node.key === "failures") {
+            return <Typography.Text>连续失败：{value.consecutiveFailures} 次</Typography.Text>;
+          }
+          if (node.key === "next") {
+            return <Typography.Text>下次查询：{timeText(nextRunAt)}</Typography.Text>;
+          }
+          if (node.key === "run") {
+            return (
+              <Button
+                disabled={value.running}
+                icon={<ReloadOutlined spin={value.running} />}
+                iconPosition="end"
+                loading={pending || value.running}
+                type="text"
+                onClick={() => void runNow()}
+              >
+                立即查询
+              </Button>
+            );
+          }
+          return value.error ? <Alert message={value.error} showIcon type="warning" /> : null;
+        }}
+      />
+    </GlassCard>
+  );
 };
 
 export { schedulerIndex };
-export default useSchedulerTreeSection;
+export default Scheduler;

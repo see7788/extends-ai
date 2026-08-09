@@ -17,7 +17,7 @@ const scheduler = {
   schedulerValidator,
 };
 
-const schedulerStore: ImmerStateCreator<SchedulerSlice> = (set, get) => ({
+const schedulerStore: ImmerStateCreator<SchedulerSlice> = set => ({
   scheduler: structuredClone(producer.initial),
   schedulerActions: {
     stateSet(input) {
