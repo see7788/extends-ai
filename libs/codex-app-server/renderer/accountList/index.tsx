@@ -1,4 +1,4 @@
-import { Collapse, ConfigProvider, Masonry, Space, Typography } from "antd";
+import { Collapse, ConfigProvider, Flex, Masonry, Space, Typography } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
 import { useParams } from "react-router-dom";
 import { useStore } from "zustand";
@@ -9,7 +9,11 @@ import store from "../store.ts";
 import Account, { useAccount } from "./account/index.tsx";
 import { account as accountContract } from "./account/store.ts";
 import useAccounts, { AccountRemove, AccountsEmpty } from "./accounts/index.tsx";
-import AuthSession, { AuthSessionEmail, useAuthSessions } from "./authSessions/index.tsx";
+import AuthSession, {
+  AuthSessionEmail,
+  AuthSessionPlan,
+  useAuthSessions,
+} from "./authSessions/index.tsx";
 import RateLimits, { useRateLimits } from "./rateLimits/index.tsx";
 import Scheduler from "./scheduler/index.tsx";
 import Usage, { useUsage } from "./usage/index.tsx";
@@ -93,7 +97,12 @@ const AccountList = () => {
       children: (
         <Account
           accountId={accountId}
-          actions={<AccountRemove accountId={accountId} />}
+          summary={(
+            <Flex align="center" justify="space-between">
+              <AuthSessionPlan accountId={accountId} />
+              <AccountRemove accountId={accountId} />
+            </Flex>
+          )}
           title={(
             <Typography.Text strong style={{ color: "inherit" }}>
               <AuthSessionEmail accountId={accountId} fallback="账号" />

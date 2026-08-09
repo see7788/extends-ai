@@ -1,4 +1,4 @@
-import { App as AntdApp, Button, Flex, Space, Tag, Typography } from "antd";
+import { App as AntdApp, Button, Space, Tag, Typography } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
@@ -70,17 +70,14 @@ const AuthSession = ({
   };
   return (
     <Space direction="vertical" size={4} style={{ width: "100%" }}>
-      <Flex align="center" gap={4} wrap>
-        <Tag color={value?.status === "authenticated"
-          ? "green"
-          : value?.status === "error" || value?.status === "requiresLogin"
-            ? "red"
-            : "default"}
+      {value?.status && value.status !== "authenticated" ? (
+        <Tag color={value.status === "error" || value.status === "requiresLogin"
+          ? "red"
+          : "default"}
         >
-          {value ? statusText[value.status] : statusText.unknown}
+          {statusText[value.status]}
         </Tag>
-        {value?.planType ? <Tag>{value.planType}</Tag> : null}
-      </Flex>
+      ) : null}
       <Typography.Text style={{ color: secondaryColor }}>
         认证：{value?.authMode ?? value?.accountType ?? "—"}
         {` · 官方认证：${value?.requiresOpenaiAuth === null
@@ -107,5 +104,13 @@ const AuthSessionEmail = ({ accountId, fallback }: {
   return <>{email ?? fallback}</>;
 };
 
-export { AuthSessionEmail, useAuthSessions };
+const AuthSessionPlan = ({ accountId }: { accountId: string }) => {
+  const planType = useStore(
+    store,
+    state => state.authSessions.byAccountId[accountId]?.planType,
+  );
+  return planType ? <Tag>{planType}</Tag> : null;
+};
+
+export { AuthSessionEmail, AuthSessionPlan, useAuthSessions };
 export default AuthSession;

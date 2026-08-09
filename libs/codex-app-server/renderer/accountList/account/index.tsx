@@ -39,10 +39,10 @@ const useAccount = (): void => {
   }, []);
 };
 
-const Account = ({ accountId, actions, children, title }: {
+const Account = ({ accountId, children, summary, title }: {
   accountId: string;
-  actions?: ReactNode;
   children?: ReactNode;
+  summary?: ReactNode;
   title?: ReactNode;
 }) => {
   const { message } = AntdApp.useApp();
@@ -86,7 +86,6 @@ const Account = ({ accountId, actions, children, title }: {
     <GlassCard
       extra={(
         <Flex gap={4}>
-          {actions}
           <Switch
             checked={account.enabled}
             checkedChildren="使用中"
@@ -119,6 +118,7 @@ const Account = ({ accountId, actions, children, title }: {
       } : undefined}
       title={title ?? <Typography.Text strong>{account.label}</Typography.Text>}
     >
+      {summary}
       <Typography.Text style={{ color: "inherit" }}>
         来源：{account.sourceFileName} · 导入：{timeText(account.importedAt)}
       </Typography.Text>
