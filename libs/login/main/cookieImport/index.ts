@@ -396,6 +396,14 @@ const webAccessCreate = async (
 };
 
 const cookieImportIndex = {
+  async candidateDiscard(): Promise<boolean> {
+    const candidate = store.getState().cookieImport.candidate;
+    if (!candidate) return false;
+    await session.fromPartition(candidate.partition).clearData().catch(() => undefined);
+    return store.getState().cookieImportActions.candidateClear({
+      partition: candidate.partition,
+    });
+  },
   async start(browserId: string): Promise<boolean> {
     const input = cookieImport.input.create.parse({ browserId });
     const current = store.getState().cookieImport;
@@ -520,6 +528,13 @@ const cookieImportIndex = {
         canceled: store.getState().cookieImportActions.cancel(),
       });
     });
+    ipcMain.handle(cookieImport.channel.discard, async (event, input: unknown) => {
+      rendererSet(event);
+      cookieImport.input.command.parse(input);
+      return cookieImport.result.discard.parse({
+        discarded: await cookieImportIndex.candidateDiscard(),
+      });
+    });
     ipcMain.handle(cookieImport.channel.start, async (event, input: unknown) => {
       rendererSet(event);
       const value = cookieImport.input.create.parse(input);
@@ -545,6 +560,7 @@ const cookieImportIndex = {
       renderers.clear();
       ipcMain.removeHandler(cookieImport.channel.authorizationTimeoutSecondsSet);
       ipcMain.removeHandler(cookieImport.channel.cancel);
+      ipcMain.removeHandler(cookieImport.channel.discard);
       ipcMain.removeHandler(cookieImport.channel.start);
       ipcMain.removeHandler(cookieImport.channel.stateRead);
     };

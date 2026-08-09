@@ -9,7 +9,6 @@ import {
   Flex,
   Popconfirm,
   Tag,
-  Tree,
   Typography,
 } from "antd";
 import browserPartitionRenderer from "browser-partition-renderer/public.ts";
@@ -25,14 +24,6 @@ const stateSet = (input: unknown): void => {
   );
 };
 const accountsIndex = {
-  async cookieImportConsume() {
-    return (await browserPartitionRenderer.invoke({
-      channel: accounts.channel.cookieImportConsume,
-      input: {},
-      inputValidator: accounts.input.command,
-      resultValidator: accounts.result.account,
-    })).account;
-  },
   async open(email: string): Promise<boolean> {
     return (await browserPartitionRenderer.invoke({
       channel: accounts.channel.open,
@@ -81,7 +72,6 @@ const statusText = {
 const useAccounts = () => {
   const { message } = AntdApp.useApp();
   const accounts = useStore(store, state => state.accounts);
-  const cookieImport = useStore(store, state => state.cookieImport);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };
@@ -90,37 +80,6 @@ const useAccounts = () => {
     return accountsIndex.stateSubscribe();
   }, []);
 
-  const candidateNodes = [];
-  if (cookieImport.status === "ready" && cookieImport.candidate) {
-    candidateNodes.push({
-      key: "accounts:cookieImport",
-      title: (
-        <Flex align="center" gap={8} justify="space-between">
-          <Typography.Text>{cookieImport.candidate.browserName}</Typography.Text>
-          <Button
-            type="text"
-            onClick={() => void accountsIndex.cookieImportConsume().catch(errorShow)}
-          >
-            识别账号
-          </Button>
-        </Flex>
-      ),
-    });
-  }
-  const candidateItems = candidateNodes.length === 0 ? [] : [{
-    children: (
-      <GlassCard title="账号识别">
-        <Tree
-          blockNode
-          selectable={false}
-          styles={{ root: { background: "transparent" } }}
-          treeData={candidateNodes}
-        />
-      </GlassCard>
-    ),
-    data: null,
-    key: "account:candidates",
-  }];
   const accountItems = accounts.order
     .map(email => accounts.byEmail[email])
     .filter(account => account !== undefined)
@@ -167,7 +126,7 @@ const useAccounts = () => {
       data: null,
       key: `account:${account.email}`,
     }));
-  return [...candidateItems, ...accountItems];
+  return accountItems;
 };
 
 export default useAccounts;

@@ -2,6 +2,7 @@ import {
   CloseCircleOutlined,
   GlobalOutlined,
   ReloadOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
 import browserIndex from "browser-partition-renderer/browser/index.ts";
@@ -10,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
+import { accounts } from "../accounts/store.ts";
 import { cookieImport } from "./store.ts";
 
 const stateSet = (input: unknown): void => {
@@ -35,6 +37,22 @@ const cookieImportIndex = {
       inputValidator: cookieImport.input.command,
       resultValidator: cookieImport.result.cancel,
     })).canceled;
+  },
+  async candidateDiscard(): Promise<boolean> {
+    return (await browserPartitionRenderer.invoke({
+      channel: cookieImport.channel.discard,
+      input: {},
+      inputValidator: cookieImport.input.command,
+      resultValidator: cookieImport.result.discard,
+    })).discarded;
+  },
+  async candidateIdentify() {
+    return (await browserPartitionRenderer.invoke({
+      channel: accounts.channel.cookieImportConsume,
+      input: {},
+      inputValidator: accounts.input.command,
+      resultValidator: accounts.result.account,
+    })).account;
   },
   async start(browserId: string): Promise<boolean> {
     return (await browserPartitionRenderer.invoke({
@@ -67,6 +85,7 @@ const useCookieImport = () => {
   const { message } = AntdApp.useApp();
   const cookieImport = useStore(store, state => state.cookieImport);
   const [applications, setApplications] = useState<BrowserApplication[]>([]);
+  const [identifying, setIdentifying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
   const errorShow = (error: unknown): void => {
@@ -96,12 +115,47 @@ const useCookieImport = () => {
       (Date.parse(cookieImport.authorizationExpiresAt) - now) / 1_000,
     ))
     : null;
+  const candidateIdentify = async (): Promise<void> => {
+    setIdentifying(true);
+    try {
+      await cookieImportIndex.candidateIdentify();
+    } catch (error) {
+      errorShow(error);
+    } finally {
+      setIdentifying(false);
+    }
+  };
   const treeData = applications.map(application => {
     const imported = cookieImport.history[application.id] !== undefined;
     const active = cookieImport.activeBrowserId === application.id;
     const ready = cookieImport.status === "ready"
       && cookieImport.candidate?.browserId === application.id;
     return {
+      children: ready ? [{
+        key: `cookieImport:${application.id}:candidate`,
+        title: (
+          <Flex align="center" gap={8} justify="space-between">
+            <Typography.Text>Cookie 已导入</Typography.Text>
+            <Flex align="center" gap={4}>
+              <Button
+                icon={<UserOutlined />}
+                loading={identifying}
+                type="text"
+                onClick={() => void candidateIdentify()}
+              >
+                识别账号
+              </Button>
+              <Button
+                disabled={identifying}
+                type="text"
+                onClick={() => void cookieImportIndex.candidateDiscard().catch(errorShow)}
+              >
+                放弃
+              </Button>
+            </Flex>
+          </Flex>
+        ),
+      }] : undefined,
       key: `cookieImport:${application.id}`,
       title: (
         <Flex align="center" gap={8} justify="space-between">
@@ -123,16 +177,14 @@ const useCookieImport = () => {
                 取消
               </Button>
             ) : ready ? (
-              <Flex align="center" gap={4}>
-                <Typography.Text>已导入</Typography.Text>
-                <Button
-                  aria-label={`刷新导入 ${application.name}`}
-                  icon={<ReloadOutlined />}
-                  title="刷新导入"
-                  type="text"
-                  onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
-                />
-              </Flex>
+              <Button
+                aria-label={`刷新导入 ${application.name}`}
+                disabled={identifying}
+                icon={<ReloadOutlined />}
+                title="刷新导入"
+                type="text"
+                onClick={() => void cookieImportIndex.start(application.id).catch(errorShow)}
+              />
             ) : (
               <Button
                 icon={imported ? <ReloadOutlined /> : <GlobalOutlined />}
@@ -149,12 +201,14 @@ const useCookieImport = () => {
   });
   if (treeData.length === 0 && !loading) {
     treeData.push({
+      children: undefined,
       key: "cookieImport:empty",
       title: <Typography.Text>未发现浏览器</Typography.Text>,
     });
   }
   if (cookieImport.error) {
     treeData.push({
+      children: undefined,
       key: "cookieImport:error",
       title: <Typography.Text>{cookieImport.error}</Typography.Text>,
     });
@@ -165,6 +219,7 @@ const useCookieImport = () => {
       <GlassCard title="其他浏览器导入">
         <Tree
           blockNode
+          expandedKeys={treeData.map(node => node.key)}
           selectable={false}
           styles={{ root: { background: "transparent" } }}
           treeData={treeData}
