@@ -44,7 +44,10 @@ class Login {
         signal?: AbortSignal,
       ) => session.fromPartition(partition).fetch(
         url,
-        signal ? { signal } : undefined,
+        {
+          credentials: "include",
+          ...(signal ? { signal } : {}),
+        },
       ),
       storageClear: BrowserPartitionWindow.storageClear,
       windowOpen: async (value: {

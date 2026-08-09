@@ -168,13 +168,18 @@ const sourceRead = async (desktopPath?: string): Promise<BrowserApplication[]> =
   const shortcuts = desktopPath ? await shortcutsRead(desktopPath) : [];
   const unique = new Map<string, BrowserApplication>();
   for (const application of applications) {
-    if (application) unique.set(`application:${application.executablePath.toLowerCase()}`, application);
+    if (application) unique.set(identityRead(application), application);
   }
   for (const shortcut of shortcuts) {
-    unique.set(`shortcut:${shortcut.sourcePath?.toLowerCase()}`, shortcut);
+    const identity = identityRead(shortcut);
+    if (!unique.has(identity)) unique.set(identity, shortcut);
   }
   return [...unique.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
 };
+const identityRead = (application: BrowserApplication): string => JSON.stringify({
+  executablePath: application.executablePath.toLowerCase(),
+  launchArguments: application.launchArguments,
+});
 const idRead = (application: BrowserApplication): string => createHash("sha256")
   .update(JSON.stringify({
     executablePath: application.executablePath.toLowerCase(),
@@ -263,10 +268,6 @@ export const remoteDebugRead = (
       ["\\google\\chrome sxs\\application\\", "Google/Chrome SxS/User Data", "chrome://inspect/#remote-debugging"],
       ["\\google\\chrome beta\\application\\", "Google/Chrome Beta/User Data", "chrome://inspect/#remote-debugging"],
       ["\\google\\chrome\\application\\", "Google/Chrome/User Data", "chrome://inspect/#remote-debugging"],
-      ["\\microsoft\\edge beta\\application\\", "Microsoft/Edge Beta/User Data", "edge://inspect/#remote-debugging"],
-      ["\\microsoft\\edge dev\\application\\", "Microsoft/Edge Dev/User Data", "edge://inspect/#remote-debugging"],
-      ["\\microsoft\\edge sxs\\application\\", "Microsoft/Edge SxS/User Data", "edge://inspect/#remote-debugging"],
-      ["\\microsoft\\edge\\application\\", "Microsoft/Edge/User Data", "edge://inspect/#remote-debugging"],
     ] as const;
     const product = products.find(([marker]) => normalized.includes(marker));
     if (!product) throw new Error("所选浏览器暂不支持授权读取网页登录态");
@@ -377,25 +378,45 @@ export const windowOpen = async (
     executablePath: string,
     url: string,
     launchArguments: string[] = [],
+    signal?: AbortSignal,
   ): Promise<{ close(): Promise<boolean> }> => {
+    const canceledError = (): Error => {
+      const error = new Error("浏览器操作已取消");
+      error.name = "AbortError";
+      return error;
+    };
     const previous = new Set(await windowHandlesRead(executablePath));
+    if (signal?.aborted) throw canceledError();
+    let canceled = false;
+    const cancel = (): void => {
+      canceled = true;
+    };
+    signal?.addEventListener("abort", cancel, { once: true });
     await executableOpen(
       executablePath,
       url,
       [...launchArguments, "--new-window"],
     );
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline) {
-      const handle = (await windowHandlesRead(executablePath))
-        .find(value => !previous.has(value));
-      if (handle !== undefined) {
-        return {
-          close: () => windowClose(executablePath, handle),
-        };
+    try {
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        const handle = (await windowHandlesRead(executablePath))
+          .find(value => !previous.has(value));
+        if (handle !== undefined) {
+          const result = {
+            close: () => windowClose(executablePath, handle),
+          };
+          if (!canceled) return result;
+          await result.close().catch(() => false);
+          throw canceledError();
+        }
+        await new Promise(resolveWait => setTimeout(resolveWait, 100));
       }
-      await new Promise(resolveWait => setTimeout(resolveWait, 100));
+      if (canceled) throw canceledError();
+      throw new Error("浏览器没有创建授权窗口");
+    } finally {
+      signal?.removeEventListener("abort", cancel);
     }
-    throw new Error("浏览器没有创建授权窗口");
 };
 
 export const windowOpenRead = async (executablePath: string): Promise<boolean> => {

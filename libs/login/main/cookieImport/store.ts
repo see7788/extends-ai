@@ -98,6 +98,7 @@ type CookieImportRuntime = {
     executablePath: string,
     url: string,
     launchArguments: string[],
+    signal: AbortSignal,
   ): Promise<{ close(): Promise<boolean> }>;
 };
 type CookieImportSlice = {
@@ -407,6 +408,7 @@ const connect = async (
     executablePath,
     debug.inspectUrl,
     launchArguments,
+    signal,
   );
   try {
     while (Date.now() < deadline) {
@@ -667,6 +669,7 @@ const cookieImportStore: ImmerStateCreator<CookieImportSlice> = (set, get) => ({
     cancel() {
       if (!active || active.signal.aborted) return false;
       active.abort();
+      get().cookieImportActions.operationCancel();
       return true;
     },
     dispose() {

@@ -29,21 +29,17 @@ const install = (runtime: AccountsRuntime): (() => void) => {
     if (store.getState().cookieImport.status !== "ready" || !candidate) {
       throw new Error("没有待识别的浏览器登录态");
     }
-    try {
-      return accounts.result.account.parse({
-        account: await store.getState().accountsActions.candidateConsume({
-          partition: candidate.partition,
-          source: {
-            browserId: candidate.browserId,
-            browserName: candidate.browserName,
-          },
-        }, runtime),
-      });
-    } finally {
-      store.getState().cookieImportActions.candidateClear({
-        partition: candidate.partition,
-      });
-    }
+    const account = await store.getState().accountsActions.candidateConsume({
+      partition: candidate.partition,
+      source: {
+        browserId: candidate.browserId,
+        browserName: candidate.browserName,
+      },
+    }, runtime);
+    store.getState().cookieImportActions.candidateClear({
+      partition: candidate.partition,
+    });
+    return accounts.result.account.parse({ account });
   });
   ipcMain.handle(accounts.channel.open, async (event, input: unknown) => {
     rendererSet(event);

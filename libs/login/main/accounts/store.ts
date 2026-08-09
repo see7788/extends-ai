@@ -199,37 +199,32 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
     },
     async candidateConsume(input, runtime, signal) {
       const candidate: Candidate = candidateValidator.parse(input);
-      try {
-        const verification = await verificationRead(runtime, candidate.partition, signal);
-        if (verification.status !== "valid" || !verification.email) {
-          throw new Error(verification.error ?? "未检测到有效的 ChatGPT 登录态");
-        }
-        const previous = get().accounts.byEmail[verification.email];
-        const sources = candidate.source
-          ? [
-              ...(previous?.sources.filter(
-                source => source.browserId !== candidate.source?.browserId,
-              ) ?? []),
-              { ...candidate.source, importedAt: new Date().toISOString() },
-            ]
-          : previous?.sources ?? [];
-        const account = accountValidator.parse({
-          checkedAt: verification.checkedAt,
-          email: verification.email,
-          error: null,
-          partition: candidate.partition,
-          sources,
-          status: "valid",
-        });
-        const previousPartition = get().accountsActions.accountSet(account);
-        if (previousPartition && previousPartition !== account.partition) {
-          await runtime.storageClear(previousPartition).catch(() => undefined);
-        }
-        return account;
-      } catch (error) {
-        await runtime.storageClear(candidate.partition).catch(() => undefined);
-        throw error;
+      const verification = await verificationRead(runtime, candidate.partition, signal);
+      if (verification.status !== "valid" || !verification.email) {
+        throw new Error(verification.error ?? "未检测到有效的 ChatGPT 登录态");
       }
+      const previous = get().accounts.byEmail[verification.email];
+      const sources = candidate.source
+        ? [
+            ...(previous?.sources.filter(
+              source => source.browserId !== candidate.source?.browserId,
+            ) ?? []),
+            { ...candidate.source, importedAt: new Date().toISOString() },
+          ]
+        : previous?.sources ?? [];
+      const account = accountValidator.parse({
+        checkedAt: verification.checkedAt,
+        email: verification.email,
+        error: null,
+        partition: candidate.partition,
+        sources,
+        status: "valid",
+      });
+      const previousPartition = get().accountsActions.accountSet(account);
+      if (previousPartition && previousPartition !== account.partition) {
+        await runtime.storageClear(previousPartition).catch(() => undefined);
+      }
+      return account;
     },
     dispose() {
       accountWindow?.dispose();

@@ -1,5 +1,6 @@
 import {
   CheckCircleOutlined,
+  CloseCircleOutlined,
   GlobalOutlined,
   ReloadOutlined,
   UserOutlined,
@@ -96,7 +97,7 @@ const useCookieImport = ({
                 <Button
                   aria-label="识别账号"
                   icon={<UserOutlined />}
-                  iconPosition="end"
+                  iconPlacement="end"
                   loading={identifying}
                   style={{ whiteSpace: "nowrap" }}
                   title="识别账号"
@@ -114,7 +115,10 @@ const useCookieImport = ({
               title: (
                 <Flex align="center" gap={8} justify="space-between">
                   <Typography.Text>已导入已识别</Typography.Text>
-                  <CheckCircleOutlined />
+                  <Flex align="center" gap={4}>
+                    <Typography.Text>识别完成</Typography.Text>
+                    <CheckCircleOutlined />
+                  </Flex>
                 </Flex>
               ),
             }]
@@ -132,31 +136,28 @@ const useCookieImport = ({
             {!application.importSupported ? (
               <Typography.Text disabled>暂不支持</Typography.Text>
             ) : active ? (
-              null
-            ) : ready ? (
               <Button
-                aria-label={`刷新导入 ${application.name}`}
-                disabled={identifying}
-                icon={<ReloadOutlined />}
-                iconPosition="end"
+                aria-label={`取消导入 ${application.name}`}
+                icon={<CloseCircleOutlined />}
+                iconPlacement="end"
                 style={{ whiteSpace: "nowrap" }}
-                title="刷新导入"
+                title="取消"
                 type="text"
                 onClick={() => void browserPartitionRenderer.invoke({
-                  channel: cookieImport.channel.start,
-                  input: { browserId: application.id },
-                  inputValidator: cookieImport.input.create,
-                  resultValidator: cookieImport.result.start,
+                  channel: cookieImport.channel.cancel,
+                  input: {},
+                  inputValidator: cookieImport.input.command,
+                  resultValidator: cookieImport.result.cancel,
                 }).catch(errorShow)}
               >
-                刷新导入
+                取消
               </Button>
             ) : (
               <Button
                 aria-label={`${imported ? "重新导入" : "导入"} ${application.name}`}
                 disabled={cookieImportState.status === "working" || identifying}
                 icon={imported ? <ReloadOutlined /> : <GlobalOutlined />}
-                iconPosition="end"
+                iconPlacement="end"
                 style={{ whiteSpace: "nowrap" }}
                 title={imported ? "重新导入" : "导入"}
                 type="text"

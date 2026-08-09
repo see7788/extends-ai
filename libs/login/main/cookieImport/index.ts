@@ -49,8 +49,8 @@ const install = (): (() => void) => {
           remoteDebugRead(executablePath, launchArguments)
         ),
         sessionRead: partition => session.fromPartition(partition),
-        windowOpen: (executablePath, url, launchArguments) => (
-          windowOpen(executablePath, url, launchArguments)
+        windowOpen: (executablePath, url, launchArguments, signal) => (
+          windowOpen(executablePath, url, launchArguments, signal)
         ),
       }),
     });

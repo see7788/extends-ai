@@ -9,9 +9,9 @@
 - 账号状态只有 `valid / expired / unknown`。网络失败、服务端 5xx 或响应结构变化必须是 `unknown`，不得删除账号。
 - 新候选验证成功以后才替换旧 partition；任一前置步骤失败都保留旧登录态。
 - 打开 Login 只发现并展示浏览器，不自动启动或导入任何外部浏览器；用户选择一个来源后只处理该来源。
-- 系统浏览器“可发现”不等于“可导入”：当前仅对提供用户授权远程调试入口的 Chrome / Edge 系列开放 Cookie 导入；旧版 Chromium / Firefox 仍以禁用暗色显示“暂不支持”，但不提供点击事件，避免固定等待超时。
+- 系统浏览器“可发现”不等于“可导入”：当前只对能够直接打开用户授权远程调试入口的 Chrome 系列开放 Cookie 导入；Edge、旧版 Chromium 与 Firefox 以禁用暗色显示“暂不支持”，且不提供点击事件。浏览器实例按 `executablePath + launchArguments` 归一，相同 exe 但不同 `--user-data-dir`、`--profile-directory` 或其他参数的真实多实例不会合并。
 - Login 的两个生产者按切片直接对应两张透明 AntD Card：Card 使用自身标题，内部只放常开、无额外配色的原始 AntD Tree。`login → 内嵌登录`、`cookieImport → 其他浏览器导入`；后者每行只呈现浏览器名称与真实状态或操作。
-- 两棵生产者 Tree 只呈现各自状态。内嵌登录由 main 入口把 `login` 生产者与 `accounts` 识别者串联，识别成功后自动关闭窗口并直接显示账号；`cookieImport` 的浏览器根节点只按状态显示导入图标、授权倒计时或重新导入图标。候选存在时显示“已导入待识别”，accounts 自己提供已识别 browserId，只有 app 消费层将它组合为“已导入已识别”。
+- 两棵生产者 Tree 只呈现各自状态。内嵌登录由 main 入口把 `login` 生产者与 `accounts` 识别者串联，识别成功后自动关闭窗口并直接显示账号；`cookieImport` 的浏览器根节点按状态显示“导入 / 重新导入 / 取消”的文字与图标及授权倒计时。候选存在时显示“已导入待识别”，accounts 自己提供已识别 browserId，只有 app 消费层将它组合为“已导入已识别 / 识别完成”。
 - “其他浏览器导入”只响应用户单击的一个 browserId；罗列浏览器不触发串行、并行或批量导入。
 - cookieImport 为授权流程固定打开一个新增浏览器窗口，并在成功、手动取消或自动取消后关闭该窗口；用户原有浏览器窗口不属于本次资源，不关闭。
 - main/renderer 同构；每个 `store.ts` 只定义自身切片，跨切片串联只允许在消费者 `index.ts`。
@@ -31,7 +31,7 @@
 ### 1. 纯化 cookieImport
 
 - [x] `cookieImport.create` 只返回 `{ browserId, browserName, partition }` 候选结果。
-- [x] 每次导入使用新的临时候选 partition；失败只清理本次候选。
+- [x] 每次导入使用新的临时候选 partition；导入失败清理本次候选，账号识别失败保留候选供用户重试。
 - [x] renderer 的同名切片只同步主进程进度、59 秒授权倒计时、取消、错误和导入历史。
 - [x] 导入历史只含 browserId、浏览器名称和最后成功时间；不夹带 email、`/api/auth/session`、预览窗口或“导入并预览”契约。
 - 验收：`cookieImport` 目录不存在账号请求与 `BrowserPartitionWindow.open`，main/renderer 分别通过类型检查。
@@ -40,7 +40,7 @@
 
 - [x] 消费候选 partition 后才请求登录态信息并识别 email。
 - [x] 将结果分类为 `valid / expired / unknown`，同 email 原子合并来源信息。
-- [x] 验证成功后替换旧 partition；失败保留旧 partition 并清理候选。
+- [x] 验证成功后替换旧 partition 并消费候选；失败保留旧账号和待识别候选。
 - [x] 持久化账号、partition 引用、来源、最后检查时间和状态；不把 Cookie 内容写入 Zustand。
 - 验收：同 email 多来源只有一个账号；失败、取消和 unknown 均不损坏原账号。
 
@@ -48,7 +48,7 @@
 
 - [x] 直接消费 main/accounts 的验证器与类型，不复制验证器，不消费切片仓库实例。
 - [x] 提供手工消费现有候选、打开、重新验证和移除的透明调用。
-- [x] 外部浏览器候选的识别图标位于 cookieImport Tree 的“已导入待识别”子节点；它只在 renderer 透明调用 accounts 契约，不把识别业务放入 main/cookieImport。
+- [x] 外部浏览器候选的“识别账号 + 图标”位于 cookieImport Tree 的“已导入待识别”子节点；它只在 renderer 透明调用 accounts 契约，不把识别业务放入 main/cookieImport。
 - [x] 识别成功后候选节点消失，renderer/accounts 独立显示 email 账号卡片。
 - [x] 页面只响应 main 推送的账号及进度状态，不伪造成功或启用状态。
 - 验收：renderer store 不持久化；主进程状态变化能完整推送并通过验证器。
@@ -82,7 +82,7 @@
 - [x] 同步本 README 与最终源码目录；完成相关子包 typecheck 和 dev 实际运行观察。
 - [x] 保持 dev/HMR；生产打包只在项目最后统一执行。
 - [ ] 人工验收：本次新增的浏览器授权窗口在手动取消、自动取消和成功导入后关闭，用户原有窗口保持不变。
-- [x] 人工验收：选择 qxxq 外部浏览器、允许远程调试，对应根节点展开“已导入待识别 / 识别图标”；识别出 `ff13520521413@gmail.com` 并形成账号卡片，打开后直接进入已有登录态的 ChatGPT 页面。
+- [x] 运行验收：没有 profile 参数的 qxxq / Google Chrome 快捷入口被确认属于同一浏览器实例并归一为一个来源；同 email 只形成一个账号卡片。
 - [ ] 人工验收：在内嵌窗口完成登录后自动形成 email 账号卡片并关闭窗口；提前关闭只取消操作且不产生账号。
 
 ### 8. 后置工作
@@ -92,7 +92,7 @@
 ### 当前工作树中间状态
 
 - 公共通信去重已完成并通过公共 preload/renderer 类型检查。
-- `cookieImport` 主进程生产者已经纯化并完成目录级验收；自己的导入历史用于区分“导入/再次导入”。renderer 在候选子节点提供人工“识别账号”按钮，但识别方法和账号卡片仍由 accounts 提供。
+- `cookieImport` 主进程生产者已经纯化并完成目录级验收；自己的导入历史用于区分“导入/重新导入”。renderer 在候选子节点提供人工“识别账号”按钮，但识别方法和账号卡片仍由 accounts 提供。
 - 内嵌登录由 Electron 监听隔离 Session 的页面加载和 Cookie 变化，主进程 accounts 识别成功后立即持久化账号并自动关闭窗口；提前关闭只取消本次操作。只有 `cookieImport` 保留 `ready` 候选与人工识别步骤。
 - 公共 preload、双窗口、Login 页面、动画瀑布流和持久化白名单已经完成 dev 运行验收。
 - 当前剩余三项必须由用户完成浏览器授权/官方登录的人工验收；生产打包仍明确后置。
