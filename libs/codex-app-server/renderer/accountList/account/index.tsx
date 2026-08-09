@@ -1,8 +1,8 @@
 import { GlobalOutlined } from "@ant-design/icons";
 import {
   App as AntdApp,
-  BorderBeam,
   Button,
+  ConfigProvider,
   Empty,
   Flex,
   Switch,
@@ -99,7 +99,6 @@ const Account = ({ accountId, children, summary, title }: {
             <Button
               icon={<GlobalOutlined />}
               loading={officialOpening}
-              style={{ color: account.enabled ? "#ffffff" : undefined }}
               type="text"
               onClick={() => void officialOpen()}
             >
@@ -109,38 +108,36 @@ const Account = ({ accountId, children, summary, title }: {
         </Flex>
       )}
       style={account.enabled ? {
-        backdropFilter: "blur(22px) saturate(155%)",
-        background: `color-mix(in srgb, ${colorPrimary} 72%, transparent)`,
-        boxShadow: `0 18px 48px color-mix(in srgb, ${colorPrimary} 34%, transparent)`,
+        background: colorPrimary,
         color: "#ffffff",
-        position: "relative",
-        WebkitBackdropFilter: "blur(22px) saturate(155%)",
       } : undefined}
       title={title ?? <Typography.Text strong>{account.label}</Typography.Text>}
     >
       {summary}
-      <Typography.Text style={{ color: "inherit" }}>
-        来源：{account.sourceFileName} · 导入：{timeText(account.importedAt)}
-      </Typography.Text>
       {children}
     </GlassCard>
   );
   return account.enabled ? (
-    <BorderBeam
-      color={[
-        { color: colorPrimary, percent: 0 },
-        { color: "#ffffff", percent: 50 },
-        { color: colorPrimary, percent: 100 },
-      ]}
-      duration={7}
-      lineWidth={2}
-      outset={0}
-      size={120}
-    >
+    <ConfigProvider theme={{
+      token: {
+        colorText: "#ffffff",
+        colorTextSecondary: "#ffffff",
+      },
+    }}>
       {card}
-    </BorderBeam>
+    </ConfigProvider>
   ) : card;
 };
 
-export { useAccount };
+const AccountSource = ({ accountId }: { accountId: string }) => {
+  const account = useStore(store, state => state.account[accountId]);
+  if (!account) return null;
+  return (
+    <Typography.Text>
+      来源：{account.sourceFileName} · 导入：{timeText(account.importedAt)}
+    </Typography.Text>
+  );
+};
+
+export { AccountSource, useAccount };
 export default Account;

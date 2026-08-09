@@ -6,7 +6,7 @@ import AuthJsonCreate from "../accountAdd/authJsonCreate/index.tsx";
 import AuthJsonImport from "../accountAdd/authJsonImport/index.tsx";
 import GlobalSettings from "../globalSettings/index.tsx";
 import store from "../store.ts";
-import Account, { useAccount } from "./account/index.tsx";
+import Account, { AccountSource, useAccount } from "./account/index.tsx";
 import { account as accountContract } from "./account/store.ts";
 import useAccounts, { AccountRemove, AccountsEmpty } from "./accounts/index.tsx";
 import AuthSession, {
@@ -104,7 +104,7 @@ const AccountList = () => {
             </Flex>
           )}
           title={(
-            <Typography.Text strong style={{ color: "inherit" }}>
+            <Typography.Text strong>
               <AuthSessionEmail accountId={accountId} fallback="账号" />
             </Typography.Text>
           )}
@@ -116,12 +116,13 @@ const AccountList = () => {
               items={[{
                 children: (
                   <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                    <AccountSource accountId={accountId} />
                     <AuthSession accountId={accountId} />
                     <Usage accountId={accountId} />
                   </Space>
                 ),
                 key: "account-details",
-                label: <Typography.Text style={{ color: "inherit" }}>账号信息</Typography.Text>,
+                label: "账号信息",
               }]}
               size="small"
               styles={{ body: { paddingInline: 0 }, header: { paddingInline: 0 } }}
@@ -141,8 +142,6 @@ const AccountList = () => {
         token: {
           colorBgContainer: "rgba(255, 255, 255, 0.72)",
           colorBorderSecondary: "transparent",
-          colorText: "rgba(0, 0, 0, 0.88)",
-          colorTextSecondary: "rgba(0, 0, 0, 0.56)",
         },
       }}>
         <div style={contentStyle}>

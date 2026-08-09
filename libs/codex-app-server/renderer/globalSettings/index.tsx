@@ -13,7 +13,6 @@ import {
   ConfigProvider,
   Input,
   InputNumber,
-  Popconfirm,
   Space,
   Switch,
   Tree,
@@ -229,33 +228,26 @@ const GlobalSettings = () => {
                 )}
               />
             </Tooltip>
-            <Popconfirm
-              description="只删除路径配置，不删除目录或账号凭据。"
-              okText="删除配置"
-              title="删除 CODEX_HOME 配置？"
-              onConfirm={() => void update(
-                "codexHomeDelete",
-                async () => {
-                  await invoke({
-                    channel: globalSettings.channel.codexHomeDelete,
-                    input: {},
-                    inputValidator: globalSettings.input.command,
-                    resultValidator: globalSettings.resultValidator,
-                  });
-                  await stateRead();
-                },
-              )}
-            >
-              <Tooltip title="删除配置">
-                <Button
-                  disabled={disabled || editingCodexHome || value.codexHome === null}
-                  danger
-                  icon={<DeleteOutlined />}
-                  loading={pending === "codexHomeDelete"}
-                  type="text"
-                />
-              </Tooltip>
-            </Popconfirm>
+            <Tooltip title="删除配置">
+              <Button
+                disabled={disabled || editingCodexHome || value.codexHome === null}
+                icon={<DeleteOutlined />}
+                loading={pending === "codexHomeDelete"}
+                type="text"
+                onClick={() => void update(
+                  "codexHomeDelete",
+                  async () => {
+                    await invoke({
+                      channel: globalSettings.channel.codexHomeDelete,
+                      input: {},
+                      inputValidator: globalSettings.input.command,
+                      resultValidator: globalSettings.resultValidator,
+                    });
+                    await stateRead();
+                  },
+                )}
+              />
+            </Tooltip>
           </Space>
         );
       case "codex-home-permission":

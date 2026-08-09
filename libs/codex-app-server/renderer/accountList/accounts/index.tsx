@@ -3,7 +3,6 @@ import {
   App as AntdApp,
   Button,
   Empty,
-  Popconfirm,
 } from "antd";
 import { invoke, read, subscribe } from "browser-partition-renderer/public.ts";
 import { useEffect } from "react";
@@ -34,29 +33,29 @@ const useAccounts = (): string[] => {
 
 const AccountRemove = ({ accountId }: { accountId: string }) => {
   const { message } = AntdApp.useApp();
+  const remove = (): void => {
+    void (async () => {
+      await invoke({
+        channel: accounts.channel.accountDelete,
+        input: { accountId },
+        inputValidator: accounts.input.accountDelete,
+        resultValidator: accounts.resultValidator,
+      });
+      store.getState().accountsActions.stateSet(await read({
+        channel: accounts.channel.stateRead,
+        resultValidator: accounts.accountsValidator,
+      }));
+    })().catch(error => void message.error(errorText(error)));
+  };
   return (
-    <Popconfirm
-      cancelText="取消"
-      description="只移除管理记录，不删除托管文件。"
-      okText="移出"
-      title="移出账号管理"
-      onConfirm={() => (async () => {
-        await invoke({
-          channel: accounts.channel.accountDelete,
-          input: { accountId },
-          inputValidator: accounts.input.accountDelete,
-          resultValidator: accounts.resultValidator,
-        });
-        store.getState().accountsActions.stateSet(await read({
-          channel: accounts.channel.stateRead,
-          resultValidator: accounts.accountsValidator,
-        }));
-      })().catch(error => void message.error(errorText(error)))}
+    <Button
+      icon={<DeleteOutlined />}
+      size="small"
+      type="text"
+      onClick={remove}
     >
-      <Button danger icon={<DeleteOutlined />} size="small" type="text">
-        移出管理
-      </Button>
-    </Popconfirm>
+      移出管理
+    </Button>
   );
 };
 

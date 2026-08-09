@@ -109,7 +109,9 @@ const AuthSessionPlan = ({ accountId }: { accountId: string }) => {
     store,
     state => state.authSessions.byAccountId[accountId]?.planType,
   );
-  return planType ? <Tag>{planType}</Tag> : null;
+  return planType ? (
+    <Typography.Text>{planType}</Typography.Text>
+  ) : null;
 };
 
 export { AuthSessionEmail, AuthSessionPlan, useAuthSessions };
