@@ -96,11 +96,15 @@ const useCookieImport = ({
                 <Button
                   aria-label="识别账号"
                   icon={<UserOutlined />}
+                  iconPosition="end"
                   loading={identifying}
+                  style={{ whiteSpace: "nowrap" }}
                   title="识别账号"
                   type="text"
                   onClick={() => void candidateIdentify()}
-                />
+                >
+                  识别账号
+                </Button>
               </Flex>
             ),
           }]
@@ -134,6 +138,8 @@ const useCookieImport = ({
                 aria-label={`刷新导入 ${application.name}`}
                 disabled={identifying}
                 icon={<ReloadOutlined />}
+                iconPosition="end"
+                style={{ whiteSpace: "nowrap" }}
                 title="刷新导入"
                 type="text"
                 onClick={() => void browserPartitionRenderer.invoke({
@@ -142,12 +148,16 @@ const useCookieImport = ({
                   inputValidator: cookieImport.input.create,
                   resultValidator: cookieImport.result.start,
                 }).catch(errorShow)}
-              />
+              >
+                刷新导入
+              </Button>
             ) : (
               <Button
                 aria-label={`${imported ? "重新导入" : "导入"} ${application.name}`}
                 disabled={cookieImportState.status === "working" || identifying}
                 icon={imported ? <ReloadOutlined /> : <GlobalOutlined />}
+                iconPosition="end"
+                style={{ whiteSpace: "nowrap" }}
                 title={imported ? "重新导入" : "导入"}
                 type="text"
                 onClick={() => void browserPartitionRenderer.invoke({
@@ -156,7 +166,9 @@ const useCookieImport = ({
                   inputValidator: cookieImport.input.create,
                   resultValidator: cookieImport.result.start,
                 }).catch(errorShow)}
-              />
+              >
+                {imported ? "重新导入" : "导入"}
+              </Button>
             )}
           </Flex>
         </Flex>
