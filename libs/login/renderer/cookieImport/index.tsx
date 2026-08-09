@@ -126,7 +126,7 @@ const useCookieImport = ({ identify }: CookieImportProps) => {
         <Tree
           blockNode
           selectable={false}
-          style={{ background: "transparent" }}
+          styles={{ root: { background: "transparent" } }}
           treeData={treeData}
         />
       </GlassCard>

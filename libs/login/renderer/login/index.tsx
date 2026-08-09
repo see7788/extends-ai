@@ -30,7 +30,7 @@ const useLogin = ({ identify }: LoginProps) => {
         <Tree
           blockNode
           selectable={false}
-          style={{ background: "transparent" }}
+          styles={{ root: { background: "transparent" } }}
           treeData={[{
             key: "login:chatgpt",
             title: (
