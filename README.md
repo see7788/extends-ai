@@ -148,9 +148,9 @@ extends-ai/
       │  ├─ accounts/                 # 账号集合监听与移除操作；零账号时不伪造占位卡片
       │  ├─ authSessions/             # 登录态监听、查询与本切片 UI
       │  ├─ rateLimits/               # 额度监听、查询与本切片 UI
-      │  ├─ scheduler/                # 全账号查询执行状态与本切片 UI
+      │  ├─ scheduler/                # 全账号查询状态、立即查询 Action 与“查询全部账号”Tree 节点
       │  └─ usage/                    # 用量监听、查询与本切片 UI
-      ├─ globalSettings/              # 全局设置 store、通信、操作与本切片 UI
+      ├─ globalSettings/              # 全局设置状态、Actions 与设置 Tree；由 accountList 和 scheduler 组合为一张卡片
       ├─ theme/store.ts               # renderer 主题数据切片，无虚假 UI
       ├─ public/                      # 无业务的公共 UI 与文本工具
       ├─ app.tsx                      # 应用壳：主题上下文与路由 Outlet

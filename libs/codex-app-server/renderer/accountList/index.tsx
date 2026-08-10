@@ -19,6 +19,7 @@ import AuthSession from "./authSessions/index.tsx";
 import RateLimits from "./rateLimits/index.tsx";
 import Scheduler from "./scheduler/index.tsx";
 import Usage from "./usage/index.tsx";
+import GlassCard from "../public/GlassCard.tsx";
 
 const pageStyle = {
   background: "#000",
@@ -113,17 +114,19 @@ const AccountsPage = () => {
   const order = store(state => state.accounts.order);
   const settings = store(state => state.globalSettings);
   const items = [
-    { key: "global-settings", data: null, children: <GlobalSettings /> },
     {
-      key: "scheduler",
+      key: "global-settings",
       data: null,
       children: (
-        <Scheduler
-          maintenanceEnabled={settings.maintenanceEnabled}
-          maintenanceIntervalHours={settings.maintenanceIntervalHours}
-          maintenanceRetryCount={settings.maintenanceRetryCount}
-          maintenanceRetryIntervalMinutes={settings.maintenanceRetryIntervalMinutes}
-        />
+        <GlassCard title="全局设置">
+          <GlobalSettings />
+          <Scheduler
+            maintenanceEnabled={settings.maintenanceEnabled}
+            maintenanceIntervalHours={settings.maintenanceIntervalHours}
+            maintenanceRetryCount={settings.maintenanceRetryCount}
+            maintenanceRetryIntervalMinutes={settings.maintenanceRetryIntervalMinutes}
+          />
+        </GlassCard>
       ),
     },
     { key: "auth-json-create", data: null, children: <AuthJsonCreate /> },

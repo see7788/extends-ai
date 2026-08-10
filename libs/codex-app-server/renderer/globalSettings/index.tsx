@@ -21,7 +21,6 @@ import {
   type TreeDataNode,
 } from "antd";
 import { errorText } from "../public/index.ts";
-import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
 
 const { Text } = Typography;
@@ -308,29 +307,27 @@ const GlobalSettings = () => {
     }
   };
   return (
-    <GlassCard title="全局设置">
-      <ConfigProvider theme={{
-        components: {
-          Tree: {
-            nodeHoverBg: "transparent",
-            nodeSelectedBg: "transparent",
-          },
+    <ConfigProvider theme={{
+      components: {
+        Tree: {
+          nodeHoverBg: "transparent",
+          nodeSelectedBg: "transparent",
         },
-        token: { colorBgContainer: "transparent" },
-      }}>
-        <Tree.DirectoryTree
-          blockNode
-          expandAction="doubleClick"
-          expandedKeys={expandedKeys}
-          selectedKeys={[]}
-          style={{ background: "transparent", width: "100%" }}
-          styles={{ itemSwitcher: { display: "none" } }}
-          titleRender={titleRender}
-          treeData={treeData}
-          onExpand={keys => setExpandedKeys(keys.map(String))}
-        />
-      </ConfigProvider>
-    </GlassCard>
+      },
+      token: { colorBgContainer: "transparent" },
+    }}>
+      <Tree.DirectoryTree
+        blockNode
+        expandAction="doubleClick"
+        expandedKeys={expandedKeys}
+        selectedKeys={[]}
+        style={{ background: "transparent", width: "100%" }}
+        styles={{ itemSwitcher: { display: "none" } }}
+        titleRender={titleRender}
+        treeData={treeData}
+        onExpand={keys => setExpandedKeys(keys.map(String))}
+      />
+    </ConfigProvider>
   );
 };
 

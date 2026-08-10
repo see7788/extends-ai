@@ -8,7 +8,6 @@ import {
   type TreeDataNode,
 } from "antd";
 import { errorText, timeText } from "../../public/index.ts";
-import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
 
 type SchedulerProps = {
@@ -45,21 +44,29 @@ const Scheduler = ({
       ? Math.max(Date.now(), lastRunAt + delay)
       : Date.now()).toISOString()
     : null;
-  const treeData: TreeDataNode[] = [
+  const queryNodes: TreeDataNode[] = [
     { key: "last", title: "上次查询" },
     { key: "failures", title: "连续失败" },
     { key: "next", title: "下次查询" },
     { key: "run", title: "立即查询" },
     ...(value.error ? [{ key: "error", title: "查询错误" }] : []),
   ];
+  const treeData: TreeDataNode[] = [{
+    children: queryNodes,
+    key: "query-all",
+    title: "查询全部账号",
+  }];
   return (
-    <GlassCard title="查询全部账号">
-      <Tree
-        blockNode
-        selectedKeys={[]}
-        styles={{ root: { background: "transparent" } }}
-        treeData={treeData}
-        titleRender={node => {
+    <Tree
+      blockNode
+      defaultExpandAll
+      selectedKeys={[]}
+      styles={{ root: { background: "transparent" } }}
+      treeData={treeData}
+      titleRender={node => {
+          if (node.key === "query-all") {
+            return <Typography.Text>查询全部账号</Typography.Text>;
+          }
           if (node.key === "last") {
             return <Typography.Text>上次查询：{timeText(value.lastRunAt)}</Typography.Text>;
           }
@@ -82,9 +89,8 @@ const Scheduler = ({
             );
           }
           return value.error ? <Alert message={value.error} showIcon type="warning" /> : null;
-        }}
-      />
-    </GlassCard>
+      }}
+    />
   );
 };
 
