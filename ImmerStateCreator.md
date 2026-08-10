@@ -1,6 +1,6 @@
-# TypeScript 服务切片公理（ImmerStateCreator）
+# TypeScript 切片公理（ImmerStateCreator）
 
-适用范围：TypeScript 服务中由 `ImmerStateCreator` 实现的生产者切片。
+适用范围：TypeScript 服务端与渲染进程中由 `ImmerStateCreator` 实现的切片。呈现文件仅受“渲染进程呈现定律”约束。
 
 除非负责人明确批准，以下定律不得例外。
 
@@ -250,6 +250,57 @@ React 路由导入业务切片的 `index.tsx` 页面组件属于界面组合，�
 
 没有主 store 的纯切片库只提供 creator，由最终消费它的应用主 store 组合。测试也必须创建最小主 store，不得直接消费 creator。
 
+## 渲染进程呈现定律
+
+渲染进程固定结构：
+
+```text
+renderer/
+├─ index.tsx       # 只挂载 React 与 Router
+├─ store.ts        # 只组合 renderer 切片
+├─ routers.tsx     # 只定义根 RouteObject[]
+├─ app.tsx         # 根布局与最终跨切片消费者
+├─ <业务目录>/
+│  ├─ store.ts     # 可选；本目录拥有状态或 Actions 时存在
+│  └─ index.tsx | routers.tsx
+└─ public/
+   ├─ ComponentName.tsx
+   └─ useHookName.ts
+```
+
+根文件职责固定：
+
+- `index.tsx` 只创建 React 根、安装 Router 与根 Provider，禁止业务状态、业务判断和通信。
+- `store.ts` 只组合 renderer 的 `ImmerStateCreator`，禁止 JSX、Hook、路由和业务调用。
+- `routers.tsx` 只定义根路由数据，禁止读取 store、调用 Actions、注册副作用和通信。
+- `app.tsx` 只负责根布局与最终跨切片消费；只能通过主 store 的 selectors 与 Actions 消费切片。
+
+业务目录中的 `index.tsx` 与 `routers.tsx` 互斥：
+
+- `index.tsx` 是本目录唯一呈现入口；可以使用 React Hook、局部瞬时 UI 状态、主 store selectors 与 Actions，也可以组合子组件。
+- `routers.tsx` 是本目录唯一子路由入口；只定义并导出 `RouteObject[]`，JSX 只能用于引用路由元素。
+- 同一业务目录同时需要二者，表示目录边界错误，必须调整目录职责；禁止增加转发入口规避互斥约束。
+- 无状态且无 Actions 时省略 `store.ts`；存在 `store.ts` 时仍必须遵守标准切片、单地址通信和入口消费定律。
+
+`public/` 是当前 renderer 的公共呈现目录，必须保持扁平：
+
+- `PascalCase.tsx` 是公共 React 组件。
+- `useXxx.ts` 是公共 React Hook；Hook 不返回 JSX。
+- 公共组件可以消费公共 Hook；公共 Hook 禁止导入公共组件。
+- 公共组件与 Hook 禁止导入业务切片、主 store、路由、preload 或其他传输层。
+- 需要具体业务状态或 Actions 的组件与 Hook 必须归属对应业务目录。
+- 禁止子目录、barrel `index.ts`、纯转发文件和无明确语义的 helper。
+- 跨 renderer 复用的组件或 Hook 必须进入负责人确认的公共 UI 包，禁止寄居在任一业务 renderer 的 `public/`。
+
+依赖方向唯一：
+
+```text
+public/useXxx.ts → public/PascalCase.tsx ┐
+业务 store.ts → renderer/store.ts ──────┼→ 业务 index.tsx / app.tsx → routers.tsx → 根 index.tsx
+```
+
+禁止组件、Hook、路由或根入口反向成为状态生产者；业务状态只能由所属 `store.ts` 生产。
+
 ## 跨运行端同构定律
 
 - 同构的是切片名、数据和通信契约，不是 store 实例。
@@ -287,7 +338,7 @@ store.persist.setOptions({
 - `store.ts → index.ts`；
 - 业务切片运行时导入宿主模块；
 - `process.ts`；
-- 业务切片级 `public.ts`；
+- 业务切片级 `public.ts`；renderer 根级扁平 `public/` 仅允许公共组件与公共 Hook；
 - 纯转发 `index.ts`；
 - service、manager、processor；
 - Actions 转发对象；
