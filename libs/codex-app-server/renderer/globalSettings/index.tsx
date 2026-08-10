@@ -7,7 +7,6 @@ import {
 import {
   App as AntdApp,
   Button,
-  ConfigProvider,
   InputNumber,
   Space,
   Switch,
@@ -74,194 +73,179 @@ const GlobalSettings = () => {
     });
   };
   const disabled = pending !== null;
-  const codexHomeNode: TreeDataNode = {
-    key: "codex-home",
-    title: "CODEX_HOME",
-    children: form.codexHomeVisible
-      ? [
-        { key: "codex-home-path", title: "路径" },
-        { key: "codex-home-select", title: "选择路径" },
-        { key: "codex-home-default-restore", title: "还原至默认路径" },
-      ]
-      : [{ key: "codex-home-permission", title: "申请权限" }],
-  };
   const treeData: TreeDataNode[] = [
-    codexHomeNode,
+    {
+      key: "codex-home",
+      title: (
+        <Space size={8}>
+          <Text>CODEX_HOME</Text>
+          <Switch
+            checked={form.codexHomeVisible}
+            checkedChildren="可见"
+            unCheckedChildren="隐藏"
+            onChange={codexHomeVisible => {
+              actions.codexHomeVisibleSet({ codexHomeVisible });
+            }}
+          />
+        </Space>
+      ),
+      children: form.codexHomeVisible
+        ? [
+          {
+            key: "codex-home-path",
+            title: <Text>{form.codexHome ?? "未配置"}</Text>,
+          },
+          {
+            key: "codex-home-select",
+            title: (
+              <Button
+                disabled={disabled}
+                icon={<FolderOpenOutlined />}
+                loading={pending === "codexHomeSelect"}
+                type="text"
+                onClick={() => void update("codexHomeSelect", actions.codexHomeSelect)}
+              >
+                选择路径
+              </Button>
+            ),
+          },
+          {
+            key: "codex-home-default-restore",
+            title: (
+              <Button
+                disabled={disabled}
+                icon={<UndoOutlined />}
+                loading={pending === "codexHomeDefaultRestore"}
+                type="text"
+                onClick={() => void update(
+                  "codexHomeDefaultRestore",
+                  actions.codexHomeDefaultRestore,
+                )}
+              >
+                还原至默认路径
+              </Button>
+            ),
+          },
+        ]
+        : [{
+          key: "codex-home-permission",
+          title: (
+            <Space size={6}>
+              <LockOutlined />
+              <Text>申请权限</Text>
+            </Space>
+          ),
+        }],
+    },
     {
       key: "maintenance-automatic",
-      title: "自动查询",
+      title: (
+        <Space size={8}>
+          <Text>自动查询</Text>
+          <Switch
+            checked={form.maintenanceEnabled}
+            checkedChildren="已启用"
+            disabled={disabled}
+            loading={pending === "maintenanceEnabledSet"}
+            unCheckedChildren="已停用"
+            onChange={maintenanceEnabled => {
+              setForm(current => ({ ...current, maintenanceEnabled }));
+              void update("maintenanceEnabledSet", async () => {
+                await actions.maintenanceEnabledSet({ maintenanceEnabled });
+              });
+            }}
+          />
+        </Space>
+      ),
       children: form.maintenanceEnabled
         ? [
-          { key: "maintenance-interval", title: "查询间隔" },
-          { key: "maintenance-retry-count", title: "失败重试" },
-          { key: "maintenance-retry-interval", title: "重试间隔" },
+          {
+            key: "maintenance-interval",
+            title: (
+              <Space size={4}>
+                <Text>查询间隔</Text>
+                <InputNumber
+                  suffix="小时"
+                  disabled={disabled}
+                  max={720}
+                  min={1}
+                  value={form.maintenanceIntervalHours}
+                  variant="borderless"
+                  onBlur={maintenanceIntervalHoursCommit}
+                  onChange={maintenanceIntervalHours => {
+                    if (maintenanceIntervalHours !== null) {
+                      setForm(current => ({ ...current, maintenanceIntervalHours }));
+                    }
+                  }}
+                  onPressEnter={event => event.currentTarget.blur()}
+                />
+              </Space>
+            ),
+          },
+          {
+            key: "maintenance-retry-count",
+            title: (
+              <Space size={4}>
+                <Text>失败重试</Text>
+                <InputNumber
+                  suffix="次"
+                  disabled={disabled}
+                  max={5}
+                  min={0}
+                  value={form.maintenanceRetryCount}
+                  variant="borderless"
+                  onBlur={maintenanceRetryCountCommit}
+                  onChange={maintenanceRetryCount => {
+                    if (maintenanceRetryCount !== null) {
+                      setForm(current => ({ ...current, maintenanceRetryCount }));
+                    }
+                  }}
+                  onPressEnter={event => event.currentTarget.blur()}
+                />
+              </Space>
+            ),
+          },
+          {
+            key: "maintenance-retry-interval",
+            title: (
+              <Space size={4}>
+                <Text>重试间隔</Text>
+                <InputNumber
+                  suffix="分钟"
+                  disabled={disabled}
+                  max={1_440}
+                  min={1}
+                  value={form.maintenanceRetryIntervalMinutes}
+                  variant="borderless"
+                  onBlur={maintenanceRetryIntervalMinutesCommit}
+                  onChange={maintenanceRetryIntervalMinutes => {
+                    if (maintenanceRetryIntervalMinutes !== null) {
+                      setForm(current => ({
+                        ...current,
+                        maintenanceRetryIntervalMinutes,
+                      }));
+                    }
+                  }}
+                  onPressEnter={event => event.currentTarget.blur()}
+                />
+              </Space>
+            ),
+          },
         ]
         : [],
     },
   ];
-  const titleRender = (node: TreeDataNode) => {
-    switch (node.key) {
-      case "codex-home":
-        return (
-          <Space size={8}>
-            <Text>CODEX_HOME</Text>
-            <Switch
-              checked={form.codexHomeVisible}
-              checkedChildren="可见"
-              unCheckedChildren="隐藏"
-              onChange={codexHomeVisible => {
-                store.getState().globalSettingsActions.codexHomeVisibleSet({ codexHomeVisible });
-              }}
-            />
-          </Space>
-        );
-      case "codex-home-path":
-        return (
-          <Text>{form.codexHome ?? "未配置"}</Text>
-        );
-      case "codex-home-select":
-        return (
-          <Button
-            disabled={disabled}
-            icon={<FolderOpenOutlined />}
-            loading={pending === "codexHomeSelect"}
-            type="text"
-            onClick={() => void update("codexHomeSelect", actions.codexHomeSelect)}
-          >
-            选择路径
-          </Button>
-        );
-      case "codex-home-default-restore":
-        return (
-          <Button
-            disabled={disabled}
-            icon={<UndoOutlined />}
-            loading={pending === "codexHomeDefaultRestore"}
-            type="text"
-            onClick={() => void update(
-              "codexHomeDefaultRestore",
-              actions.codexHomeDefaultRestore,
-            )}
-          >
-            还原至默认路径
-          </Button>
-        );
-      case "codex-home-permission":
-        return (
-          <Space size={6}>
-            <LockOutlined />
-            <Text>申请权限</Text>
-          </Space>
-        );
-      case "maintenance-automatic":
-        return (
-          <Space size={8}>
-            <Text>自动查询</Text>
-            <Switch
-              checked={form.maintenanceEnabled}
-              checkedChildren="已启用"
-              disabled={disabled}
-              loading={pending === "maintenanceEnabledSet"}
-              unCheckedChildren="已停用"
-              onChange={maintenanceEnabled => {
-                setForm(current => ({ ...current, maintenanceEnabled }));
-                void update("maintenanceEnabledSet", async () => {
-                  await actions.maintenanceEnabledSet({ maintenanceEnabled });
-                });
-              }}
-            />
-          </Space>
-        );
-      case "maintenance-interval":
-        return (
-          <Space size={4}>
-            <Text>查询间隔</Text>
-            <InputNumber
-              suffix="小时"
-              disabled={disabled}
-              max={720}
-              min={1}
-              value={form.maintenanceIntervalHours}
-              variant="borderless"
-              onBlur={maintenanceIntervalHoursCommit}
-              onChange={maintenanceIntervalHours => {
-                if (maintenanceIntervalHours !== null) {
-                  setForm(current => ({ ...current, maintenanceIntervalHours }));
-                }
-              }}
-              onPressEnter={event => event.currentTarget.blur()}
-            />
-          </Space>
-        );
-      case "maintenance-retry-count":
-        return (
-          <Space size={4}>
-            <Text>失败重试</Text>
-            <InputNumber
-              suffix="次"
-              disabled={disabled}
-              max={5}
-              min={0}
-              value={form.maintenanceRetryCount}
-              variant="borderless"
-              onBlur={maintenanceRetryCountCommit}
-              onChange={maintenanceRetryCount => {
-                if (maintenanceRetryCount !== null) {
-                  setForm(current => ({ ...current, maintenanceRetryCount }));
-                }
-              }}
-              onPressEnter={event => event.currentTarget.blur()}
-            />
-          </Space>
-        );
-      case "maintenance-retry-interval":
-        return (
-          <Space size={4}>
-            <Text>重试间隔</Text>
-            <InputNumber
-              suffix="分钟"
-              disabled={disabled}
-              max={1_440}
-              min={1}
-              value={form.maintenanceRetryIntervalMinutes}
-              variant="borderless"
-              onBlur={maintenanceRetryIntervalMinutesCommit}
-              onChange={maintenanceRetryIntervalMinutes => {
-                if (maintenanceRetryIntervalMinutes !== null) {
-                  setForm(current => ({
-                    ...current,
-                    maintenanceRetryIntervalMinutes,
-                  }));
-                }
-              }}
-              onPressEnter={event => event.currentTarget.blur()}
-            />
-          </Space>
-        );
-      default:
-        return typeof node.title === "function" ? node.title(node) : node.title;
-    }
-  };
   return (
-    <ConfigProvider theme={{
-      components: {
-        Tree: {
-          nodeHoverBg: "transparent",
-          nodeSelectedBg: "transparent",
-        },
-      },
-      token: { colorBgContainer: "transparent" },
-    }}>
-      <Tree
-        blockNode
-        expandedKeys={["codex-home", "maintenance-automatic"]}
-        selectedKeys={[]}
-        style={{ background: "transparent", width: "100%" }}
-        styles={{ itemSwitcher: { display: "none" } }}
-        titleRender={titleRender}
-        treeData={treeData}
-      />
-    </ConfigProvider>
+    <Tree
+      blockNode
+      expandedKeys={["codex-home", "maintenance-automatic"]}
+      selectedKeys={[]}
+      styles={{
+        itemSwitcher: { display: "none" },
+        root: { background: "transparent", width: "100%" },
+      }}
+      treeData={treeData}
+    />
   );
 };
 
