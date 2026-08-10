@@ -1,15 +1,18 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { authJsonImport as producer } from "codex-app-server-main/accountAdd/authJsonImport/store.ts";
+import {
+  authJsonImport as producer,
+  type AuthJsonImport,
+} from "codex-app-server-main/accountAdd/authJsonImport/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
 
 type AuthJsonImportSlice = {
-  authJsonImport: ReturnType<typeof producer.authJsonImportValidator.parse>;
+  authJsonImport: AuthJsonImport;
   authJsonImportActions: {
     clipboard(): Promise<void>;
     connect(): () => void;
     default(): Promise<void>;
     select(): Promise<void>;
-    stateSet(input: ReturnType<typeof producer.authJsonImportValidator.parse>): void;
+    stateSet(input: AuthJsonImport): void;
   };
 };
 
@@ -21,34 +24,38 @@ const authJsonImportStore: ImmerStateCreator<
   authJsonImportActions: {
     async clipboard() {
       await get().ipcActions.invoke({
-        channel: producer.channel.clipboard,
-        input: {},
-        inputValidator: producer.input.command,
+        channel: producer.channel,
+        input: { method: "clipboard" as const },
+        inputValidator: producer.requestValidator,
         resultValidator: producer.result.import,
       });
     },
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: producer.channel.stateRead,
-        stateSet: get().authJsonImportActions.stateSet,
-        stateUpdatedChannel: producer.channel.stateUpdated,
-        validator: producer.authJsonImportValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.authJsonImportValidator,
+      }).then(get().authJsonImportActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().authJsonImportActions.stateSet(message.value),
       });
     },
     async default() {
       await get().ipcActions.invoke({
-        channel: producer.channel.default,
-        input: {},
-        inputValidator: producer.input.command,
+        channel: producer.channel,
+        input: { method: "default" as const },
+        inputValidator: producer.requestValidator,
         resultValidator: producer.result.import,
       });
     },
     async select() {
       await get().ipcActions.invoke({
-        channel: producer.channel.select,
-        input: {},
-        inputValidator: producer.input.command,
+        channel: producer.channel,
+        input: { method: "select" as const },
+        inputValidator: producer.requestValidator,
         resultValidator: producer.result.import,
       });
     },

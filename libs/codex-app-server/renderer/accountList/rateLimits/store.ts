@@ -1,26 +1,19 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { rateLimits as producer } from "codex-app-server-main/accountList/rateLimits/store.ts";
+import {
+  type AccountInput,
+  rateLimits as producer,
+  type RateLimits,
+} from "codex-app-server-main/accountList/rateLimits/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-import { z } from "zod";
-
-const rateLimitsValidator = producer.rateLimitsValidator;
-type RateLimits = z.infer<typeof rateLimitsValidator>;
-type RateLimitsReadInput = z.infer<typeof producer.input.command>;
 type RateLimitsSlice = {
   rateLimits: RateLimits;
   rateLimitsActions: {
     connect(): () => void;
-    read(input: RateLimitsReadInput): Promise<void>;
+    read(input: AccountInput): Promise<void>;
     stateSet(input: RateLimits): void;
   };
 };
 
-const rateLimits = {
-  channel: producer.channel,
-  commandResultValidator: producer.commandResultValidator,
-  input: producer.input,
-  rateLimitsValidator,
-};
 const rateLimitsStore: ImmerStateCreator<
   RateLimitsSlice,
   IpcSlice
@@ -28,24 +21,28 @@ const rateLimitsStore: ImmerStateCreator<
   rateLimits: structuredClone(producer.initial),
   rateLimitsActions: {
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: rateLimits.channel.stateRead,
-        stateSet: get().rateLimitsActions.stateSet,
-        stateUpdatedChannel: rateLimits.channel.stateUpdated,
-        validator: rateLimits.rateLimitsValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.rateLimitsValidator,
+      }).then(get().rateLimitsActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().rateLimitsActions.stateSet(message.value),
       });
     },
     async read(input) {
       await get().ipcActions.invoke({
-        channel: rateLimits.channel.read,
-        input,
-        inputValidator: rateLimits.input.command,
-        resultValidator: rateLimits.commandResultValidator,
+        channel: producer.channel,
+        input: { method: "read" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.commandResultValidator,
       });
     },
     stateSet(input) {
-      const value = rateLimitsValidator.parse(input);
+      const value = producer.rateLimitsValidator.parse(input);
       set(state => {
         state.rateLimits = value;
       });
@@ -53,5 +50,4 @@ const rateLimitsStore: ImmerStateCreator<
   },
 });
 
-export { rateLimits, type RateLimitsReadInput };
 export default rateLimitsStore;

@@ -20,12 +20,30 @@
 依赖方向唯一：
 
 ```text
-运行时实体 → nodeState.ts → 主 store → 业务切片 → 消费者
+业务 store.ts → nodeState_t ┐
+运行时实体 ────────────────→ 主仓库 nodeState.ts → 主 store → 业务切片 → 消费者
 ```
 
 反向依赖一律禁止。
 
 ## 标准切片
+
+声明顺序固定为：
+
+```text
+imports
+→ 基础验证器
+→ 组合验证器
+→ 由验证器推导的业务类型
+→ nodeState_t 与切片类型
+→ 初始值和通信契约
+→ ImmerStateCreator
+→ exports
+```
+
+`store.ts` 顶层只能出现上述类别。实现常量、辅助函数、类、连接器、计时器和错误转换必须定义在 `ImmerStateCreator` 内，并归属 Actions、PrivateActions 或 creator 私有实体；禁止 Actions 转发到顶层执行碎片。只有验证器、初始值或通信契约自身包含的常量可以位于顶层。
+
+可序列化业务类型只能由完整验证器推导。禁止先手写业务类型再补验证器；宿主实体、框架类型和不可序列化的内部句柄不受此条限制。
 
 ```ts
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
@@ -80,7 +98,9 @@ export default itemStore;
 
 ## 运行时注入定律
 
-业务切片不得运行时导入宿主模块。需要 Node、Electron 或其他宿主能力时，由所属 `store.ts` 声明扁平的最小 `nodeState_t`，由同目录 `nodeState.ts` 提供实体。
+业务切片不得运行时导入宿主模块。需要 Node、Electron 或其他宿主能力时，由所属 `store.ts` 声明扁平的最小 `nodeState_t`，由主仓库目录内唯一的 `nodeState.ts` 提供实体。
+
+`nodeState.ts` 以主 store 为边界：每个独立主 store 必须且只能有一个；仅提供可复用切片、不创建主 store 的库不得提供 `nodeState.ts`，只导出各切片的 `nodeState_t` 需求。
 
 `nodeState_t` 的顶层成员只能是运行时值或实体引用，禁止是函数。实体可以保留其原生方法，但禁止把业务操作包装成注入方法。
 
@@ -94,26 +114,26 @@ export default itemStore;
 ## 组合定律
 
 ```text
-slice/
-├─ store.ts       # nodeState_t 与业务切片
-└─ nodeState.ts   # nodeState_t 的运行时实体实现
+main/store/
+├─ index.ts       # 主 store
+└─ nodeState.ts   # 全部 nodeState_t 的运行时实体实现
 ```
 
-`nodeState.ts` 默认导出标准 `ImmerStateCreator<nodeState_t>`，只生产本切片声明的运行时值，不包含 Actions，不消费业务切片。
+`nodeState.ts` 默认导出标准 `ImmerStateCreator<NodeState>`。`NodeState` 是全部业务切片所声明 `nodeState_t` 的交叉类型；该切片只生产运行时值，不包含 Actions，不消费业务切片。
 
-`nodeState.ts` 只能通过 `import type` 加载所属 `store.ts` 的 `nodeState_t`；`store.ts` 禁止加载 `nodeState.ts`。
+`nodeState.ts` 只能通过 `import type` 加载业务 `store.ts` 的 `nodeState_t`；业务 `store.ts` 禁止加载 `nodeState.ts`。
 
 主 store 直接组合运行时值切片与业务切片：
 
 ```ts
-type Store = ReturnType<typeof itemNodeState>
+type Store = ReturnType<typeof nodeState>
   & ReturnType<typeof itemStore>;
 
 const store = createStore<Store>()(
   cwdPersist({
     cwd: app.getPath("userData"),
     initializer: immer((...options) => ({
-      ...itemNodeState<Store>(...options),
+      ...nodeState<Store>(...options),
       ...itemStore<Store>(...options),
     })),
     name: pkg.name,
@@ -121,7 +141,7 @@ const store = createStore<Store>()(
 );
 ```
 
-组合时必须由 TypeScript 验证 `nodeState.ts` 满足所属 `nodeState_t`。不同切片的 `nodeState_t` 通过扁平成员组合；成员名在主 store 内必须唯一。
+组合时必须由 TypeScript 验证 `nodeState.ts` 满足全部 `nodeState_t`。相同语义的运行时值必须复用同名成员；不同语义的成员名在主 store 内必须唯一。
 
 ## 单地址通信定律
 
@@ -157,19 +177,55 @@ account-events
 
 传输适配层只透明转发框架原语，不识别切片、方法或数据；Electron 的 preload 属于传输适配层。
 
-## 消费者定律
+## 入口消费定律
 
-纯切片禁止 `index.ts`。
+每个运行端只有一个主 store。只有主 store 可以导入并组合 `ImmerStateCreator`。
 
-`index.ts` 只允许：
+切片分为两种：
 
-- 应用或框架生命周期；
-- 框架要求的路由入口；
-- 写入两个及以上业务切片的消费者。
+```text
+生产者切片
+├─ 可以拥有数据
+├─ 只读写自身数据
+└─ Actions 只完成自身增、改、删、查
 
-消费者只调用主 store，不导入切片 creator，不调用其他业务 `index.ts`，不保存状态。
+消费者切片
+├─ 只有 Actions
+├─ 不保存数据，不参与持久化
+├─ 通过 get() 直接调用生产者 Actions
+└─ 不调用其他消费者 Actions
+```
 
-只调用一个切片的 `index.ts` 必须删除，逻辑归还该切片。
+唯一业务调用链：
+
+```text
+执行入口
+└─ 本运行端主 store
+   ├─ 生产者 Actions
+   └─ 消费者 Actions
+      └─ 生产者 Actions
+```
+
+Electron 生命周期、IPC、Hono 路由、定时器回调和 UI 事件都是执行入口。每个执行入口的第一次业务调用，必须是从本运行端主 store 直接取得的 Actions。
+
+单切片业务直接调用生产者 Actions。仅出现一次的跨切片业务，由当前执行入口透明调用多个生产者 Actions；需要复用的跨切片业务，定义只有 Actions 的消费者切片。
+
+每个运行端只有一个根执行入口。根执行入口只能直接消费主 store，不得导入或调用任何业务目录的 `index.ts`。
+
+服务端业务切片目录只允许存在 `store.ts`，禁止存在 `index.ts`。IPC、生命周期或路由注册不能使业务目录成为执行入口；它们必须由根执行入口直接注册，或由框架明确登记的 `routers.ts` 注册。
+
+服务端只允许两类 `index.ts`：
+
+```text
+<运行端>/index.ts        # 唯一根执行入口
+<运行端>/store/index.ts  # 唯一主 store
+```
+
+根执行入口可以导入主 store 和业务 `store.ts` 提供的通信契约，不得导入其他内部 `index.ts`。业务执行链不得导出或调用预绑定 Actions、业务代理对象、`install` 对象或转发方法。
+
+React 路由导入业务切片的 `index.tsx` 页面组件属于界面组合，不属于服务端业务调用。
+
+没有主 store 的纯切片库只提供 creator，由最终消费它的应用主 store 组合。测试也必须创建最小主 store，不得直接消费 creator。
 
 ## 跨运行端同构定律
 
@@ -186,6 +242,22 @@ account-events
 - 消费端默认不持久化生产端权威状态。
 - Actions、PrivateActions、`nodeState_t` 成员、窗口、会话、连接、定时器和进程句柄禁止持久化。
 - 宿主框架管理的数据归宿主框架；例如 Cookie、IndexedDB 和 Chromium 缓存归 Electron Session。
+
+持久化白名单必须由具名类型和逐项对象字面量共同约束：
+
+```ts
+type PersistedState = Pick<Store, "item">;
+
+const persistedStateRead = (state: Store): PersistedState => ({
+  item: structuredClone(state.item),
+});
+
+store.persist.setOptions({
+  partialize: state => persistedStateRead(state) as Store,
+});
+```
+
+`as Store` 只适配持久化中间件的类型限制，不得包裹手写对象。禁止展开整个 state、删除黑名单字段或依赖序列化器自动忽略运行时值；新增持久化成员必须先加入 `PersistedState`。
 
 ## 禁止
 

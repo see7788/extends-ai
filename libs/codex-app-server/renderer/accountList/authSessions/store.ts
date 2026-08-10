@@ -1,26 +1,19 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { authSessions as producer } from "codex-app-server-main/accountList/authSessions/store.ts";
+import {
+  type AccountCommandInput,
+  authSessions as producer,
+  type AuthSessions,
+} from "codex-app-server-main/accountList/authSessions/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-import { z } from "zod";
-
-const authSessionsValidator = producer.authSessionsValidator;
-type AuthSessions = z.infer<typeof authSessionsValidator>;
-type AuthSessionsCommandInput = z.infer<typeof producer.input.command>;
 type AuthSessionsSlice = {
   authSessions: AuthSessions;
   authSessionsActions: {
     connect(): () => void;
-    read(input: AuthSessionsCommandInput): Promise<void>;
+    read(input: AccountCommandInput): Promise<void>;
     stateSet(input: AuthSessions): void;
   };
 };
 
-const authSessions = {
-  authSessionsValidator,
-  channel: producer.channel,
-  input: producer.input,
-  resultValidator: producer.resultValidator,
-};
 const authSessionsStore: ImmerStateCreator<
   AuthSessionsSlice,
   IpcSlice
@@ -28,24 +21,28 @@ const authSessionsStore: ImmerStateCreator<
   authSessions: structuredClone(producer.initial),
   authSessionsActions: {
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: authSessions.channel.stateRead,
-        stateSet: get().authSessionsActions.stateSet,
-        stateUpdatedChannel: authSessions.channel.stateUpdated,
-        validator: authSessions.authSessionsValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.authSessionsValidator,
+      }).then(get().authSessionsActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().authSessionsActions.stateSet(message.value),
       });
     },
     async read(input) {
       await get().ipcActions.invoke({
-        channel: authSessions.channel.read,
-        input,
-        inputValidator: authSessions.input.command,
-        resultValidator: authSessions.resultValidator,
+        channel: producer.channel,
+        input: { method: "read" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     stateSet(input) {
-      const value = authSessionsValidator.parse(input);
+      const value = producer.authSessionsValidator.parse(input);
       set(state => {
         state.authSessions = value;
       });
@@ -53,5 +50,4 @@ const authSessionsStore: ImmerStateCreator<
   },
 });
 
-export { authSessions, type AuthSessionsCommandInput };
 export default authSessionsStore;

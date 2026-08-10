@@ -1,25 +1,17 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { accounts as producer } from "codex-app-server-main/accountList/accounts/store.ts";
+import {
+  accounts as producer,
+  type AccountInput,
+  type Accounts,
+} from "codex-app-server-main/accountList/accounts/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-import { z } from "zod";
-
-const accountsValidator = producer.stateValidator;
-type Accounts = z.infer<typeof accountsValidator>;
-type AccountsDeleteInput = z.infer<typeof producer.input.accountDelete>;
 type AccountsSlice = {
   accounts: Accounts;
   accountsActions: {
-    accountDelete(input: AccountsDeleteInput): Promise<void>;
+    accountDelete(input: AccountInput): Promise<void>;
     connect(): () => void;
     stateSet(input: Accounts): void;
   };
-};
-
-const accounts = {
-  accountsValidator,
-  channel: producer.channel,
-  input: producer.input,
-  resultValidator: producer.resultValidator,
 };
 
 const accountsStore: ImmerStateCreator<
@@ -30,23 +22,27 @@ const accountsStore: ImmerStateCreator<
   accountsActions: {
     async accountDelete(input) {
       await get().ipcActions.invoke({
-        channel: accounts.channel.accountDelete,
-        input,
-        inputValidator: accounts.input.accountDelete,
-        resultValidator: accounts.resultValidator,
+        channel: producer.channel,
+        input: { method: "accountDelete" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: accounts.channel.stateRead,
-        stateSet: get().accountsActions.stateSet,
-        stateUpdatedChannel: accounts.channel.stateUpdated,
-        validator: accounts.accountsValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.accountsValidator,
+      }).then(get().accountsActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().accountsActions.stateSet(message.value),
       });
     },
     stateSet(input) {
-      const value = accountsValidator.parse(input);
+      const value = producer.accountsValidator.parse(input);
       set(state => {
         state.accounts = value;
       });
@@ -54,5 +50,4 @@ const accountsStore: ImmerStateCreator<
   },
 });
 
-export { accounts, type AccountsDeleteInput };
 export default accountsStore;

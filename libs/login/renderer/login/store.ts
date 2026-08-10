@@ -1,51 +1,54 @@
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { login as producer } from "login-main/login/public.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-
+import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import { login as producer, type LoginState } from "login-main/login/store.ts";
 type LoginSlice = {
-  login: ReturnType<typeof producer.loginValidator.parse>;
+  login: LoginState;
   loginActions: {
     cancel(): Promise<void>;
     connect(): () => void;
     start(): Promise<void>;
-    stateSet(input: ReturnType<typeof producer.loginValidator.parse>): void;
+    stateSet(input: LoginState): void;
   };
 };
 
-const loginStore: ImmerStateCreator<
-  LoginSlice,
-  IpcSlice
-> = (set, get) => ({
+const loginStore: ImmerStateCreator<LoginSlice, IpcSlice> = (set, get) => ({
   login: structuredClone(producer.initial),
   loginActions: {
     async cancel() {
       await get().ipcActions.invoke({
-        channel: producer.channel.cancel,
-        input: {},
-        inputValidator: producer.input.command,
+        channel: producer.channel,
+        input: { method: "cancel" as const },
+        inputValidator: producer.request.cancel,
         resultValidator: producer.result.cancel,
       });
     },
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: producer.channel.stateRead,
-        stateSet: get().loginActions.stateSet,
-        stateUpdatedChannel: producer.channel.stateUpdated,
-        validator: producer.loginValidator,
+      const ipc = get().ipcActions;
+      const stateSet = get().loginActions.stateSet;
+      void ipc.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.request.stateRead,
+        resultValidator: producer.loginValidator,
+      }).then(stateSet).catch(console.error);
+      return ipc.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.loginValidator,
+        run: stateSet,
       });
     },
     async start() {
       await get().ipcActions.invoke({
-        channel: producer.channel.start,
-        input: {},
-        inputValidator: producer.input.command,
+        channel: producer.channel,
+        input: { method: "start" as const },
+        inputValidator: producer.request.start,
         resultValidator: producer.result.start,
       });
     },
     stateSet(input) {
+      const value = producer.loginValidator.parse(input);
       set(state => {
-        state.login = structuredClone(input);
+        state.login = structuredClone(value);
       });
     },
   },

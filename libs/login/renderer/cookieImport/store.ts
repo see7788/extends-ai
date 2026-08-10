@@ -1,18 +1,20 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { cookieImport as producer } from "login-main/cookieImport/public.ts";
-import { browser } from "browser-partition-main/browser/public.ts";
+import {
+  type BrowserApplications,
+  cookieImport as producer,
+  type CookieImport,
+  type CookieImportCreateInput,
+} from "login-main/cookieImport/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
 
-type BrowserApplications = ReturnType<typeof browser.browserApplicationsValidator.parse>;
-
 type CookieImportSlice = {
-  cookieImport: ReturnType<typeof producer.cookieImportValidator.parse>;
+  cookieImport: CookieImport;
   cookieImportActions: {
     applicationsRead(): Promise<BrowserApplications>;
     cancel(): Promise<void>;
     connect(): () => void;
-    start(input: ReturnType<typeof producer.input.create.parse>): Promise<void>;
-    stateSet(input: ReturnType<typeof producer.cookieImportValidator.parse>): void;
+    start(input: CookieImportCreateInput): Promise<void>;
+    stateSet(input: CookieImport): void;
   };
 };
 
@@ -24,10 +26,10 @@ const cookieImportStore: ImmerStateCreator<
   cookieImportActions: {
     async applicationsRead() {
       return get().ipcActions.invoke({
-        channel: browser.channel.applicationsRead,
-        input: {},
-        inputValidator: browser.input.command,
-        resultValidator: browser.browserApplicationsValidator,
+        channel: producer.channel,
+        input: { method: "applicationsRead" as const },
+        inputValidator: producer.request.applicationsRead,
+        resultValidator: producer.result.applicationsRead,
       });
     },
     async cancel() {

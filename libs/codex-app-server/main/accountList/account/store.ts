@@ -25,10 +25,21 @@ const labelSetValidator = readValidator.extend({
 });
 const enabledSetValidator = readValidator.extend({ enabled: z.boolean() });
 const resultValidator = z.object({ ok: z.literal(true) });
+const requestValidator = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("stateRead") }),
+  enabledSetValidator.extend({ method: z.literal("enabledSet") }),
+  labelSetValidator.extend({ method: z.literal("labelSet") }),
+  readValidator.extend({ method: z.literal("officialOpen") }),
+]);
+const messageValidator = z.object({
+  method: z.literal("stateUpdated"),
+  value: accountStateValidator,
+});
 
 type Account = z.infer<typeof accountValidator>;
 type WebAccess = z.infer<typeof webAccessValidator>;
 type AccountState = z.infer<typeof accountStateValidator>;
+type AccountReadInput = z.infer<typeof readValidator>;
 type LabelSetInput = z.infer<typeof labelSetValidator>;
 type EnabledSetInput = z.infer<typeof enabledSetValidator>;
 type AccountSlice = {
@@ -48,13 +59,7 @@ const account = {
   accountIdValidator,
   accountStateValidator,
   accountValidator,
-  channel: {
-    enabledSet: "account-list:account-enabled-set",
-    labelSet: "account-list:account-label-set",
-    officialOpen: "account-list:account-official-open",
-    stateRead: "account-list:account-state-read",
-    stateUpdated: "account-list:account-state-updated",
-  },
+  channel: "account",
   initial,
   input: {
     enabledSet: enabledSetValidator,
@@ -63,6 +68,8 @@ const account = {
     read: readValidator,
   },
   webAccessValidator,
+  messageValidator,
+  requestValidator,
   resultValidator,
 };
 
@@ -71,8 +78,8 @@ const accountStore: ImmerStateCreator<
   { webContents?: WebContents }
 > = (set, get) => {
   const stateSend = (): void => get().webContents?.send(
-    account.channel.stateUpdated,
-    accountStateValidator.parse(get().account),
+    account.channel,
+    messageValidator.parse({ method: "stateUpdated", value: get().account }),
   );
   return ({
   account: structuredClone(initial),
@@ -134,5 +141,14 @@ const accountStore: ImmerStateCreator<
   });
 };
 
-export { account, type WebAccess };
+export {
+  account,
+  type Account,
+  type AccountReadInput,
+  type AccountSlice,
+  type AccountState,
+  type EnabledSetInput,
+  type LabelSetInput,
+  type WebAccess,
+};
 export default accountStore;

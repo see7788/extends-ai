@@ -32,6 +32,16 @@ const accountReadResultValidator = z.object({
 const operationFailValidator = z.object({ error: z.string().min(1) });
 const commandValidator = z.object({});
 const importResultValidator = z.object({ imported: z.boolean() });
+const requestValidator = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("stateRead") }),
+  z.object({ method: z.literal("clipboard") }),
+  z.object({ method: z.literal("default") }),
+  z.object({ method: z.literal("select") }),
+]);
+const messageValidator = z.object({
+  method: z.literal("stateUpdated"),
+  value: authJsonImportValidator,
+});
 
 type AuthJsonImport = z.infer<typeof authJsonImportValidator>;
 type AuthJsonImportSlice = {
@@ -52,19 +62,15 @@ const authJsonImport = {
   accountReadResultValidator,
   authJsonImportValidator,
   authJsonValidator,
-  channel: {
-    clipboard: "account-add:auth-json-import:clipboard",
-    default: "account-add:auth-json-import:default",
-    select: "account-add:auth-json-import:select",
-    stateRead: "account-add:auth-json-import:state-read",
-    stateUpdated: "account-add:auth-json-import:state-updated",
-  },
+  channel: "authJsonImport",
   initial,
   input: {
     command: commandValidator,
     operationFail: operationFailValidator,
   },
   result: { import: importResultValidator },
+  messageValidator,
+  requestValidator,
   sourceValidator,
 };
 
@@ -73,8 +79,8 @@ const authJsonImportStore: ImmerStateCreator<
   { webContents?: WebContents }
 > = (set, get) => {
   const stateSend = (): void => get().webContents?.send(
-    authJsonImport.channel.stateUpdated,
-    authJsonImportValidator.parse(get().authJsonImport),
+    authJsonImport.channel,
+    messageValidator.parse({ method: "stateUpdated", value: get().authJsonImport }),
   );
   return ({
   authJsonImport: structuredClone(initial),
@@ -114,5 +120,5 @@ const authJsonImportStore: ImmerStateCreator<
   });
 };
 
-export { authJsonImport };
+export { authJsonImport, type AuthJsonImport, type AuthJsonImportSlice };
 export default authJsonImportStore;

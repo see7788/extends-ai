@@ -14,22 +14,41 @@ const maintenanceEnabledSetValidator = globalSettingsValidator.pick({ maintenanc
 const maintenanceIntervalHoursSetValidator = globalSettingsValidator.pick({ maintenanceIntervalHours: true });
 const maintenanceRetryCountSetValidator = globalSettingsValidator.pick({ maintenanceRetryCount: true });
 const maintenanceRetryIntervalMinutesSetValidator = globalSettingsValidator.pick({ maintenanceRetryIntervalMinutes: true });
-const commandValidator = z.object({});
 const resultValidator = z.object({ ok: z.literal(true) });
+const requestValidator = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("stateRead") }),
+  z.object({ method: z.literal("codexHomeSelect") }),
+  z.object({ method: z.literal("codexHomeDefaultRestore") }),
+  maintenanceEnabledSetValidator.extend({ method: z.literal("maintenanceEnabledSet") }),
+  maintenanceIntervalHoursSetValidator.extend({ method: z.literal("maintenanceIntervalHoursSet") }),
+  maintenanceRetryCountSetValidator.extend({ method: z.literal("maintenanceRetryCountSet") }),
+  maintenanceRetryIntervalMinutesSetValidator.extend({
+    method: z.literal("maintenanceRetryIntervalMinutesSet"),
+  }),
+]);
+const messageValidator = z.object({
+  method: z.literal("stateUpdated"),
+  value: globalSettingsValidator,
+});
 
 type GlobalSettings = z.infer<typeof globalSettingsValidator>;
+type CodexHomeSetInput = z.infer<typeof codexHomeSetValidator>;
+type MaintenanceEnabledSetInput = z.infer<typeof maintenanceEnabledSetValidator>;
+type MaintenanceIntervalHoursSetInput = z.infer<typeof maintenanceIntervalHoursSetValidator>;
+type MaintenanceRetryCountSetInput = z.infer<typeof maintenanceRetryCountSetValidator>;
+type MaintenanceRetryIntervalMinutesSetInput = z.infer<typeof maintenanceRetryIntervalMinutesSetValidator>;
 type GlobalSettingsSlice = {
   globalSettings: GlobalSettings;
   globalSettingsActions: {
-    codexHomeSet(input: z.infer<typeof codexHomeSetValidator>): void;
-    install(): () => void;
+    codexHomeSet(input: CodexHomeSetInput): void;
     initialize(input: GlobalSettings): void;
-    maintenanceEnabledSet(input: z.infer<typeof maintenanceEnabledSetValidator>): void;
-    maintenanceIntervalHoursSet(input: z.infer<typeof maintenanceIntervalHoursSetValidator>): void;
-    maintenanceRetryCountSet(input: z.infer<typeof maintenanceRetryCountSetValidator>): void;
-    maintenanceRetryIntervalMinutesSet(input: z.infer<typeof maintenanceRetryIntervalMinutesSetValidator>): void;
+    maintenanceEnabledSet(input: MaintenanceEnabledSetInput): void;
+    maintenanceIntervalHoursSet(input: MaintenanceIntervalHoursSetInput): void;
+    maintenanceRetryCountSet(input: MaintenanceRetryCountSetInput): void;
+    maintenanceRetryIntervalMinutesSet(input: MaintenanceRetryIntervalMinutesSetInput): void;
   };
 };
+type nodeState_t = { webContents?: WebContents };
 
 const initial: GlobalSettings = {
   codexHome: "",
@@ -39,138 +58,78 @@ const initial: GlobalSettings = {
   maintenanceRetryIntervalMinutes: 15,
 };
 const globalSettings = {
-  channel: {
-    codexHomeSelect: "global-settings:codex-home-select",
-    codexHomeDefaultRestore: "global-settings:codex-home-default-restore",
-    maintenanceEnabledSet: "global-settings:maintenance-enabled-set",
-    maintenanceIntervalHoursSet: "global-settings:maintenance-interval-hours-set",
-    maintenanceRetryCountSet: "global-settings:maintenance-retry-count-set",
-    maintenanceRetryIntervalMinutesSet: "global-settings:maintenance-retry-interval-minutes-set",
-    stateRead: "global-settings:state-read",
-    stateUpdated: "global-settings:state-updated",
-  },
+  channel: "globalSettings",
   globalSettingsValidator,
   initial,
   input: {
     codexHomeSet: codexHomeSetValidator,
-    command: commandValidator,
     maintenanceEnabledSet: maintenanceEnabledSetValidator,
     maintenanceIntervalHoursSet: maintenanceIntervalHoursSetValidator,
     maintenanceRetryCountSet: maintenanceRetryCountSetValidator,
     maintenanceRetryIntervalMinutesSet: maintenanceRetryIntervalMinutesSetValidator,
   },
+  messageValidator,
+  requestValidator,
   resultValidator,
 };
 
-const globalSettingsStore: ImmerStateCreator<
-  GlobalSettingsSlice,
-  { webContents?: WebContents }
-> = (set, get) => {
+const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice, nodeState_t> = (set, get) => {
   const stateSend = (): void => get().webContents?.send(
-    globalSettings.channel.stateUpdated,
-    globalSettingsValidator.parse(get().globalSettings),
+    globalSettings.channel,
+    messageValidator.parse({ method: "stateUpdated", value: get().globalSettings }),
   );
-  return ({
-  globalSettings: structuredClone(initial),
-  globalSettingsActions: {
-    codexHomeSet(input) {
-      const value = codexHomeSetValidator.parse(input);
-      set(state => {
-        state.globalSettings.codexHome = value.codexHome;
-      });
-      stateSend();
+  return {
+    globalSettings: structuredClone(initial),
+    globalSettingsActions: {
+      codexHomeSet(input) {
+        const value = codexHomeSetValidator.parse(input);
+        set(state => { state.globalSettings.codexHome = value.codexHome; });
+        stateSend();
+      },
+      initialize(input) {
+        const value = globalSettingsValidator.parse(input);
+        set(state => { state.globalSettings = value; });
+        stateSend();
+      },
+      maintenanceEnabledSet(input) {
+        const value = maintenanceEnabledSetValidator.parse(input);
+        set(state => { state.globalSettings.maintenanceEnabled = value.maintenanceEnabled; });
+        stateSend();
+      },
+      maintenanceIntervalHoursSet(input) {
+        const value = maintenanceIntervalHoursSetValidator.parse(input);
+        set(state => {
+          state.globalSettings.maintenanceIntervalHours = value.maintenanceIntervalHours;
+        });
+        stateSend();
+      },
+      maintenanceRetryCountSet(input) {
+        const value = maintenanceRetryCountSetValidator.parse(input);
+        set(state => {
+          state.globalSettings.maintenanceRetryCount = value.maintenanceRetryCount;
+        });
+        stateSend();
+      },
+      maintenanceRetryIntervalMinutesSet(input) {
+        const value = maintenanceRetryIntervalMinutesSetValidator.parse(input);
+        set(state => {
+          state.globalSettings.maintenanceRetryIntervalMinutes = value.maintenanceRetryIntervalMinutes;
+        });
+        stateSend();
+      },
     },
-    install() {
-      const contents = get().webContents;
-      if (!contents || contents.isDestroyed()) {
-        throw new Error("CodexAppServer WebContents 不可用");
-      }
-      contents.ipc.handle(
-        globalSettings.channel.maintenanceEnabledSet,
-        (_event, input: unknown) => {
-          get().globalSettingsActions.maintenanceEnabledSet(
-            maintenanceEnabledSetValidator.parse(input),
-          );
-          return resultValidator.parse({ ok: true });
-        },
-      );
-      contents.ipc.handle(
-        globalSettings.channel.maintenanceIntervalHoursSet,
-        (_event, input: unknown) => {
-          get().globalSettingsActions.maintenanceIntervalHoursSet(
-            maintenanceIntervalHoursSetValidator.parse(input),
-          );
-          return resultValidator.parse({ ok: true });
-        },
-      );
-      contents.ipc.handle(
-        globalSettings.channel.maintenanceRetryCountSet,
-        (_event, input: unknown) => {
-          get().globalSettingsActions.maintenanceRetryCountSet(
-            maintenanceRetryCountSetValidator.parse(input),
-          );
-          return resultValidator.parse({ ok: true });
-        },
-      );
-      contents.ipc.handle(
-        globalSettings.channel.maintenanceRetryIntervalMinutesSet,
-        (_event, input: unknown) => {
-          get().globalSettingsActions.maintenanceRetryIntervalMinutesSet(
-            maintenanceRetryIntervalMinutesSetValidator.parse(input),
-          );
-          return resultValidator.parse({ ok: true });
-        },
-      );
-      contents.ipc.handle(globalSettings.channel.stateRead, () => (
-        globalSettingsValidator.parse(get().globalSettings)
-      ));
-      return () => {
-        contents.ipc.removeHandler(globalSettings.channel.maintenanceEnabledSet);
-        contents.ipc.removeHandler(globalSettings.channel.maintenanceIntervalHoursSet);
-        contents.ipc.removeHandler(globalSettings.channel.maintenanceRetryCountSet);
-        contents.ipc.removeHandler(globalSettings.channel.maintenanceRetryIntervalMinutesSet);
-        contents.ipc.removeHandler(globalSettings.channel.stateRead);
-      };
-    },
-    initialize(input) {
-      const value = globalSettingsValidator.parse(input);
-      set(state => {
-        state.globalSettings = value;
-      });
-      stateSend();
-    },
-    maintenanceEnabledSet(input) {
-      const value = maintenanceEnabledSetValidator.parse(input);
-      set(state => {
-        state.globalSettings.maintenanceEnabled = value.maintenanceEnabled;
-      });
-      stateSend();
-    },
-    maintenanceIntervalHoursSet(input) {
-      const value = maintenanceIntervalHoursSetValidator.parse(input);
-      set(state => {
-        state.globalSettings.maintenanceIntervalHours = value.maintenanceIntervalHours;
-      });
-      stateSend();
-    },
-    maintenanceRetryCountSet(input) {
-      const value = maintenanceRetryCountSetValidator.parse(input);
-      set(state => {
-        state.globalSettings.maintenanceRetryCount = value.maintenanceRetryCount;
-      });
-      stateSend();
-    },
-    maintenanceRetryIntervalMinutesSet(input) {
-      const value = maintenanceRetryIntervalMinutesSetValidator.parse(input);
-      set(state => {
-        state.globalSettings.maintenanceRetryIntervalMinutes = value.maintenanceRetryIntervalMinutes;
-      });
-      stateSend();
-    },
-  },
-  });
+  };
 };
 
-export type { GlobalSettingsSlice };
+export type {
+  CodexHomeSetInput,
+  GlobalSettings,
+  GlobalSettingsSlice,
+  MaintenanceEnabledSetInput,
+  MaintenanceIntervalHoursSetInput,
+  MaintenanceRetryCountSetInput,
+  MaintenanceRetryIntervalMinutesSetInput,
+  nodeState_t,
+};
 export { globalSettings };
 export default globalSettingsStore;

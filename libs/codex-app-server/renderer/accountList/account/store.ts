@@ -1,32 +1,24 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { account as producer } from "codex-app-server-main/accountList/account/store.ts";
+import {
+  account as producer,
+  type AccountState,
+  type AccountReadInput,
+  type EnabledSetInput,
+  type LabelSetInput,
+} from "codex-app-server-main/accountList/account/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-import { z } from "zod";
 
-const accountValidator = producer.accountStateValidator;
-type Account = z.infer<typeof producer.accountValidator>;
-type AccountState = z.infer<typeof accountValidator>;
-type AccountEnabledSetInput = z.infer<typeof producer.input.enabledSet>;
-type AccountLabelSetInput = z.infer<typeof producer.input.labelSet>;
-type AccountOfficialOpenInput = z.infer<typeof producer.input.officialOpen>;
 type AccountSlice = {
   account: AccountState;
   accountActions: {
     connect(): () => void;
-    enabledSet(input: AccountEnabledSetInput): Promise<void>;
-    labelSet(input: AccountLabelSetInput): Promise<void>;
-    officialOpen(input: AccountOfficialOpenInput): Promise<void>;
+    enabledSet(input: EnabledSetInput): Promise<void>;
+    labelSet(input: LabelSetInput): Promise<void>;
+    officialOpen(input: AccountReadInput): Promise<void>;
     stateSet(input: AccountState): void;
   };
 };
 
-const account = {
-  accountIdValidator: producer.accountIdValidator,
-  accountValidator,
-  channel: producer.channel,
-  input: producer.input,
-  resultValidator: producer.resultValidator,
-};
 const accountStore: ImmerStateCreator<
   AccountSlice,
   IpcSlice
@@ -34,40 +26,44 @@ const accountStore: ImmerStateCreator<
   account: structuredClone(producer.initial),
   accountActions: {
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: account.channel.stateRead,
-        stateSet: get().accountActions.stateSet,
-        stateUpdatedChannel: account.channel.stateUpdated,
-        validator: account.accountValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.accountStateValidator,
+      }).then(get().accountActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().accountActions.stateSet(message.value),
       });
     },
     async enabledSet(input) {
       await get().ipcActions.invoke({
-        channel: account.channel.enabledSet,
-        input,
-        inputValidator: account.input.enabledSet,
-        resultValidator: account.resultValidator,
+        channel: producer.channel,
+        input: { method: "enabledSet" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     async labelSet(input) {
       await get().ipcActions.invoke({
-        channel: account.channel.labelSet,
-        input,
-        inputValidator: account.input.labelSet,
-        resultValidator: account.resultValidator,
+        channel: producer.channel,
+        input: { method: "labelSet" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     async officialOpen(input) {
       await get().ipcActions.invoke({
-        channel: account.channel.officialOpen,
-        input,
-        inputValidator: account.input.officialOpen,
-        resultValidator: account.resultValidator,
+        channel: producer.channel,
+        input: { method: "officialOpen" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     stateSet(input) {
-      const value = accountValidator.parse(input);
+      const value = producer.accountStateValidator.parse(input);
       set(state => {
         state.account = value;
       });
@@ -75,11 +71,4 @@ const accountStore: ImmerStateCreator<
   },
 });
 
-export {
-  account,
-  type Account,
-  type AccountEnabledSetInput,
-  type AccountLabelSetInput,
-  type AccountOfficialOpenInput,
-};
 export default accountStore;

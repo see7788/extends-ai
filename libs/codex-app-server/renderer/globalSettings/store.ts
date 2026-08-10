@@ -1,5 +1,12 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { globalSettings as producer } from "codex-app-server-main/globalSettings/store.ts";
+import {
+  globalSettings as producer,
+  type GlobalSettings as GlobalSettingsInput,
+  type MaintenanceEnabledSetInput,
+  type MaintenanceIntervalHoursSetInput,
+  type MaintenanceRetryCountSetInput,
+  type MaintenanceRetryIntervalMinutesSetInput,
+} from "codex-app-server-main/globalSettings/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
@@ -11,7 +18,6 @@ const codexHomeVisibleSetValidator = globalSettingsStateValidator.pick({
   codexHomeVisible: true,
 });
 type GlobalSettings = z.infer<typeof globalSettingsStateValidator>;
-type GlobalSettingsInput = z.infer<typeof globalSettingsValidator>;
 type GlobalSettingsSlice = {
   globalSettings: GlobalSettings;
   globalSettingsActions: {
@@ -19,25 +25,12 @@ type GlobalSettingsSlice = {
     codexHomeDefaultRestore(): Promise<void>;
     codexHomeSelect(): Promise<void>;
     codexHomeVisibleSet(input: z.infer<typeof codexHomeVisibleSetValidator>): void;
-    maintenanceEnabledSet(input: z.infer<typeof producer.input.maintenanceEnabledSet>): Promise<void>;
-    maintenanceIntervalHoursSet(
-      input: z.infer<typeof producer.input.maintenanceIntervalHoursSet>,
-    ): Promise<void>;
-    maintenanceRetryCountSet(
-      input: z.infer<typeof producer.input.maintenanceRetryCountSet>,
-    ): Promise<void>;
-    maintenanceRetryIntervalMinutesSet(
-      input: z.infer<typeof producer.input.maintenanceRetryIntervalMinutesSet>,
-    ): Promise<void>;
+    maintenanceEnabledSet(input: MaintenanceEnabledSetInput): Promise<void>;
+    maintenanceIntervalHoursSet(input: MaintenanceIntervalHoursSetInput): Promise<void>;
+    maintenanceRetryCountSet(input: MaintenanceRetryCountSetInput): Promise<void>;
+    maintenanceRetryIntervalMinutesSet(input: MaintenanceRetryIntervalMinutesSetInput): Promise<void>;
     stateSet(input: GlobalSettingsInput): void;
   };
-};
-
-const globalSettings = {
-  channel: producer.channel,
-  globalSettingsValidator,
-  input: producer.input,
-  resultValidator: producer.resultValidator,
 };
 
 const globalSettingsStore: ImmerStateCreator<
@@ -50,28 +43,32 @@ const globalSettingsStore: ImmerStateCreator<
   }),
   globalSettingsActions: {
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: producer.channel.stateRead,
-        stateSet: get().globalSettingsActions.stateSet,
-        stateUpdatedChannel: producer.channel.stateUpdated,
-        validator: producer.globalSettingsValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.globalSettingsValidator,
+      }).then(get().globalSettingsActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().globalSettingsActions.stateSet(message.value),
       });
     },
     async codexHomeDefaultRestore() {
       await get().ipcActions.invoke({
-        channel: globalSettings.channel.codexHomeDefaultRestore,
-        input: {},
-        inputValidator: globalSettings.input.command,
-        resultValidator: globalSettings.resultValidator,
+        channel: producer.channel,
+        input: { method: "codexHomeDefaultRestore" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     async codexHomeSelect() {
       await get().ipcActions.invoke({
-        channel: globalSettings.channel.codexHomeSelect,
-        input: {},
-        inputValidator: globalSettings.input.command,
-        resultValidator: globalSettings.resultValidator,
+        channel: producer.channel,
+        input: { method: "codexHomeSelect" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     codexHomeVisibleSet(input) {
@@ -82,34 +79,34 @@ const globalSettingsStore: ImmerStateCreator<
     },
     async maintenanceEnabledSet(input) {
       await get().ipcActions.invoke({
-        channel: globalSettings.channel.maintenanceEnabledSet,
-        input,
-        inputValidator: globalSettings.input.maintenanceEnabledSet,
-        resultValidator: globalSettings.resultValidator,
+        channel: producer.channel,
+        input: { method: "maintenanceEnabledSet" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     async maintenanceIntervalHoursSet(input) {
       await get().ipcActions.invoke({
-        channel: globalSettings.channel.maintenanceIntervalHoursSet,
-        input,
-        inputValidator: globalSettings.input.maintenanceIntervalHoursSet,
-        resultValidator: globalSettings.resultValidator,
+        channel: producer.channel,
+        input: { method: "maintenanceIntervalHoursSet" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     async maintenanceRetryCountSet(input) {
       await get().ipcActions.invoke({
-        channel: globalSettings.channel.maintenanceRetryCountSet,
-        input,
-        inputValidator: globalSettings.input.maintenanceRetryCountSet,
-        resultValidator: globalSettings.resultValidator,
+        channel: producer.channel,
+        input: { method: "maintenanceRetryCountSet" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     async maintenanceRetryIntervalMinutesSet(input) {
       await get().ipcActions.invoke({
-        channel: globalSettings.channel.maintenanceRetryIntervalMinutesSet,
-        input,
-        inputValidator: globalSettings.input.maintenanceRetryIntervalMinutesSet,
-        resultValidator: globalSettings.resultValidator,
+        channel: producer.channel,
+        input: { method: "maintenanceRetryIntervalMinutesSet" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.resultValidator,
       });
     },
     stateSet(input) {
@@ -121,5 +118,4 @@ const globalSettingsStore: ImmerStateCreator<
   },
 });
 
-export { globalSettings };
 export default globalSettingsStore;

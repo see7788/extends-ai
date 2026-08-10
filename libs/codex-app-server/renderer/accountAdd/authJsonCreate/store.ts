@@ -1,17 +1,22 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { authJsonCreate as producer } from "codex-app-server-main/accountAdd/authJsonCreate/public.ts";
-import { browser } from "browser-partition-main/browser/public.ts";
+import {
+  authJsonCreate as producer,
+  type AuthJsonCreate,
+  type AuthJsonCreateInput,
+} from "codex-app-server-main/accountAdd/authJsonCreate/store.ts";
+import {
+  browser,
+  type BrowserApplications,
+} from "browser-partition-main/browser/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
 
-type AuthJsonCreate = ReturnType<typeof producer.authJsonCreateValidator.parse>;
-type BrowserApplications = ReturnType<typeof browser.browserApplicationsValidator.parse>;
 type AuthJsonCreateSlice = {
   authJsonCreate: AuthJsonCreate;
   authJsonCreateActions: {
     applicationsRead(): Promise<BrowserApplications>;
     cancel(): Promise<void>;
     connect(): () => void;
-    create(input: ReturnType<typeof producer.input.create.parse>): Promise<void>;
+    create(input: AuthJsonCreateInput): Promise<void>;
     stateSet(input: AuthJsonCreate): void;
   };
 };
@@ -24,34 +29,38 @@ const authJsonCreateStore: ImmerStateCreator<
   authJsonCreateActions: {
     async applicationsRead() {
       return get().ipcActions.invoke({
-        channel: browser.channel.applicationsRead,
-        input: {},
-        inputValidator: browser.input.command,
-        resultValidator: browser.browserApplicationsValidator,
+        channel: browser.channel,
+        input: { method: "applicationsRead" as const },
+        inputValidator: browser.request.applicationsRead,
+        resultValidator: browser.result.applicationsRead,
       });
     },
     async cancel() {
       await get().ipcActions.invoke({
-        channel: producer.channel.cancel,
-        input: {},
-        inputValidator: producer.input.command,
+        channel: producer.channel,
+        input: { method: "cancel" as const },
+        inputValidator: producer.requestValidator,
         resultValidator: producer.result.cancel,
       });
     },
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: producer.channel.stateRead,
-        stateSet: get().authJsonCreateActions.stateSet,
-        stateUpdatedChannel: producer.channel.stateUpdated,
-        validator: producer.authJsonCreateValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.authJsonCreateValidator,
+      }).then(get().authJsonCreateActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().authJsonCreateActions.stateSet(message.value),
       });
     },
     async create(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel.create,
-        input,
-        inputValidator: producer.input.create,
+        channel: producer.channel,
+        input: { method: "create" as const, ...input },
+        inputValidator: producer.requestValidator,
         resultValidator: producer.result.create,
       });
     },

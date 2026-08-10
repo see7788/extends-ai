@@ -34,21 +34,27 @@ const resultSetValidator = accountCommandValidator.extend({
 });
 const errorSetValidator = accountCommandValidator.extend({ error: z.string() });
 const commandResultValidator = z.object({ ok: z.literal(true) });
+const requestValidator = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("stateRead") }),
+  accountCommandValidator.extend({ method: z.literal("read") }),
+]);
+const messageValidator = z.object({
+  method: z.literal("stateUpdated"),
+  value: usageValidator,
+});
 
 type Usage = z.infer<typeof usageValidator>;
 type AccountInput = z.infer<typeof accountCommandValidator>;
-type ResultSetInput = z.infer<typeof resultSetValidator>;
-type ErrorSetInput = z.infer<typeof errorSetValidator>;
 type UsageSlice = {
   usage: Usage;
   usageActions: {
     accountDelete(input: AccountInput): void;
-    install(): () => void;
     loadingSet(input: AccountInput): void;
-    resultSet(input: ResultSetInput): void;
-    errorSet(input: ErrorSetInput): void;
+    resultSet(input: z.infer<typeof resultSetValidator>): void;
+    errorSet(input: z.infer<typeof errorSetValidator>): void;
   };
 };
+type nodeState_t = { webContents?: WebContents };
 
 const accountStateInitial: z.infer<typeof accountStateValidator> = {
   status: "idle",
@@ -60,11 +66,7 @@ const initial: Usage = { byAccountId: {} };
 const usage = {
   accountStateInitial,
   accountStateValidator,
-  channel: {
-    read: "account-list:usage-read",
-    stateRead: "account-list:usage-state-read",
-    stateUpdated: "account-list:usage-state-updated",
-  },
+  channel: "usage",
   commandResultValidator,
   initial,
   input: {
@@ -72,79 +74,66 @@ const usage = {
     errorSet: errorSetValidator,
     resultSet: resultSetValidator,
   },
+  messageValidator,
+  requestValidator,
   resultValidator,
   usageValidator,
 };
 
-const usageStore: ImmerStateCreator<
-  UsageSlice,
-  { webContents?: WebContents }
-> = (set, get) => {
+const usageStore: ImmerStateCreator<UsageSlice, nodeState_t> = (set, get) => {
   const stateSend = (): void => get().webContents?.send(
-    usage.channel.stateUpdated,
-    usageValidator.parse(get().usage),
+    usage.channel,
+    messageValidator.parse({ method: "stateUpdated", value: get().usage }),
   );
-  return ({
-  usage: structuredClone(initial),
-  usageActions: {
-    accountDelete(input) {
-      const { accountId } = accountCommandValidator.parse(input);
-      set(state => {
-        delete state.usage.byAccountId[accountId];
-      });
-      stateSend();
+  return {
+    usage: structuredClone(initial),
+    usageActions: {
+      accountDelete(input) {
+        const { accountId } = accountCommandValidator.parse(input);
+        set(state => { delete state.usage.byAccountId[accountId]; });
+        stateSend();
+      },
+      loadingSet(input) {
+        const value = accountCommandValidator.parse(input);
+        set(state => {
+          const previous = state.usage.byAccountId[value.accountId];
+          state.usage.byAccountId[value.accountId] = {
+            status: "loading",
+            value: previous?.value ?? null,
+            updatedAt: previous?.updatedAt ?? null,
+            error: null,
+          };
+        });
+        stateSend();
+      },
+      resultSet(input) {
+        const value = resultSetValidator.parse(input);
+        set(state => {
+          state.usage.byAccountId[value.accountId] = {
+            status: "ready",
+            value: castDraft(value.result),
+            updatedAt: value.updatedAt,
+            error: null,
+          };
+        });
+        stateSend();
+      },
+      errorSet(input) {
+        const value = errorSetValidator.parse(input);
+        set(state => {
+          const previous = state.usage.byAccountId[value.accountId];
+          state.usage.byAccountId[value.accountId] = {
+            status: "error",
+            value: previous?.value ?? null,
+            updatedAt: previous?.updatedAt ?? null,
+            error: value.error,
+          };
+        });
+        stateSend();
+      },
     },
-    install() {
-      const contents = get().webContents;
-      if (!contents || contents.isDestroyed()) {
-        throw new Error("CodexAppServer WebContents 不可用");
-      }
-      contents.ipc.handle(usage.channel.stateRead, () => (
-        usageValidator.parse(get().usage)
-      ));
-      return () => contents.ipc.removeHandler(usage.channel.stateRead);
-    },
-    loadingSet(input) {
-      const value = accountCommandValidator.parse(input);
-      set(state => {
-        const previous = state.usage.byAccountId[value.accountId];
-        state.usage.byAccountId[value.accountId] = {
-          status: "loading",
-          value: previous?.value ?? null,
-          updatedAt: previous?.updatedAt ?? null,
-          error: null,
-        };
-      });
-      stateSend();
-    },
-    resultSet(input) {
-      const value = resultSetValidator.parse(input);
-      set(state => {
-        state.usage.byAccountId[value.accountId] = {
-          status: "ready",
-          value: castDraft(value.result),
-          updatedAt: value.updatedAt,
-          error: null,
-        };
-      });
-      stateSend();
-    },
-    errorSet(input) {
-      const value = errorSetValidator.parse(input);
-      set(state => {
-        const previous = state.usage.byAccountId[value.accountId];
-        state.usage.byAccountId[value.accountId] = {
-          status: "error",
-          value: previous?.value ?? null,
-          updatedAt: previous?.updatedAt ?? null,
-          error: value.error,
-        };
-      });
-      stateSend();
-    },
-  },
-  });
+  };
 };
 
-export { usage };
+export { usage, type AccountInput, type Usage, type UsageSlice, type nodeState_t };
 export default usageStore;

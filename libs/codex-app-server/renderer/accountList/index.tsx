@@ -14,7 +14,7 @@ import AuthJsonImport from "../accountAdd/authJsonImport/index.tsx";
 import GlobalSettings from "../globalSettings/index.tsx";
 import store from "../store.ts";
 import Account, { AccountSource } from "./account/index.tsx";
-import { account as accountContract } from "./account/store.ts";
+import { account as accountContract } from "codex-app-server-main/accountList/account/store.ts";
 import AccountRemove from "./accounts/index.tsx";
 import AuthSession from "./authSessions/index.tsx";
 import RateLimits from "./rateLimits/index.tsx";

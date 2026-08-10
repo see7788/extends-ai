@@ -1,26 +1,19 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { usage as producer } from "codex-app-server-main/accountList/usage/store.ts";
+import {
+  type AccountInput,
+  usage as producer,
+  type Usage,
+} from "codex-app-server-main/accountList/usage/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-import { z } from "zod";
-
-const usageValidator = producer.usageValidator;
-type Usage = z.infer<typeof usageValidator>;
-type UsageReadInput = z.infer<typeof producer.input.command>;
 type UsageSlice = {
   usage: Usage;
   usageActions: {
     connect(): () => void;
-    read(input: UsageReadInput): Promise<void>;
+    read(input: AccountInput): Promise<void>;
     stateSet(input: Usage): void;
   };
 };
 
-const usage = {
-  channel: producer.channel,
-  commandResultValidator: producer.commandResultValidator,
-  input: producer.input,
-  usageValidator,
-};
 const usageStore: ImmerStateCreator<
   UsageSlice,
   IpcSlice
@@ -28,24 +21,28 @@ const usageStore: ImmerStateCreator<
   usage: structuredClone(producer.initial),
   usageActions: {
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: usage.channel.stateRead,
-        stateSet: get().usageActions.stateSet,
-        stateUpdatedChannel: usage.channel.stateUpdated,
-        validator: usage.usageValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.usageValidator,
+      }).then(get().usageActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().usageActions.stateSet(message.value),
       });
     },
     async read(input) {
       await get().ipcActions.invoke({
-        channel: usage.channel.read,
-        input,
-        inputValidator: usage.input.command,
-        resultValidator: usage.commandResultValidator,
+        channel: producer.channel,
+        input: { method: "read" as const, ...input },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.commandResultValidator,
       });
     },
     stateSet(input) {
-      const value = usageValidator.parse(input);
+      const value = producer.usageValidator.parse(input);
       set(state => {
         state.usage = value;
       });
@@ -53,5 +50,4 @@ const usageStore: ImmerStateCreator<
   },
 });
 
-export { usage, type UsageReadInput };
 export default usageStore;

@@ -1,10 +1,9 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { scheduler as producer } from "codex-app-server-main/accountList/scheduler/store.ts";
+import {
+  scheduler as producer,
+  type Scheduler,
+} from "codex-app-server-main/accountList/scheduler/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
-import { z } from "zod";
-
-const schedulerValidator = producer.schedulerValidator;
-type Scheduler = z.infer<typeof schedulerValidator>;
 type SchedulerSlice = {
   scheduler: Scheduler;
   schedulerActions: {
@@ -14,12 +13,6 @@ type SchedulerSlice = {
   };
 };
 
-const scheduler = {
-  channel: producer.channel,
-  resultValidator: producer.resultValidator,
-  schedulerValidator,
-};
-
 const schedulerStore: ImmerStateCreator<
   SchedulerSlice,
   IpcSlice
@@ -27,22 +20,28 @@ const schedulerStore: ImmerStateCreator<
   scheduler: structuredClone(producer.initial),
   schedulerActions: {
     connect() {
-      return get().ipcActions.stateConnect({
-        error: console.error,
-        readChannel: scheduler.channel.stateRead,
-        stateSet: get().schedulerActions.stateSet,
-        stateUpdatedChannel: scheduler.channel.stateUpdated,
-        validator: scheduler.schedulerValidator,
+      void get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "stateRead" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.schedulerValidator,
+      }).then(get().schedulerActions.stateSet).catch(console.error);
+      return get().ipcActions.subscribe({
+        channel: producer.channel,
+        resultValidator: producer.messageValidator,
+        run: message => get().schedulerActions.stateSet(message.value),
       });
     },
     async runNow() {
-      await get().ipcActions.read({
-        channel: scheduler.channel.runNow,
-        resultValidator: scheduler.resultValidator,
+      await get().ipcActions.invoke({
+        channel: producer.channel,
+        input: { method: "runNow" as const },
+        inputValidator: producer.requestValidator,
+        resultValidator: producer.commandResultValidator,
       });
     },
     stateSet(input) {
-      const value = schedulerValidator.parse(input);
+      const value = producer.schedulerValidator.parse(input);
       set(state => {
         state.scheduler = value;
       });
@@ -50,5 +49,4 @@ const schedulerStore: ImmerStateCreator<
   },
 });
 
-export { scheduler };
 export default schedulerStore;

@@ -51,21 +51,27 @@ const resultSetValidator = accountCommandValidator.extend({
 });
 const errorSetValidator = accountCommandValidator.extend({ error: z.string() });
 const commandResultValidator = z.object({ ok: z.literal(true) });
+const requestValidator = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("stateRead") }),
+  accountCommandValidator.extend({ method: z.literal("read") }),
+]);
+const messageValidator = z.object({
+  method: z.literal("stateUpdated"),
+  value: rateLimitsValidator,
+});
 
 type RateLimits = z.infer<typeof rateLimitsValidator>;
 type AccountInput = z.infer<typeof accountCommandValidator>;
-type ResultSetInput = z.infer<typeof resultSetValidator>;
-type ErrorSetInput = z.infer<typeof errorSetValidator>;
 type RateLimitsSlice = {
   rateLimits: RateLimits;
   rateLimitsActions: {
     accountDelete(input: AccountInput): void;
-    install(): () => void;
     loadingSet(input: AccountInput): void;
-    resultSet(input: ResultSetInput): void;
-    errorSet(input: ErrorSetInput): void;
+    resultSet(input: z.infer<typeof resultSetValidator>): void;
+    errorSet(input: z.infer<typeof errorSetValidator>): void;
   };
 };
+type nodeState_t = { webContents?: WebContents };
 
 const accountStateInitial: z.infer<typeof accountStateValidator> = {
   status: "idle",
@@ -78,11 +84,7 @@ const rateLimits = {
   accountStateInitial,
   accountStateValidator,
   bucketValidator,
-  channel: {
-    read: "account-list:rate-limits-read",
-    stateRead: "account-list:rate-limits-state-read",
-    stateUpdated: "account-list:rate-limits-state-updated",
-  },
+  channel: "rateLimits",
   commandResultValidator,
   initial,
   input: {
@@ -90,81 +92,74 @@ const rateLimits = {
     errorSet: errorSetValidator,
     resultSet: resultSetValidator,
   },
+  messageValidator,
   rateLimitsValidator,
+  requestValidator,
   resetCreditValidator,
   resultValidator,
   windowValidator,
 };
 
-const rateLimitsStore: ImmerStateCreator<
-  RateLimitsSlice,
-  { webContents?: WebContents }
-> = (set, get) => {
+const rateLimitsStore: ImmerStateCreator<RateLimitsSlice, nodeState_t> = (set, get) => {
   const stateSend = (): void => get().webContents?.send(
-    rateLimits.channel.stateUpdated,
-    rateLimitsValidator.parse(get().rateLimits),
+    rateLimits.channel,
+    messageValidator.parse({ method: "stateUpdated", value: get().rateLimits }),
   );
-  return ({
-  rateLimits: structuredClone(initial),
-  rateLimitsActions: {
-    accountDelete(input) {
-      const { accountId } = accountCommandValidator.parse(input);
-      set(state => {
-        delete state.rateLimits.byAccountId[accountId];
-      });
-      stateSend();
+  return {
+    rateLimits: structuredClone(initial),
+    rateLimitsActions: {
+      accountDelete(input) {
+        const { accountId } = accountCommandValidator.parse(input);
+        set(state => { delete state.rateLimits.byAccountId[accountId]; });
+        stateSend();
+      },
+      loadingSet(input) {
+        const value = accountCommandValidator.parse(input);
+        set(state => {
+          const previous = state.rateLimits.byAccountId[value.accountId];
+          state.rateLimits.byAccountId[value.accountId] = {
+            status: "loading",
+            value: previous?.value ?? null,
+            updatedAt: previous?.updatedAt ?? null,
+            error: null,
+          };
+        });
+        stateSend();
+      },
+      resultSet(input) {
+        const value = resultSetValidator.parse(input);
+        set(state => {
+          state.rateLimits.byAccountId[value.accountId] = {
+            status: "ready",
+            value: castDraft(value.result),
+            updatedAt: value.updatedAt,
+            error: null,
+          };
+        });
+        stateSend();
+      },
+      errorSet(input) {
+        const value = errorSetValidator.parse(input);
+        set(state => {
+          const previous = state.rateLimits.byAccountId[value.accountId];
+          state.rateLimits.byAccountId[value.accountId] = {
+            status: "error",
+            value: previous?.value ?? null,
+            updatedAt: previous?.updatedAt ?? null,
+            error: value.error,
+          };
+        });
+        stateSend();
+      },
     },
-    install() {
-      const contents = get().webContents;
-      if (!contents || contents.isDestroyed()) {
-        throw new Error("CodexAppServer WebContents 不可用");
-      }
-      contents.ipc.handle(rateLimits.channel.stateRead, () => (
-        rateLimitsValidator.parse(get().rateLimits)
-      ));
-      return () => contents.ipc.removeHandler(rateLimits.channel.stateRead);
-    },
-    loadingSet(input) {
-      const value = accountCommandValidator.parse(input);
-      set(state => {
-        const previous = state.rateLimits.byAccountId[value.accountId];
-        state.rateLimits.byAccountId[value.accountId] = {
-          status: "loading",
-          value: previous?.value ?? null,
-          updatedAt: previous?.updatedAt ?? null,
-          error: null,
-        };
-      });
-      stateSend();
-    },
-    resultSet(input) {
-      const value = resultSetValidator.parse(input);
-      set(state => {
-        state.rateLimits.byAccountId[value.accountId] = {
-          status: "ready",
-          value: castDraft(value.result),
-          updatedAt: value.updatedAt,
-          error: null,
-        };
-      });
-      stateSend();
-    },
-    errorSet(input) {
-      const value = errorSetValidator.parse(input);
-      set(state => {
-        const previous = state.rateLimits.byAccountId[value.accountId];
-        state.rateLimits.byAccountId[value.accountId] = {
-          status: "error",
-          value: previous?.value ?? null,
-          updatedAt: previous?.updatedAt ?? null,
-          error: value.error,
-        };
-      });
-      stateSend();
-    },
-  },
-  });
+  };
 };
 
-export { rateLimits };
+export {
+  rateLimits,
+  type AccountInput,
+  type RateLimits,
+  type RateLimitsSlice,
+  type nodeState_t,
+};
 export default rateLimitsStore;

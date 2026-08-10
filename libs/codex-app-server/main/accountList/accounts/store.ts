@@ -10,6 +10,14 @@ const accountInputValidator = z.object({
   accountId: accountIdValidator,
 });
 const resultValidator = z.object({ ok: z.literal(true) });
+const requestValidator = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("stateRead") }),
+  accountInputValidator.extend({ method: z.literal("accountDelete") }),
+]);
+const messageValidator = z.object({
+  method: z.literal("stateUpdated"),
+  value: accountsValidator,
+});
 
 type Accounts = z.infer<typeof accountsValidator>;
 type AccountInput = z.infer<typeof accountInputValidator>;
@@ -24,17 +32,15 @@ type AccountsSlice = {
 const initial: Accounts = { order: [] };
 const accounts = {
   accountsValidator,
-  channel: {
-    accountDelete: "account-list:accounts-delete",
-    stateRead: "account-list:accounts-state-read",
-    stateUpdated: "account-list:accounts-state-updated",
-  },
+  channel: "accounts",
   initial,
   input: {
     accountAdd: accountInputValidator,
     accountDelete: accountInputValidator,
   },
   resultValidator,
+  messageValidator,
+  requestValidator,
   stateValidator: accountsValidator,
 };
 
@@ -43,8 +49,8 @@ const accountsStore: ImmerStateCreator<
   { webContents?: WebContents }
 > = (set, get) => {
   const stateSend = (): void => get().webContents?.send(
-    accounts.channel.stateUpdated,
-    accountsValidator.parse(get().accounts),
+    accounts.channel,
+    messageValidator.parse({ method: "stateUpdated", value: get().accounts }),
   );
   return ({
   accounts: structuredClone(initial),
@@ -69,5 +75,5 @@ const accountsStore: ImmerStateCreator<
   });
 };
 
-export { accounts };
+export { accounts, type AccountInput, type Accounts, type AccountsSlice };
 export default accountsStore;
