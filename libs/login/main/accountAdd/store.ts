@@ -31,7 +31,7 @@ const result = {
 };
 
 type ProducerSlices = AccountsSlice & BrowserSlice & CookieImportSlice & LoginSlice;
-type nodeState_t = { webContents?: WebContents };
+type nodeState_t = { webContents_nodestate?: WebContents };
 type AccountAddSlice = {
   accountAddActions: {
     communicationStart(): () => void;
@@ -65,7 +65,7 @@ const accountAddStore: ImmerStateCreator<
   return {
     accountAddActions: {
       communicationStart() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
         contents.ipc.handle(accountAdd.channel, async (_event, input: unknown) => {
           const requestValue = accountAdd.requestValidator.parse(input);

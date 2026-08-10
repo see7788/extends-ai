@@ -64,17 +64,28 @@ type NotificationWaiter = {
   reject(error: unknown): void;
 };
 type nodeState_t = {
-  appTemp: string;
-  childProcess: Pick<typeof import("node:child_process"), "execFile" | "spawn">;
-  fileSystem: Pick<
-    typeof import("node:fs/promises"),
-    "access" | "mkdtemp" | "readFile" | "rm"
-  >;
-  os: Pick<typeof import("node:os"), "homedir">;
-  path: Pick<typeof import("node:path"), "join">;
-  process: Pick<NodeJS.Process, "env" | "platform">;
-  readLine: Pick<typeof import("node:readline"), "createInterface">;
-  webContents?: WebContents;
+  app_getPath_temp_nodestate: string;
+  childProcess_execFile_nodestate: typeof import("node:child_process").execFile;
+  childProcess_spawn_nodestate: typeof import("node:child_process").spawn;
+  fileSystem_access_nodestate: typeof import("node:fs/promises").access;
+  fileSystem_mkdtemp_nodestate: typeof import("node:fs/promises").mkdtemp;
+  fileSystem_readFile_nodestate: typeof import("node:fs/promises").readFile;
+  fileSystem_rm_nodestate: typeof import("node:fs/promises").rm;
+  os_homedir_nodestate: typeof import("node:os").homedir;
+  path_join_nodestate: typeof import("node:path").join;
+  process_env_APPDATA_nodestate?: string;
+  process_env_CODEX_EXECUTABLE_nodestate?: string;
+  process_env_HOME_nodestate?: string;
+  process_env_LOCALAPPDATA_nodestate?: string;
+  process_env_PATH_nodestate?: string;
+  process_env_PATHEXT_nodestate?: string;
+  process_env_SystemRoot_nodestate?: string;
+  process_env_TEMP_nodestate?: string;
+  process_env_TMP_nodestate?: string;
+  process_env_USERPROFILE_nodestate?: string;
+  process_platform_nodestate: NodeJS.Process["platform"];
+  readline_createInterface_nodestate: typeof import("node:readline").createInterface;
+  webContents_nodestate?: WebContents;
 };
 type AuthJsonCreateSlice = {
   authJsonCreate: AuthJsonCreate;
@@ -118,7 +129,7 @@ const authJsonCreateStore: ImmerStateCreator<
     error.name = "AbortError";
     return error;
   };
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     authJsonCreate.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().authJsonCreate }),
   );
@@ -127,11 +138,11 @@ const authJsonCreateStore: ImmerStateCreator<
     return result.success ? result.data : undefined;
   };
   const executableRead = async (): Promise<string> => {
-    const configured = environmentTextRead(get().process.env.CODEX_EXECUTABLE);
+    const configured = environmentTextRead(get().process_env_CODEX_EXECUTABLE_nodestate);
     if (configured) return configured;
-    const localAppData = environmentTextRead(get().process.env.LOCALAPPDATA)
-      ?? get().path.join(get().os.homedir(), "AppData", "Local");
-    const desktopCodex = get().path.join(
+    const localAppData = environmentTextRead(get().process_env_LOCALAPPDATA_nodestate)
+      ?? get().path_join_nodestate(get().os_homedir_nodestate(), "AppData", "Local");
+    const desktopCodex = get().path_join_nodestate(
       localAppData,
       "Programs",
       "OpenAI",
@@ -140,15 +151,15 @@ const authJsonCreateStore: ImmerStateCreator<
       "codex.exe",
     );
     try {
-      await get().fileSystem.access(desktopCodex);
+      await get().fileSystem_access_nodestate(desktopCodex);
       return desktopCodex;
     } catch {
       // Continue with PATH lookup.
     }
-    if (get().process.platform === "win32") {
+    if (get().process_platform_nodestate === "win32") {
       try {
         const stdout = await new Promise<string>((resolve, reject) => {
-          get().childProcess.execFile("where.exe", ["codex"], (error, value) => {
+          get().childProcess_execFile_nodestate("where.exe", ["codex"], (error, value) => {
             if (error) reject(error);
             else resolve(value);
           });
@@ -176,11 +187,18 @@ const authJsonCreateStore: ImmerStateCreator<
     async open(): Promise<void> {
       const executable = await executableRead();
       const environment: NodeJS.ProcessEnv = {
-        ...get().process.env,
+        APPDATA: get().process_env_APPDATA_nodestate,
         CODEX_HOME: this.codexHome,
+        HOME: get().process_env_HOME_nodestate,
+        LOCALAPPDATA: get().process_env_LOCALAPPDATA_nodestate,
+        PATH: get().process_env_PATH_nodestate,
+        PATHEXT: get().process_env_PATHEXT_nodestate,
+        SystemRoot: get().process_env_SystemRoot_nodestate,
+        TEMP: get().process_env_TEMP_nodestate,
+        TMP: get().process_env_TMP_nodestate,
+        USERPROFILE: get().process_env_USERPROFILE_nodestate,
       };
-      delete environment.OPENAI_API_KEY;
-      const child = get().childProcess.spawn(executable, [
+      const child = get().childProcess_spawn_nodestate(executable, [
         "app-server",
         "-c",
         "cli_auth_credentials_store=\"file\"",
@@ -191,7 +209,7 @@ const authJsonCreateStore: ImmerStateCreator<
         windowsHide: true,
       });
       this.child = child;
-      this.output = get().readLine.createInterface({ input: child.stdout });
+      this.output = get().readline_createInterface_nodestate({ input: child.stdout });
       child.stderr.on("data", (chunk: Buffer) => {
         this.stderr = `${this.stderr}${chunk.toString("utf8")}`.slice(-8192);
       });
@@ -335,8 +353,8 @@ const authJsonCreateStore: ImmerStateCreator<
     authUrl: string;
     source: Promise<z.infer<typeof sourceValidator>>;
   }> => {
-    const loginHome = await get().fileSystem.mkdtemp(get().path.join(
-      get().appTemp,
+    const loginHome = await get().fileSystem_mkdtemp_nodestate(get().path_join_nodestate(
+      get().app_getPath_temp_nodestate,
       "codex-app-server-login-",
     ));
     const appServer = new AppServer(loginHome);
@@ -345,7 +363,7 @@ const authJsonCreateStore: ImmerStateCreator<
     const dispose = async (): Promise<void> => {
       if (abortListener) signal.removeEventListener("abort", abortListener);
       await appServer.dispose();
-      await get().fileSystem.rm(loginHome, { force: true, recursive: true })
+      await get().fileSystem_rm_nodestate(loginHome, { force: true, recursive: true })
         .catch(() => undefined);
     };
     try {
@@ -373,11 +391,11 @@ const authJsonCreateStore: ImmerStateCreator<
       });
       const source = Promise.race([completed, canceled]).then(async result => {
         if (!result.success) throw new Error(result.error ?? "ChatGPT 登录失败");
-        const sourcePath = get().path.join(loginHome, "auth.json");
+        const sourcePath = get().path_join_nodestate(loginHome, "auth.json");
         return sourceValidator.parse({
           sourceFileName: "auth.json",
           sourcePath,
-          sourceText: await get().fileSystem.readFile(sourcePath, "utf8"),
+          sourceText: await get().fileSystem_readFile_nodestate(sourcePath, "utf8"),
         });
       }).finally(dispose);
       sourceCreated = true;
@@ -396,7 +414,7 @@ const authJsonCreateStore: ImmerStateCreator<
         return true;
       },
       communicationStart() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
         contents.ipc.handle(authJsonCreate.channel, (_event, input: unknown) => {
           authJsonCreate.requestValidator.parse(input);

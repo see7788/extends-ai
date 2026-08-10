@@ -70,9 +70,9 @@ const authJsonImport = {
 
 const authJsonImportStore: ImmerStateCreator<
   AuthJsonImportSlice,
-  { webContents?: WebContents }
+  { webContents_nodestate?: WebContents }
 > = (set, get) => {
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     authJsonImport.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().authJsonImport }),
   );
@@ -80,7 +80,7 @@ const authJsonImportStore: ImmerStateCreator<
   authJsonImport: structuredClone(initial),
   authJsonImportActions: {
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
       contents.ipc.handle(authJsonImport.channel, (_event, input: unknown) => {
         authJsonImport.requestValidator.parse(input);

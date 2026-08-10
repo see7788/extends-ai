@@ -31,7 +31,7 @@ type SchedulerSlice = {
     stateSend(): void;
   };
 };
-type nodeState_t = { webContents?: WebContents };
+type nodeState_t = { webContents_nodestate?: WebContents };
 
 const initial: Scheduler = {
   running: false,
@@ -52,7 +52,7 @@ const schedulerStore: ImmerStateCreator<SchedulerSlice, nodeState_t> = (set, get
   scheduler: structuredClone(initial),
   schedulerActions: {
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
       contents.ipc.handle(scheduler.channel, (_event, input: unknown) => {
         scheduler.requestValidator.parse(input);
@@ -91,7 +91,7 @@ const schedulerStore: ImmerStateCreator<SchedulerSlice, nodeState_t> = (set, get
   },
   schedulerPrivateActions: {
     stateSend() {
-      get().webContents?.send(scheduler.channel, messageValidator.parse({
+      get().webContents_nodestate?.send(scheduler.channel, messageValidator.parse({
         method: "stateUpdated",
         value: get().scheduler,
       }));

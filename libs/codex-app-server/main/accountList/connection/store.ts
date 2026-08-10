@@ -30,15 +30,30 @@ type AccountConnectionRequestOptions<T> = {
   resultValidator: ZodType<T>;
 };
 type nodeState_t = {
-  childProcess: Pick<typeof import("node:child_process"), "execFile" | "spawn">;
-  fileSystem: Pick<
-    typeof import("node:fs/promises"),
-    "access" | "cp" | "mkdir" | "mkdtemp" | "rm" | "stat"
-  >;
-  os: Pick<typeof import("node:os"), "homedir" | "tmpdir">;
-  path: Pick<typeof import("node:path"), "dirname" | "join">;
-  process: Pick<NodeJS.Process, "env" | "platform">;
-  readLine: Pick<typeof import("node:readline"), "createInterface">;
+  childProcess_execFile_nodestate: typeof import("node:child_process").execFile;
+  childProcess_spawn_nodestate: typeof import("node:child_process").spawn;
+  fileSystem_access_nodestate: typeof import("node:fs/promises").access;
+  fileSystem_cp_nodestate: typeof import("node:fs/promises").cp;
+  fileSystem_mkdir_nodestate: typeof import("node:fs/promises").mkdir;
+  fileSystem_mkdtemp_nodestate: typeof import("node:fs/promises").mkdtemp;
+  fileSystem_rm_nodestate: typeof import("node:fs/promises").rm;
+  fileSystem_stat_nodestate: typeof import("node:fs/promises").stat;
+  os_homedir_nodestate: typeof import("node:os").homedir;
+  os_tmpdir_nodestate: typeof import("node:os").tmpdir;
+  path_dirname_nodestate: typeof import("node:path").dirname;
+  path_join_nodestate: typeof import("node:path").join;
+  process_env_APPDATA_nodestate?: string;
+  process_env_CODEX_EXECUTABLE_nodestate?: string;
+  process_env_HOME_nodestate?: string;
+  process_env_LOCALAPPDATA_nodestate?: string;
+  process_env_PATH_nodestate?: string;
+  process_env_PATHEXT_nodestate?: string;
+  process_env_SystemRoot_nodestate?: string;
+  process_env_TEMP_nodestate?: string;
+  process_env_TMP_nodestate?: string;
+  process_env_USERPROFILE_nodestate?: string;
+  process_platform_nodestate: NodeJS.Process["platform"];
+  readline_createInterface_nodestate: typeof import("node:readline").createInterface;
 };
 type ConnectionSlice = {
   connectionActions: {
@@ -56,11 +71,11 @@ const connectionStore: ImmerStateCreator<ConnectionSlice, nodeState_t> = (_set, 
     return result.success ? result.data : undefined;
   };
   const executableRead = async (): Promise<string> => {
-    const configured = environmentTextRead(get().process.env.CODEX_EXECUTABLE);
+    const configured = environmentTextRead(get().process_env_CODEX_EXECUTABLE_nodestate);
     if (configured) return configured;
-    const localAppData = environmentTextRead(get().process.env.LOCALAPPDATA)
-      ?? get().path.join(get().os.homedir(), "AppData", "Local");
-    const desktopCodex = get().path.join(
+    const localAppData = environmentTextRead(get().process_env_LOCALAPPDATA_nodestate)
+      ?? get().path_join_nodestate(get().os_homedir_nodestate(), "AppData", "Local");
+    const desktopCodex = get().path_join_nodestate(
       localAppData,
       "Programs",
       "OpenAI",
@@ -69,15 +84,15 @@ const connectionStore: ImmerStateCreator<ConnectionSlice, nodeState_t> = (_set, 
       "codex.exe",
     );
     try {
-      await get().fileSystem.access(desktopCodex);
+      await get().fileSystem_access_nodestate(desktopCodex);
       return desktopCodex;
     } catch {
       // Continue with PATH lookup.
     }
-    if (get().process.platform === "win32") {
+    if (get().process_platform_nodestate === "win32") {
       try {
         const stdout = await new Promise<string>((resolve, reject) => {
-          get().childProcess.execFile("where.exe", ["codex"], (error, value) => {
+          get().childProcess_execFile_nodestate("where.exe", ["codex"], (error, value) => {
             if (error) reject(error);
             else resolve(value);
           });
@@ -105,11 +120,18 @@ const connectionStore: ImmerStateCreator<ConnectionSlice, nodeState_t> = (_set, 
     async open(): Promise<void> {
       const executable = await executableRead();
       const environment: NodeJS.ProcessEnv = {
-        ...get().process.env,
+        APPDATA: get().process_env_APPDATA_nodestate,
         CODEX_HOME: this.codexHome,
+        HOME: get().process_env_HOME_nodestate,
+        LOCALAPPDATA: get().process_env_LOCALAPPDATA_nodestate,
+        PATH: get().process_env_PATH_nodestate,
+        PATHEXT: get().process_env_PATHEXT_nodestate,
+        SystemRoot: get().process_env_SystemRoot_nodestate,
+        TEMP: get().process_env_TEMP_nodestate,
+        TMP: get().process_env_TMP_nodestate,
+        USERPROFILE: get().process_env_USERPROFILE_nodestate,
       };
-      delete environment.OPENAI_API_KEY;
-      const child = get().childProcess.spawn(executable, [
+      const child = get().childProcess_spawn_nodestate(executable, [
         "app-server",
         "-c",
         "cli_auth_credentials_store=\"file\"",
@@ -120,7 +142,7 @@ const connectionStore: ImmerStateCreator<ConnectionSlice, nodeState_t> = (_set, 
         windowsHide: true,
       });
       this.child = child;
-      this.output = get().readLine.createInterface({ input: child.stdout });
+      this.output = get().readline_createInterface_nodestate({ input: child.stdout });
       child.stderr.on("data", (chunk: Buffer) => {
         this.stderr = `${this.stderr}${chunk.toString("utf8")}`.slice(-8192);
       });
@@ -219,14 +241,14 @@ const connectionStore: ImmerStateCreator<ConnectionSlice, nodeState_t> = (_set, 
   }
 
   const authFileCopy = async (source: string, target: string): Promise<void> => {
-    await get().fileSystem.mkdir(get().path.dirname(target), { recursive: true });
-    await get().fileSystem.cp(source, target, { force: true });
+    await get().fileSystem_mkdir_nodestate(get().path_dirname_nodestate(target), { recursive: true });
+    await get().fileSystem_cp_nodestate(source, target, { force: true });
   };
   const request = async <T>(options: AccountConnectionRequestOptions<T>): Promise<T> => {
-    const codexHome = await get().fileSystem.mkdtemp(
-      get().path.join(get().os.tmpdir(), "codex-app-server-account-"),
+    const codexHome = await get().fileSystem_mkdtemp_nodestate(
+      get().path_join_nodestate(get().os_tmpdir_nodestate(), "codex-app-server-account-"),
     );
-    const temporaryAuthFile = get().path.join(codexHome, "auth.json");
+    const temporaryAuthFile = get().path_join_nodestate(codexHome, "auth.json");
     await authFileCopy(options.authFile, temporaryAuthFile);
     const appServer = new AppServer(codexHome);
     try {
@@ -236,18 +258,18 @@ const connectionStore: ImmerStateCreator<ConnectionSlice, nodeState_t> = (_set, 
     } finally {
       await appServer.dispose();
       try {
-        await get().fileSystem.stat(temporaryAuthFile);
+        await get().fileSystem_stat_nodestate(temporaryAuthFile);
         await authFileCopy(temporaryAuthFile, options.authFile);
         if (options.materializedCodexHome) {
           await authFileCopy(
             temporaryAuthFile,
-            get().path.join(options.materializedCodexHome, "auth.json"),
+            get().path_join_nodestate(options.materializedCodexHome, "auth.json"),
           );
         }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       } finally {
-        await get().fileSystem.rm(codexHome, { force: true, recursive: true });
+        await get().fileSystem_rm_nodestate(codexHome, { force: true, recursive: true });
       }
     }
   };

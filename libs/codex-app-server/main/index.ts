@@ -37,7 +37,7 @@ class CodexAppServer {
         sandbox: true,
       },
     });
-    store.setState({ webContents: this.window.webContents });
+    store.setState({ webContents_nodestate: this.window.webContents });
     store.getState().authJsonImportActions.operationCancel();
     this.disposeCommunication = [
       store.getState().browserActions.communicationStart(),
@@ -99,7 +99,7 @@ class CodexAppServer {
     store.getState().accountAddActions.dispose();
     store.getState().accountActions.dispose();
     for (const run of this.disposeCommunication.reverse()) run();
-    store.setState({ webContents: undefined });
+    store.setState({ webContents_nodestate: undefined });
     if (!this.window.isDestroyed()) this.window.destroy();
   }
 

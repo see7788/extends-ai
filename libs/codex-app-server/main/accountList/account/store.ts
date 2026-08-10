@@ -57,9 +57,9 @@ type AccountSlice = {
   };
 };
 type nodeState_t = {
-  browserPartitionWindow: Pick<typeof BrowserPartitionWindow, "open">;
-  electronBrowserWindow: Pick<typeof ElectronBrowserWindow, "fromWebContents">;
-  webContents?: WebContents;
+  browserPartitionWindow_open_nodestate: typeof BrowserPartitionWindow.open;
+  browserWindow_fromWebContents_nodestate: typeof ElectronBrowserWindow.fromWebContents;
+  webContents_nodestate?: WebContents;
 };
 
 const initial: AccountState = {};
@@ -87,7 +87,7 @@ const accountStore: ImmerStateCreator<
 > = (set, get) => {
   let officialPartition: string | undefined;
   let officialWindow: Awaited<ReturnType<typeof BrowserPartitionWindow.open>> | undefined;
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     account.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().account }),
   );
@@ -114,7 +114,7 @@ const accountStore: ImmerStateCreator<
       stateSend();
     },
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
       contents.ipc.handle(account.channel, async (_event, input: unknown) => {
         const requestValue = account.requestValidator.parse(input);
@@ -182,12 +182,12 @@ const accountStore: ImmerStateCreator<
         return;
       }
       officialWindow?.dispose();
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("账号管理窗口不可用");
-      const parent = get().electronBrowserWindow.fromWebContents(contents);
+      const parent = get().browserWindow_fromWebContents_nodestate(contents);
       if (!parent) throw new Error("无法取得账号管理窗口");
       let created: Awaited<ReturnType<typeof BrowserPartitionWindow.open>> | undefined;
-      created = await get().browserPartitionWindow.open({
+      created = await get().browserPartitionWindow_open_nodestate({
         height: 780,
         minHeight: 520,
         minWidth: 760,

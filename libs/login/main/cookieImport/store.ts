@@ -136,9 +136,10 @@ type PendingRequest = {
   timeout: ReturnType<typeof setTimeout>;
 };
 type nodeState_t = {
-  electronSession: Pick<typeof electronSession, "fromPartition">;
-  fileSystem: Pick<typeof import("node:fs/promises"), "readFile" | "stat">;
-  webContents?: WebContents;
+  fileSystem_readFile_nodestate: typeof import("node:fs/promises").readFile;
+  fileSystem_stat_nodestate: typeof import("node:fs/promises").stat;
+  session_fromPartition_nodestate: typeof electronSession.fromPartition;
+  webContents_nodestate?: WebContents;
 };
 type CookieImportSlice = {
   cookieImport: CookieImport;
@@ -422,7 +423,7 @@ const cookieImportStore: ImmerStateCreator<
       return cleared;
     },
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
       contents.ipc.handle(cookieImport.channel, (_event, input: unknown) => {
         const requestValue = cookieImport.requestValidator.parse(input);
@@ -450,11 +451,11 @@ const cookieImportStore: ImmerStateCreator<
       const path = activePortPathValidator.parse(activePortPath);
       let text: string;
       try {
-        const value = await get().fileSystem.stat(path);
+        const value = await get().fileSystem_stat_nodestate(path);
         if (!value.isFile() || value.size > 4096) {
           throw new Error("浏览器 DevToolsActivePort 文件无效");
         }
-        text = await get().fileSystem.readFile(path, "utf8");
+        text = await get().fileSystem_readFile_nodestate(path, "utf8");
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
         throw error;
@@ -567,14 +568,14 @@ const cookieImportStore: ImmerStateCreator<
     },
     partitionClear(partition) {
       const value = candidateClearValidator.parse({ partition });
-      return get().electronSession.fromPartition(value.partition).clearData();
+      return get().session_fromPartition_nodestate(value.partition).clearData();
     },
     async webAccessCreate(input) {
       const browserId = createValidator.parse({ browserId: input.browserId }).browserId;
       const preferredTargetUrl = preferredTargetUrlValidator.parse(input.preferredTargetUrl);
       get().cookieImportPrivateActions.canceledAssert(input.signal);
       const partition = `persist:login.cookie-import.${browserId}.${crypto.randomUUID()}`;
-      const targetSession = get().electronSession.fromPartition(partition);
+      const targetSession = get().session_fromPartition_nodestate(partition);
       try {
         await targetSession.clearData();
         const cookies = await get().cookieImportPrivateActions.cookiesRead(
@@ -711,7 +712,7 @@ const cookieImportStore: ImmerStateCreator<
       ));
     },
     stateSend() {
-      get().webContents?.send(
+      get().webContents_nodestate?.send(
         cookieImport.channel,
         cookieImport.cookieImportValidator.parse(get().cookieImport),
       );

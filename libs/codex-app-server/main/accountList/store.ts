@@ -11,15 +11,16 @@ import type { SchedulerSlice } from "./scheduler/store.ts";
 import { usage, type UsageSlice } from "./usage/store.ts";
 
 type nodeState_t = {
-  appHome: string;
-  appUserData: string;
-  electron: {
-    BrowserWindow: Pick<typeof import("electron").BrowserWindow, "fromWebContents">;
-    dialog: Pick<typeof import("electron").dialog, "showOpenDialog">;
-  };
-  fileSystem: Pick<typeof import("node:fs/promises"), "cp" | "mkdir" | "stat">;
-  path: Pick<typeof import("node:path"), "dirname" | "join">;
-  webContents?: WebContents;
+  app_getPath_home_nodestate: string;
+  app_getPath_userData_nodestate: string;
+  browserWindow_fromWebContents_nodestate: typeof import("electron").BrowserWindow.fromWebContents;
+  dialog_showOpenDialog_nodestate: typeof import("electron").dialog.showOpenDialog;
+  fileSystem_cp_nodestate: typeof import("node:fs/promises").cp;
+  fileSystem_mkdir_nodestate: typeof import("node:fs/promises").mkdir;
+  fileSystem_stat_nodestate: typeof import("node:fs/promises").stat;
+  path_dirname_nodestate: typeof import("node:path").dirname;
+  path_join_nodestate: typeof import("node:path").join;
+  webContents_nodestate?: WebContents;
 };
 type ProducerSlices = AccountSlice
   & AccountsSlice
@@ -87,15 +88,15 @@ const accountListStore: ImmerStateCreator<
   const errorText = (error: unknown): string => error instanceof Error
     ? error.message
     : String(error);
-  const authFileRead = (accountId: string): string => get().path.join(
-    get().appUserData,
+  const authFileRead = (accountId: string): string => get().path_join_nodestate(
+    get().app_getPath_userData_nodestate,
     "codex-account-auth",
     accountId,
     "auth.json",
   );
   const pathExists = async (value: string): Promise<boolean> => {
     try {
-      await get().fileSystem.stat(value);
+      await get().fileSystem_stat_nodestate(value);
       return true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
@@ -103,8 +104,8 @@ const accountListStore: ImmerStateCreator<
     }
   };
   const authFileCopy = async (source: string, target: string): Promise<void> => {
-    await get().fileSystem.mkdir(get().path.dirname(target), { recursive: true });
-    await get().fileSystem.cp(source, target, { force: true });
+    await get().fileSystem_mkdir_nodestate(get().path_dirname_nodestate(target), { recursive: true });
+    await get().fileSystem_cp_nodestate(source, target, { force: true });
   };
   const timerClear = (): void => {
     if (timer !== undefined) clearTimeout(timer);
@@ -217,20 +218,20 @@ const accountListStore: ImmerStateCreator<
         await get().accountListActions.pause();
         try {
           await get().globalSettingsActions.codexHomeMove({
-            codexHome: get().path.join(get().appHome, ".codex"),
+            codexHome: get().path_join_nodestate(get().app_getPath_home_nodestate, ".codex"),
           });
         } finally {
           get().accountListActions.resume();
         }
       },
       async codexHomeSelect() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) {
           throw new Error("CodexAppServer WebContents 不可用");
         }
-        const parent = get().electron.BrowserWindow.fromWebContents(contents);
+        const parent = get().browserWindow_fromWebContents_nodestate(contents);
         if (!parent) throw new Error("无法取得账号管理窗口");
-        const selected = await get().electron.dialog.showOpenDialog(parent, {
+        const selected = await get().dialog_showOpenDialog_nodestate(parent, {
           buttonLabel: "选择",
           defaultPath: get().globalSettings.codexHome ?? undefined,
           properties: ["openDirectory", "createDirectory"],
@@ -246,7 +247,7 @@ const accountListStore: ImmerStateCreator<
         }
       },
       communicationStart() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) {
           throw new Error("CodexAppServer WebContents 不可用");
         }
@@ -289,7 +290,7 @@ const accountListStore: ImmerStateCreator<
         if (!selected) throw new Error(`账号不存在：${value.accountId}`);
         const codexHome = get().globalSettings.codexHome;
         if (!codexHome) throw new Error("请先配置 CODEX_HOME");
-        const materializedAuth = get().path.join(codexHome, "auth.json");
+        const materializedAuth = get().path_join_nodestate(codexHome, "auth.json");
         const current = Object.values(get().account).find(item => item.enabled);
         if (
           current
@@ -306,7 +307,7 @@ const accountListStore: ImmerStateCreator<
         const enabled = Object.values(get().account).find(value => value.enabled);
         const codexHome = get().globalSettings.codexHome;
         if (!enabled || !codexHome) return;
-        const materializedAuth = get().path.join(codexHome, "auth.json");
+        const materializedAuth = get().path_join_nodestate(codexHome, "auth.json");
         const backupAuth = authFileRead(enabled.id);
         if (!await pathExists(materializedAuth) && await pathExists(backupAuth)) {
           await authFileCopy(backupAuth, materializedAuth);

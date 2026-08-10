@@ -44,9 +44,9 @@ const accounts = {
 
 const accountsStore: ImmerStateCreator<
   AccountsSlice,
-  { webContents?: WebContents }
+  { webContents_nodestate?: WebContents }
 > = (set, get) => {
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     accounts.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().accounts }),
   );
@@ -70,7 +70,7 @@ const accountsStore: ImmerStateCreator<
       stateSend();
     },
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
       contents.ipc.handle(accounts.channel, (_event, input: unknown) => {
         accounts.requestValidator.parse(input);

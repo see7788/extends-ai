@@ -50,14 +50,21 @@ type WindowOpen = {
   closed: Promise<void>;
 };
 type nodeState_t = {
-  browserApp: Pick<import("electron").App, "getPath">;
-  browserChildProcess: Pick<typeof import("node:child_process"), "execFile" | "spawn">;
-  browserCrypto: Pick<typeof import("node:crypto"), "createHash">;
-  browserFileSystem: Pick<typeof import("node:fs/promises"), "access">;
-  browserOs: Pick<typeof import("node:os"), "homedir">;
-  browserPath: Pick<typeof import("node:path"), "basename" | "join" | "resolve">;
-  browserProcess: Pick<NodeJS.Process, "env" | "platform">;
-  webContents?: WebContents;
+  app_getPath_desktop_nodestate: string;
+  childProcess_execFile_nodestate: typeof import("node:child_process").execFile;
+  childProcess_spawn_nodestate: typeof import("node:child_process").spawn;
+  crypto_createHash_nodestate: typeof import("node:crypto").createHash;
+  fileSystem_access_nodestate: typeof import("node:fs/promises").access;
+  os_homedir_nodestate: typeof import("node:os").homedir;
+  path_basename_nodestate: typeof import("node:path").basename;
+  path_join_nodestate: typeof import("node:path").join;
+  path_resolve_nodestate: typeof import("node:path").resolve;
+  process_env_LOCALAPPDATA_nodestate?: string;
+  process_env_PROGRAMFILES_nodestate?: string;
+  process_env_PROGRAMFILES_X86_nodestate?: string;
+  process_env_USERPROFILE_nodestate?: string;
+  process_platform_nodestate: NodeJS.Process["platform"];
+  webContents_nodestate?: WebContents;
 };
 type BrowserSlice = {
   browserActions: {
@@ -117,7 +124,7 @@ const execFileAsync = (
     windowsHide?: boolean;
   },
 ): Promise<{ stdout: string }> => new Promise((resolveRun, reject) => {
-  get().browserChildProcess.execFile(
+  get().childProcess_execFile_nodestate(
     file,
     arguments_,
     { ...options, encoding: "utf8" },
@@ -145,7 +152,12 @@ const registryValueRead = (output: string): string | undefined => {
 };
 const environmentExpand = (value: string): string => value.replace(
   /%([^%]+)%/g,
-  (source, name: string) => get().browserProcess.env[name] ?? source,
+  (source, name: string) => ({
+    localappdata: get().process_env_LOCALAPPDATA_nodestate,
+    programfiles: get().process_env_PROGRAMFILES_nodestate,
+    "programfiles(x86)": get().process_env_PROGRAMFILES_X86_nodestate,
+    userprofile: get().process_env_USERPROFILE_nodestate,
+  })[name.toLowerCase()] ?? source,
 );
 const executablePathRead = (command: string): string | undefined => {
   const expanded = environmentExpand(command).trim();
@@ -214,7 +226,7 @@ const executableNames = new Set([
 ]);
 const shortcutsRead = async (desktopPath: string): Promise<BrowserApplication[]> => {
   const script = [
-    "$desktopPath = [Environment]::GetEnvironmentVariable('BROWSER_PARTITION_DESKTOP')",
+    "param([string]$desktopPath)",
     "$shell = New-Object -ComObject WScript.Shell",
     "$shortcuts = @(Get-ChildItem -LiteralPath $desktopPath -Filter '*.lnk' -File | ForEach-Object {",
     "  $shortcut = $shell.CreateShortcut($_.FullName)",
@@ -225,9 +237,8 @@ const shortcutsRead = async (desktopPath: string): Promise<BrowserApplication[]>
   try {
     const { stdout } = await execFileAsync(
       "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command", script],
+      ["-NoProfile", "-NonInteractive", "-Command", script, "-desktopPath", desktopPath],
       {
-        env: { ...get().browserProcess.env, BROWSER_PARTITION_DESKTOP: desktopPath },
         maxBuffer: 1024 * 1024,
         windowsHide: true,
       },
@@ -235,10 +246,10 @@ const shortcutsRead = async (desktopPath: string): Promise<BrowserApplication[]>
     const value = browser.shortcutsResultValidator.parse(JSON.parse(stdout));
     const shortcuts = await Promise.all(value.shortcuts.map(async shortcut => {
       if (!executableNames.has(
-        get().browserPath.basename(shortcut.executablePath).toLowerCase(),
+        get().path_basename_nodestate(shortcut.executablePath).toLowerCase(),
       )) return undefined;
       try {
-        await get().browserFileSystem.access(shortcut.executablePath);
+        await get().fileSystem_access_nodestate(shortcut.executablePath);
         return {
           executablePath: shortcut.executablePath,
           launchArguments: commandArgumentsRead(shortcut.arguments),
@@ -255,7 +266,7 @@ const shortcutsRead = async (desktopPath: string): Promise<BrowserApplication[]>
   }
 };
 const sourceRead = async (desktopPath?: string): Promise<BrowserApplication[]> => {
-  if (get().browserProcess.platform !== "win32") return [];
+  if (get().process_platform_nodestate !== "win32") return [];
   const applications = await Promise.all((await registryKeysRead()).map(async key => {
     const [name, command] = await Promise.all([
       registryQuery(key),
@@ -266,7 +277,7 @@ const sourceRead = async (desktopPath?: string): Promise<BrowserApplication[]> =
       return undefined;
     }
     try {
-      await get().browserFileSystem.access(executablePath);
+      await get().fileSystem_access_nodestate(executablePath);
     } catch {
       return undefined;
     }
@@ -291,8 +302,7 @@ const identityRead = (application: BrowserApplication): string => JSON.stringify
   executablePath: application.executablePath.toLowerCase(),
   launchArguments: application.launchArguments,
 });
-const idRead = (application: BrowserApplication): string => get().browserCrypto
-  .createHash("sha256")
+const idRead = (application: BrowserApplication): string => get().crypto_createHash_nodestate("sha256")
   .update(JSON.stringify({
     executablePath: application.executablePath.toLowerCase(),
     launchArguments: application.launchArguments,
@@ -303,7 +313,7 @@ const idRead = (application: BrowserApplication): string => get().browserCrypto
 
 const applicationRead = async (input: unknown) => {
     const { browserId } = browser.input.applicationRead.parse(input);
-    const application = (await sourceRead(get().browserApp.getPath("desktop")))
+    const application = (await sourceRead(get().app_getPath_desktop_nodestate))
       .find(value => idRead(value) === browserId);
     if (!application) throw new Error("所选浏览器不可用，请重新读取浏览器列表");
     return browser.browserApplicationValidator.parse(application);
@@ -311,7 +321,7 @@ const applicationRead = async (input: unknown) => {
 
 const applicationsRead = async () => {
     const source = browser.browserApplicationValidator.array().parse(
-      await sourceRead(get().browserApp.getPath("desktop")),
+      await sourceRead(get().app_getPath_desktop_nodestate),
     );
     return browser.browserApplicationsValidator.parse(source.map(application => ({
       id: idRead(application),
@@ -332,10 +342,10 @@ const executableOpen = async (
     url: string,
     launchArguments: string[] = [],
   ): Promise<void> => {
-    await get().browserFileSystem.access(executablePath);
+    await get().fileSystem_access_nodestate(executablePath);
     const validUrl = browser.urlValidator.parse(url);
     await new Promise<void>((resolveOpen, reject) => {
-    const child = get().browserChildProcess.spawn(
+    const child = get().childProcess_spawn_nodestate(
       executablePath,
       [...launchArguments, validUrl],
       {
@@ -366,11 +376,11 @@ const remoteDebugRead = (
   executablePath: string,
   launchArguments: string[] = [],
 ) => {
-    if (get().browserProcess.platform !== "win32") {
+    if (get().process_platform_nodestate !== "win32") {
       throw new Error("当前只支持从 Windows Chromium 浏览器导入网页登录态");
     }
-    const localAppData = environmentTextRead(get().browserProcess.env.LOCALAPPDATA)
-      ?? get().browserPath.join(get().browserOs.homedir(), "AppData", "Local");
+    const localAppData = environmentTextRead(get().process_env_LOCALAPPDATA_nodestate)
+      ?? get().path_join_nodestate(get().os_homedir_nodestate(), "AppData", "Local");
     const normalized = executablePath.replace(/\//g, "\\").toLowerCase();
     const products = [
       ["\\google\\chrome sxs\\application\\", "Google/Chrome SxS/User Data", "chrome://inspect/#remote-debugging"],
@@ -383,12 +393,12 @@ const remoteDebugRead = (
       argument.toLowerCase().startsWith("--user-data-dir=")
     ));
     const profile = profileArgument
-      ? get().browserPath.resolve(
+      ? get().path_resolve_nodestate(
           environmentExpand(profileArgument.slice(profileArgument.indexOf("=") + 1)),
         )
-      : get().browserPath.join(localAppData, ...product[1].split("/"));
+      : get().path_join_nodestate(localAppData, ...product[1].split("/"));
     return {
-      devToolsActivePortPath: get().browserPath.join(profile, "DevToolsActivePort"),
+      devToolsActivePortPath: get().path_join_nodestate(profile, "DevToolsActivePort"),
       inspectUrl: product[2],
     };
 };
@@ -397,9 +407,10 @@ const windowClose = async (
   executablePath: string,
   handle: number,
 ): Promise<boolean> => {
-    await get().browserFileSystem.access(executablePath);
-    if (get().browserProcess.platform !== "win32") return false;
+    await get().fileSystem_access_nodestate(executablePath);
+    if (get().process_platform_nodestate !== "win32") return false;
     const script = [
+      "param([string]$targetPath, [long]$windowHandle)",
       "$source = @'",
       "using System;",
       "using System.Runtime.InteropServices;",
@@ -409,8 +420,7 @@ const windowClose = async (
       "}",
       "'@",
       "Add-Type -TypeDefinition $source",
-      "$targetPath = [Environment]::GetEnvironmentVariable('BROWSER_PARTITION_EXECUTABLE')",
-      "$handle = [IntPtr]([long][Environment]::GetEnvironmentVariable('BROWSER_PARTITION_WINDOW_HANDLE'))",
+      "$handle = [IntPtr]$windowHandle",
       "$processId = [uint32]0",
       "[BrowserPartitionWindowClose]::GetWindowThreadProcessId($handle, [ref]$processId) | Out-Null",
       "$closed = $false",
@@ -424,13 +434,17 @@ const windowClose = async (
     ].join("\n");
     const { stdout } = await execFileAsync(
       "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command", script],
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        script,
+        "-targetPath",
+        executablePath,
+        "-windowHandle",
+        String(handle),
+      ],
       {
-        env: {
-          ...get().browserProcess.env,
-          BROWSER_PARTITION_EXECUTABLE: executablePath,
-          BROWSER_PARTITION_WINDOW_HANDLE: String(handle),
-        },
         maxBuffer: 64 * 1024,
         windowsHide: true,
       },
@@ -439,9 +453,10 @@ const windowClose = async (
 };
 
 const windowHandlesRead = async (executablePath: string): Promise<number[]> => {
-    await get().browserFileSystem.access(executablePath);
-    if (get().browserProcess.platform !== "win32") return [];
+    await get().fileSystem_access_nodestate(executablePath);
+    if (get().process_platform_nodestate !== "win32") return [];
     const script = [
+      "param([string]$targetPath)",
       "$source = @'",
       "using System;",
       "using System.Runtime.InteropServices;",
@@ -453,7 +468,6 @@ const windowHandlesRead = async (executablePath: string): Promise<number[]> => {
       "}",
       "'@",
       "Add-Type -TypeDefinition $source",
-      "$targetPath = [Environment]::GetEnvironmentVariable('BROWSER_PARTITION_EXECUTABLE')",
       "$handles = [System.Collections.Generic.List[long]]::new()",
       "$callback = [BrowserPartitionWindowList+EnumWindowsCallback]{",
       "  param($handle, $state)",
@@ -474,12 +488,8 @@ const windowHandlesRead = async (executablePath: string): Promise<number[]> => {
     ].join("\n");
     const { stdout } = await execFileAsync(
       "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command", script],
+      ["-NoProfile", "-NonInteractive", "-Command", script, "-targetPath", executablePath],
       {
-        env: {
-          ...get().browserProcess.env,
-          BROWSER_PARTITION_EXECUTABLE: executablePath,
-        },
         maxBuffer: 64 * 1024,
         windowsHide: true,
       },
@@ -555,7 +565,7 @@ return {
     applicationRead,
     applicationsRead,
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
       contents.ipc.handle(browser.channel, async (_event, input: unknown) => {
         const requestValue = browser.requestValidator.parse(input);

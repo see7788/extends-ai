@@ -21,7 +21,7 @@
 
 ```text
 业务 store.ts → nodeState_t ┐
-运行时实体 ────────────────→ 主仓库 nodeState.ts → 主 store → 业务切片 → 消费者
+运行时实体 ─→ 同目录 nodeState.ts ┴→ 主 store → 业务切片 → 消费者
 ```
 
 反向依赖一律禁止。
@@ -53,7 +53,7 @@ const itemValidator = z.object({ id: z.string().min(1) });
 type Item = z.infer<typeof itemValidator>;
 
 type nodeState_t = {
-  itemInput: unknown;
+  fileSystem_readFile_nodestate: typeof import("node:fs/promises").readFile;
 };
 
 type ItemSlice = {
@@ -70,7 +70,8 @@ const itemStore: ImmerStateCreator<ItemSlice, nodeState_t> = (set, get) => ({
   item: null,
   itemActions: {
     read() {
-      get().itemPrivateActions.stateSet(get().itemInput);
+      void get().fileSystem_readFile_nodestate("item.json", "utf8")
+        .then(get().itemPrivateActions.stateSet);
     },
   },
   itemPrivateActions: {
@@ -98,54 +99,70 @@ export default itemStore;
 
 ## 运行时注入定律
 
-业务切片不得运行时导入宿主模块。需要 Node、Electron 或其他宿主能力时，由所属 `store.ts` 声明扁平的最小 `nodeState_t`，由主仓库目录内唯一的 `nodeState.ts` 提供实体。
+业务切片不得运行时导入宿主模块。需要 Node、Electron 或其他宿主能力时，由所属 `store.ts` 声明扁平的最小 `nodeState_t`，由同目录 `nodeState.ts` 提供实体。
 
-`nodeState.ts` 以主 store 为边界：每个独立主 store 必须且只能有一个；仅提供可复用切片、不创建主 store 的库不得提供 `nodeState.ts`，只导出各切片的 `nodeState_t` 需求。
+`nodeState.ts` 以切片为边界：只实现同目录 `store.ts` 声明的运行时依赖，默认导出标准 `ImmerStateCreator`；禁止集中实现其他切片的依赖。可复用切片的 `nodeState.ts` 随切片一起复用。
 
-`nodeState_t` 的顶层成员只能是运行时值或实体引用，禁止是函数。实体可以保留其原生方法，但禁止把业务操作包装成注入方法。
+`nodeState_t` 的顶层成员只能是精确的运行时叶子值或叶子函数。允许注入宿主模块原生叶子函数，例如 `path_join_nodestate: typeof import("node:path").join`；禁止注入整个模块、模块子对象、任意回调、执行器或包装后的业务函数。
 
-可延后取得的运行时值必须如实声明为可选值，并在宿主创建后直接通过主 store 改值，例如 `store.setState({ webContents })`；禁止为赋值再造 Actions、安装器或转发层。该成员必须由持久化白名单自然排除。
+可延后取得的运行时值必须如实声明为可选值，并在宿主创建后直接通过主 store 改值，例如 `store.setState({ webContents_nodestate })`；禁止为赋值再造 Actions、安装器或转发层。该成员必须由持久化白名单自然排除。
 
 `nodeState_t` 禁止：
 
 - 嵌套命名空间或 Actions；
-- 函数、回调和执行器；
+- 整个 Node、Electron 或宿主模块及其部分对象；
+- 整个 `process`、整个 `process.env` 或未指明键名的环境集合；
+- 自定义回调、执行器和包装业务的函数；
 - 超出本切片需求的运行时值；
 - 包含业务判断或跨切片操作。
+
+运行时成员必须扁平，并按原始来源路径命名为 `<来源>_<成员>_nodestate`：
+
+```text
+process.platform              → process_platform_nodestate
+process.env.CODEX_EXECUTABLE  → process_env_CODEX_EXECUTABLE_nodestate
+path.join                     → path_join_nodestate
+app.getPath("userData")       → app_getPath_userData_nodestate
+```
+
+参数化调用的结果必须把参数语义写入成员名。禁止使用切片名前缀掩盖来源，禁止 `process_env_nodestate`、`fileSystem_nodestate`、`electron_nodestate` 等集合名。不同切片需要同一个来源叶子时，必须使用相同名称和相同类型；主 store 的对象展开由 TypeScript 验证其一致性。
 
 ## 组合定律
 
 ```text
 main/
 ├─ index.ts       # 根执行入口
+├─ item/
+│  ├─ store.ts    # 业务切片与 nodeState_t
+│  └─ nodeState.ts # 仅实现 item 的运行时依赖
 └─ store/
-   ├─ index.ts    # 主 store
-   └─ nodeState.ts # 全部 nodeState_t 的运行时实体实现
+   └─ index.ts    # 主 store
 ```
 
-`nodeState.ts` 默认导出标准 `ImmerStateCreator<NodeState>`。`NodeState` 是全部业务切片所声明 `nodeState_t` 的交叉类型；该切片只生产运行时值，不包含 Actions，不消费业务切片。
-
-`nodeState.ts` 只能通过 `import type` 加载业务 `store.ts` 的 `nodeState_t`；业务 `store.ts` 禁止加载 `nodeState.ts`。
+`nodeState.ts` 只能通过 `import type` 加载同目录 `store.ts` 的 `nodeState_t`；业务 `store.ts` 禁止加载 `nodeState.ts`。
 
 主 store 直接组合运行时值切片与业务切片：
 
 ```ts
-type Store = ReturnType<typeof nodeState>
+type RuntimeState = { webContents_nodestate?: WebContents };
+type Store = RuntimeState
+  & ReturnType<typeof itemNodeState>
   & ReturnType<typeof itemStore>;
 
 const store = createStore<Store>()(
   cwdPersist({
     cwd: app.getPath("userData"),
     initializer: immer((...options) => ({
-      ...nodeState<Store>(...options),
+      ...itemNodeState<Store>(...options),
       ...itemStore<Store>(...options),
+      webContents_nodestate: undefined,
     })),
     name: pkg.name,
   }),
 );
 ```
 
-组合时必须由 TypeScript 验证 `nodeState.ts` 满足全部 `nodeState_t`。相同语义的运行时值必须复用同名成员；不同语义的成员名在主 store 内必须唯一。
+组合时必须由 TypeScript 验证全部切片的 `nodeState_t`。主 store 只组合各切片的 `nodeState.ts`、`store.ts` 和运行端共同的可变宿主值。
 
 ## 单地址通信定律
 

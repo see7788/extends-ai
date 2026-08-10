@@ -1,24 +1,38 @@
 import cwdPersist from "extends-zustand/cwdPersist";
-import { app } from "electron";
+import { app, type WebContents } from "electron";
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
+import browserNodeState from "browser-partition-main/browser/nodeState.ts";
 import browserStore from "browser-partition-main/browser/store.ts";
+import accountAddNodeState from "../accountAdd/nodeState.ts";
+import authJsonCreateNodeState from "../accountAdd/authJsonCreate/nodeState.ts";
 import authJsonCreateStore, { authJsonCreate } from "../accountAdd/authJsonCreate/store.ts";
 import authJsonImportStore from "../accountAdd/authJsonImport/store.ts";
 import accountAddStore from "../accountAdd/store.ts";
+import globalSettingsNodeState from "../globalSettings/nodeState.ts";
 import globalSettingsStore from "../globalSettings/store.ts";
+import accountListNodeState from "../accountList/nodeState.ts";
 import accountStore from "../accountList/account/store.ts";
+import accountNodeState from "../accountList/account/nodeState.ts";
 import accountsStore from "../accountList/accounts/store.ts";
 import authSessionsStore, { authSessions } from "../accountList/authSessions/store.ts";
+import connectionNodeState from "../accountList/connection/nodeState.ts";
 import connectionStore from "../accountList/connection/store.ts";
 import rateLimitsStore, { rateLimits } from "../accountList/rateLimits/store.ts";
 import schedulerStore from "../accountList/scheduler/store.ts";
 import usageStore, { usage } from "../accountList/usage/store.ts";
 import accountListStore from "../accountList/store.ts";
 import pkg from "../package.json";
-import nodeState from "./nodeState.ts";
 
-type Store = ReturnType<typeof nodeState>
+type RuntimeState = { webContents_nodestate?: WebContents };
+type Store = RuntimeState
+  & ReturnType<typeof browserNodeState>
+  & ReturnType<typeof accountAddNodeState>
+  & ReturnType<typeof authJsonCreateNodeState>
+  & ReturnType<typeof globalSettingsNodeState>
+  & ReturnType<typeof accountListNodeState>
+  & ReturnType<typeof accountNodeState>
+  & ReturnType<typeof connectionNodeState>
   & ReturnType<typeof browserStore>
   & ReturnType<typeof accountStore>
   & ReturnType<typeof authJsonCreateStore>
@@ -64,7 +78,13 @@ const persistedStateRead = (state: Store): PersistedState => ({
 const store = createStore<Store>()(
   cwdPersist({
     initializer: immer((...options) => ({
-      ...nodeState<Store>(...options),
+      ...browserNodeState<Store>(...options),
+      ...accountAddNodeState<Store>(...options),
+      ...authJsonCreateNodeState<Store>(...options),
+      ...globalSettingsNodeState<Store>(...options),
+      ...accountListNodeState<Store>(...options),
+      ...accountNodeState<Store>(...options),
+      ...connectionNodeState<Store>(...options),
       ...browserStore(...options),
       ...accountStore(...options),
       ...authJsonCreateStore(...options),
@@ -78,6 +98,7 @@ const store = createStore<Store>()(
       ...schedulerStore(...options),
       ...accountAddStore(...options),
       ...accountListStore(...options),
+      webContents_nodestate: undefined,
     })),
     cwd: app.getPath("userData"),
     name: pkg.name,

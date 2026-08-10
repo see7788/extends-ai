@@ -11,7 +11,7 @@ const requestValidator = z.discriminatedUnion("method", [request.remove]);
 const result = { command: z.object({ completed: z.boolean() }) };
 
 type ProducerSlices = AccountsSlice & CookieImportSlice;
-type nodeState_t = { webContents?: WebContents };
+type nodeState_t = { webContents_nodestate?: WebContents };
 type AccountListSlice = {
   accountListActions: {
     communicationStart(): () => void;
@@ -32,7 +32,7 @@ const accountListStore: ImmerStateCreator<
 > = (_set, get) => ({
   accountListActions: {
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
       contents.ipc.handle(accountList.channel, async (_event, input: unknown) => {
         const requestValue = accountList.requestValidator.parse(input);

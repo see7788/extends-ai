@@ -84,9 +84,10 @@ type AccountsContract = {
   result: typeof result;
 };
 type nodeState_t = {
-  browserPartitionWindow: Pick<typeof BrowserPartitionWindow, "open" | "storageClear">;
-  electronSession: Pick<typeof electronSession, "fromPartition">;
-  loginWindow?: ElectronBrowserWindow;
+  browserPartitionWindow_open_nodestate: typeof BrowserPartitionWindow.open;
+  browserPartitionWindow_storageClear_nodestate: typeof BrowserPartitionWindow.storageClear;
+  loginWindow_nodestate?: ElectronBrowserWindow;
+  session_fromPartition_nodestate: typeof electronSession.fromPartition;
 };
 type AccountsSlice = {
   accounts: Accounts;
@@ -206,7 +207,7 @@ const accountsStore: ImmerStateCreator<AccountsSlice, nodeState_t> = (set, get) 
         return value;
       },
       communicationStart() {
-        const contents = get().loginWindow?.webContents;
+        const contents = get().loginWindow_nodestate?.webContents;
         if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
         contents.ipc.handle(accounts.channel, async (_event, input: unknown) => {
           const requestValue = accounts.requestValidator.parse(input);
@@ -288,10 +289,10 @@ const accountsStore: ImmerStateCreator<AccountsSlice, nodeState_t> = (set, get) 
         accountWindow = undefined;
       },
       async accountWindowOpen(input) {
-        const parent = get().loginWindow;
+        const parent = get().loginWindow_nodestate;
         if (!parent || parent.isDestroyed()) throw new Error("Login 父窗口不可用");
         get().accountsPrivateActions.accountWindowDispose();
-        accountWindow = await get().browserPartitionWindow.open({
+        accountWindow = await get().browserPartitionWindow_open_nodestate({
           height: 760,
           minHeight: 520,
           minWidth: 760,
@@ -312,17 +313,17 @@ const accountsStore: ImmerStateCreator<AccountsSlice, nodeState_t> = (set, get) 
         return error instanceof Error ? error.message : String(error);
       },
       async partitionClear(partition) {
-        await get().browserPartitionWindow.storageClear(partition);
+        await get().browserPartitionWindow_storageClear_nodestate(partition);
       },
       stateSend() {
-        const contents = get().loginWindow?.webContents;
+        const contents = get().loginWindow_nodestate?.webContents;
         if (!contents || contents.isDestroyed()) return;
         contents.send(accounts.channel, accountsValidator.parse(get().accounts));
       },
       async verificationRead(partition, signal) {
         const checkedAt = new Date().toISOString();
         try {
-          const response = await get().electronSession.fromPartition(partition).fetch(
+          const response = await get().session_fromPartition_nodestate(partition).fetch(
             "https://chatgpt.com/api/auth/session",
             {
               credentials: "include",

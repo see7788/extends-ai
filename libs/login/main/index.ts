@@ -33,8 +33,8 @@ class Login {
       },
     });
     store.setState({
-      loginWindow: this.window,
-      webContents: this.window.webContents,
+      loginWindow_nodestate: this.window,
+      webContents_nodestate: this.window.webContents,
     });
     this.disposeCommunication = [
       store.getState().browserActions.communicationStart(),
@@ -67,12 +67,12 @@ class Login {
     store.getState().accountsActions.dispose();
     store.getState().loginActions.cancel();
     for (const run of this.disposeCommunication.reverse()) run();
-    store.setState({ loginWindow: undefined, webContents: undefined });
+    store.setState({ loginWindow_nodestate: undefined, webContents_nodestate: undefined });
     if (!this.window.isDestroyed()) this.window.destroy();
   }
 
   private rendererLoad(): Promise<void> {
-    const rendererUrl = store.getState().electronRendererUrl;
+    const rendererUrl = store.getState().process_env_ELECTRON_RENDERER_URL_nodestate;
     if (rendererUrl) {
       return this.window.loadURL(new URL(
         "login-renderer/",

@@ -19,20 +19,22 @@ import {
 } from "./authJsonImport/store.ts";
 
 type nodeState_t = {
-  appTemp: string;
-  appUserData: string;
-  crypto: Pick<typeof import("node:crypto"), "createHash">;
-  electron: {
-    BrowserWindow: Pick<typeof import("electron").BrowserWindow, "fromWebContents">;
-    clipboard: Pick<import("electron").Clipboard, "readText">;
-    dialog: Pick<typeof import("electron").dialog, "showOpenDialog">;
-  };
-  fileSystem: Pick<
-    typeof import("node:fs/promises"),
-    "mkdir" | "mkdtemp" | "readFile" | "rm" | "writeFile"
-  >;
-  path: Pick<typeof import("node:path"), "basename" | "dirname" | "join" | "resolve">;
-  webContents?: WebContents;
+  app_getPath_temp_nodestate: string;
+  app_getPath_userData_nodestate: string;
+  browserWindow_fromWebContents_nodestate: typeof import("electron").BrowserWindow.fromWebContents;
+  clipboard_readText_nodestate: import("electron").Clipboard["readText"];
+  crypto_createHash_nodestate: typeof import("node:crypto").createHash;
+  dialog_showOpenDialog_nodestate: typeof import("electron").dialog.showOpenDialog;
+  fileSystem_mkdir_nodestate: typeof import("node:fs/promises").mkdir;
+  fileSystem_mkdtemp_nodestate: typeof import("node:fs/promises").mkdtemp;
+  fileSystem_readFile_nodestate: typeof import("node:fs/promises").readFile;
+  fileSystem_rm_nodestate: typeof import("node:fs/promises").rm;
+  fileSystem_writeFile_nodestate: typeof import("node:fs/promises").writeFile;
+  path_basename_nodestate: typeof import("node:path").basename;
+  path_dirname_nodestate: typeof import("node:path").dirname;
+  path_join_nodestate: typeof import("node:path").join;
+  path_resolve_nodestate: typeof import("node:path").resolve;
+  webContents_nodestate?: WebContents;
 };
 type ProducerSlices = AccountSlice
   & AccountsSlice
@@ -102,8 +104,8 @@ const accountAddStore: ImmerStateCreator<
   const errorText = (error: unknown): string => error instanceof Error
     ? error.message
     : String(error);
-  const accountAuthPath = (accountId: string): string => get().path.join(
-    get().appUserData,
+  const accountAuthPath = (accountId: string): string => get().path_join_nodestate(
+    get().app_getPath_userData_nodestate,
     "codex-account-auth",
     accountId,
     "auth.json",
@@ -131,13 +133,13 @@ const accountAddStore: ImmerStateCreator<
       throw new Error("auth.json 不能超过 2 MiB");
     }
     const parsed = credentialRead(sourceText);
-    const validationHome = await get().fileSystem.mkdtemp(get().path.join(
-      get().appTemp,
+    const validationHome = await get().fileSystem_mkdtemp_nodestate(get().path_join_nodestate(
+      get().app_getPath_temp_nodestate,
       "codex-app-server-validation-",
     ));
-    const validationAuth = get().path.join(validationHome, "auth.json");
+    const validationAuth = get().path_join_nodestate(validationHome, "auth.json");
     try {
-      await get().fileSystem.writeFile(validationAuth, parsed.normalized, {
+      await get().fileSystem_writeFile_nodestate(validationAuth, parsed.normalized, {
         encoding: "utf8",
         mode: 0o600,
       });
@@ -152,7 +154,7 @@ const accountAddStore: ImmerStateCreator<
     } catch (error) {
       throw new Error(`auth.json 登录态校验失败：${errorText(error)}`, { cause: error });
     } finally {
-      await get().fileSystem.rm(validationHome, { force: true, recursive: true })
+      await get().fileSystem_rm_nodestate(validationHome, { force: true, recursive: true })
         .catch(() => undefined);
     }
   };
@@ -205,20 +207,20 @@ const accountAddStore: ImmerStateCreator<
           sourceText: input.sourceText,
         });
         const prepared = await preparedRead(source.sourceText);
-        const id = get().crypto.createHash("sha256")
+        const id = get().crypto_createHash_nodestate("sha256")
           .update(prepared.credential.tokens.account_id, "utf8")
           .digest("hex")
           .slice(0, 24);
         const targetPath = accountAuthPath(id);
         if (
           input.sourcePath
-          && get().path.resolve(input.sourcePath).toLowerCase()
-            === get().path.resolve(targetPath).toLowerCase()
+          && get().path_resolve_nodestate(input.sourcePath).toLowerCase()
+            === get().path_resolve_nodestate(targetPath).toLowerCase()
         ) {
           throw new Error("不能把托管副本再次作为导入源");
         }
-        await get().fileSystem.mkdir(get().path.dirname(targetPath), { recursive: true });
-        await get().fileSystem.writeFile(targetPath, prepared.normalized, {
+        await get().fileSystem_mkdir_nodestate(get().path_dirname_nodestate(targetPath), { recursive: true });
+        await get().fileSystem_writeFile_nodestate(targetPath, prepared.normalized, {
           encoding: "utf8",
           mode: 0o600,
         });
@@ -230,7 +232,7 @@ const accountAddStore: ImmerStateCreator<
           label: previous?.label
             ?? prepared.accountRead.account.email
             ?? input.sourceFileName.replace(/\.json$/i, ""),
-          sourceFileName: get().path.basename(input.sourceFileName),
+          sourceFileName: get().path_basename_nodestate(input.sourceFileName),
           webAccess: input.webAccess ?? previous?.webAccess ?? null,
         });
         get().accountsActions.accountAdd({ accountId: id });
@@ -260,7 +262,7 @@ const accountAddStore: ImmerStateCreator<
         }
       },
       async clipboardImport() {
-        const sourceText = get().electron.clipboard.readText();
+        const sourceText = get().clipboard_readText_nodestate();
         if (!sourceText.trim()) throw new Error("剪贴板中没有 auth.json 内容");
         await get().accountAddActions.authJsonImport({
           sourceFileName: "clipboard-auth.json",
@@ -271,11 +273,11 @@ const accountAddStore: ImmerStateCreator<
       async defaultImport() {
         const codexHome = get().globalSettings.codexHome;
         if (!codexHome) throw new Error("请先配置 CODEX_HOME");
-        await get().accountAddActions.pathImport(get().path.join(codexHome, "auth.json"));
+        await get().accountAddActions.pathImport(get().path_join_nodestate(codexHome, "auth.json"));
         return true;
       },
       communicationStart() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) {
           throw new Error("CodexAppServer WebContents 不可用");
         }
@@ -303,24 +305,24 @@ const accountAddStore: ImmerStateCreator<
         get().authJsonCreateActions.dispose();
       },
       async pathImport(sourcePathInput) {
-        const sourcePath = get().path.resolve(sourcePathInput);
+        const sourcePath = get().path_resolve_nodestate(sourcePathInput);
         return get().accountAddActions.authJsonImport({
-          sourceFileName: get().path.basename(sourcePath),
+          sourceFileName: get().path_basename_nodestate(sourcePath),
           sourcePath,
-          sourceText: await get().fileSystem.readFile(sourcePath, "utf8"),
+          sourceText: await get().fileSystem_readFile_nodestate(sourcePath, "utf8"),
         });
       },
       async selectImport() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) {
           throw new Error("CodexAppServer WebContents 不可用");
         }
-        const parent = get().electron.BrowserWindow.fromWebContents(contents);
+        const parent = get().browserWindow_fromWebContents_nodestate(contents);
         if (!parent) throw new Error("无法取得账号管理窗口");
         const codexHome = get().globalSettings.codexHome;
-        const result = await get().electron.dialog.showOpenDialog(parent, {
+        const result = await get().dialog_showOpenDialog_nodestate(parent, {
           buttonLabel: "导入",
-          defaultPath: codexHome ? get().path.join(codexHome, "auth.json") : undefined,
+          defaultPath: codexHome ? get().path_join_nodestate(codexHome, "auth.json") : undefined,
           filters: [{ name: "auth.json", extensions: ["json"] }],
           properties: ["openFile"],
           title: "选择 auth.json",

@@ -40,9 +40,10 @@ type LoginOpen = {
   result: Promise<void>;
 };
 type nodeState_t = {
-  browserPartitionWindow: Pick<typeof BrowserPartitionWindow, "open" | "storageClear">;
-  electronSession: Pick<typeof electronSession, "fromPartition">;
-  loginWindow?: ElectronBrowserWindow;
+  browserPartitionWindow_open_nodestate: typeof BrowserPartitionWindow.open;
+  browserPartitionWindow_storageClear_nodestate: typeof BrowserPartitionWindow.storageClear;
+  loginWindow_nodestate?: ElectronBrowserWindow;
+  session_fromPartition_nodestate: typeof electronSession.fromPartition;
 };
 type LoginSlice = {
   login: LoginState;
@@ -84,7 +85,7 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
         return true;
       },
       communicationStart() {
-        const contents = get().loginWindow?.webContents;
+        const contents = get().loginWindow_nodestate?.webContents;
         if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
         contents.ipc.handle(login.channel, (_event, input: unknown) => {
           const requestValue = login.requestValidator.parse(input);
@@ -144,7 +145,7 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
       },
       async identify(partition) {
         try {
-          const response = await get().electronSession.fromPartition(partition).fetch(
+          const response = await get().session_fromPartition_nodestate(partition).fetch(
             "https://chatgpt.com/api/auth/session",
             { credentials: "include" },
           );
@@ -157,7 +158,7 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
         }
       },
       open(partition) {
-        const parent = get().loginWindow;
+        const parent = get().loginWindow_nodestate;
         if (!parent || parent.isDestroyed()) throw new Error("Login 父窗口不可用");
         let finish: (error?: Error) => void = () => undefined;
         const resultPromise = new Promise<void>((resolve, reject) => {
@@ -172,7 +173,7 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
             watchingStop();
             window?.dispose();
             if (error) {
-              void get().browserPartitionWindow.storageClear(partition).catch(() => undefined);
+              void get().browserPartitionWindow_storageClear_nodestate(partition).catch(() => undefined);
               reject(error);
               return;
             }
@@ -191,7 +192,7 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
             }
           };
 
-          void get().browserPartitionWindow.open({
+          void get().browserPartitionWindow_open_nodestate({
             height: 760,
             minHeight: 520,
             minWidth: 760,
@@ -230,7 +231,7 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
         };
       },
       stateSend() {
-        const contents = get().loginWindow?.webContents;
+        const contents = get().loginWindow_nodestate?.webContents;
         if (!contents || contents.isDestroyed()) return;
         contents.send(login.channel, loginValidator.parse(get().login));
       },

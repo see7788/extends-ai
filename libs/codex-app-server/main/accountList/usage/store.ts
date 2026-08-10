@@ -53,7 +53,7 @@ type UsageSlice = {
     errorSet(input: z.infer<typeof errorSetValidator>): void;
   };
 };
-type nodeState_t = { webContents?: WebContents };
+type nodeState_t = { webContents_nodestate?: WebContents };
 
 const accountStateInitial: z.infer<typeof accountStateValidator> = {
   status: "idle",
@@ -79,7 +79,7 @@ const usage = {
 };
 
 const usageStore: ImmerStateCreator<UsageSlice, nodeState_t> = (set, get) => {
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     usage.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().usage }),
   );
@@ -92,7 +92,7 @@ const usageStore: ImmerStateCreator<UsageSlice, nodeState_t> = (set, get) => {
         stateSend();
       },
       communicationStart() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
         contents.ipc.handle(usage.channel, (_event, input: unknown) => {
           usage.requestValidator.parse(input);

@@ -49,17 +49,22 @@ type GlobalSettingsSlice = {
   };
 };
 type nodeState_t = {
-  crypto: Pick<typeof import("node:crypto"), "randomUUID">;
-  fileSystem: Pick<
-    typeof import("node:fs/promises"),
-    "cp" | "mkdir" | "open" | "readdir" | "rename" | "rm" | "stat" | "unlink"
-  >;
-  path: Pick<
-    typeof import("node:path"),
-    "dirname" | "isAbsolute" | "join" | "relative" | "resolve"
-  >;
-  process: Pick<NodeJS.Process, "platform">;
-  webContents?: WebContents;
+  crypto_randomUUID_nodestate: typeof import("node:crypto").randomUUID;
+  fileSystem_cp_nodestate: typeof import("node:fs/promises").cp;
+  fileSystem_mkdir_nodestate: typeof import("node:fs/promises").mkdir;
+  fileSystem_open_nodestate: typeof import("node:fs/promises").open;
+  fileSystem_readdir_nodestate: typeof import("node:fs/promises").readdir;
+  fileSystem_rename_nodestate: typeof import("node:fs/promises").rename;
+  fileSystem_rm_nodestate: typeof import("node:fs/promises").rm;
+  fileSystem_stat_nodestate: typeof import("node:fs/promises").stat;
+  fileSystem_unlink_nodestate: typeof import("node:fs/promises").unlink;
+  path_dirname_nodestate: typeof import("node:path").dirname;
+  path_isAbsolute_nodestate: typeof import("node:path").isAbsolute;
+  path_join_nodestate: typeof import("node:path").join;
+  path_relative_nodestate: typeof import("node:path").relative;
+  path_resolve_nodestate: typeof import("node:path").resolve;
+  process_platform_nodestate: NodeJS.Process["platform"];
+  webContents_nodestate?: WebContents;
 };
 
 const initial: GlobalSettings = {
@@ -86,13 +91,13 @@ const globalSettings = {
 };
 
 const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice, nodeState_t> = (set, get) => {
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     globalSettings.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().globalSettings }),
   );
   const pathExists = async (value: string): Promise<boolean> => {
     try {
-      await get().fileSystem.stat(value);
+      await get().fileSystem_stat_nodestate(value);
       return true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
@@ -100,41 +105,41 @@ const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice, nodeState_t> =
     }
   };
   const pathNormalize = (value: string): string => {
-    if (!get().path.isAbsolute(value)) {
+    if (!get().path_isAbsolute_nodestate(value)) {
       throw new Error(`CODEX_HOME 必须是绝对路径：${value}`);
     }
-    return get().path.resolve(value);
+    return get().path_resolve_nodestate(value);
   };
-  const pathSame = (left: string, right: string): boolean => get().process.platform === "win32"
+  const pathSame = (left: string, right: string): boolean => get().process_platform_nodestate === "win32"
     ? left.toLowerCase() === right.toLowerCase()
     : left === right;
   const pathInside = (parent: string, child: string): boolean => {
-    const value = get().path.relative(parent, child);
-    return Boolean(value) && !value.startsWith("..") && !get().path.isAbsolute(value);
+    const value = get().path_relative_nodestate(parent, child);
+    return Boolean(value) && !value.startsWith("..") && !get().path_isAbsolute_nodestate(value);
   };
   const directoryWritableAssert = async (directory: string): Promise<void> => {
-    const probe = get().path.join(
+    const probe = get().path_join_nodestate(
       directory,
-      `.codex-app-server-write-${get().crypto.randomUUID()}.tmp`,
+      `.codex-app-server-write-${get().crypto_randomUUID_nodestate()}.tmp`,
     );
     try {
-      await get().fileSystem.mkdir(directory, { recursive: true });
-      const handle = await get().fileSystem.open(probe, "wx");
+      await get().fileSystem_mkdir_nodestate(directory, { recursive: true });
+      const handle = await get().fileSystem_open_nodestate(probe, "wx");
       await handle.close();
-      await get().fileSystem.unlink(probe);
+      await get().fileSystem_unlink_nodestate(probe);
     } catch (error) {
-      await get().fileSystem.unlink(probe).catch(() => undefined);
+      await get().fileSystem_unlink_nodestate(probe).catch(() => undefined);
       throw new Error(`目录不可写：${directory}`, { cause: error });
     }
   };
   const pathWritableAssert = async (value: string): Promise<void> => {
     let existing = value;
     while (!await pathExists(existing)) {
-      const parent = get().path.dirname(existing);
+      const parent = get().path_dirname_nodestate(existing);
       if (parent === existing) throw new Error(`找不到可写的父目录：${value}`);
       existing = parent;
     }
-    const state = await get().fileSystem.stat(existing);
+    const state = await get().fileSystem_stat_nodestate(existing);
     if (!state.isDirectory()) throw new Error(`路径不是目录：${existing}`);
     await directoryWritableAssert(existing);
   };
@@ -142,7 +147,7 @@ const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice, nodeState_t> =
     globalSettings: structuredClone(initial),
     globalSettingsActions: {
       communicationStart() {
-        const contents = get().webContents;
+        const contents = get().webContents_nodestate;
         if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
         contents.ipc.handle(globalSettings.channel, (_event, input: unknown) => {
           const requestValue = globalSettings.requestValidator.parse(input);
@@ -176,36 +181,36 @@ const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice, nodeState_t> =
           }
           await pathWritableAssert(target);
           if (await pathExists(source)) {
-            if (!(await get().fileSystem.stat(source)).isDirectory()) {
+            if (!(await get().fileSystem_stat_nodestate(source)).isDirectory()) {
               throw new Error(`原 CODEX_HOME 不是目录：${source}`);
             }
             if (await pathExists(target)) {
-              if (!(await get().fileSystem.stat(target)).isDirectory()) {
+              if (!(await get().fileSystem_stat_nodestate(target)).isDirectory()) {
                 throw new Error(`新 CODEX_HOME 不是目录：${target}`);
               }
-              if ((await get().fileSystem.readdir(target)).length > 0) {
+              if ((await get().fileSystem_readdir_nodestate(target)).length > 0) {
                 throw new Error(`新 CODEX_HOME 不是空目录：${target}`);
               }
-              await get().fileSystem.rm(target, { recursive: true });
+              await get().fileSystem_rm_nodestate(target, { recursive: true });
             }
-            await get().fileSystem.mkdir(get().path.dirname(target), { recursive: true });
+            await get().fileSystem_mkdir_nodestate(get().path_dirname_nodestate(target), { recursive: true });
             try {
-              await get().fileSystem.rename(source, target);
+              await get().fileSystem_rename_nodestate(source, target);
             } catch (error) {
               if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
               try {
-                await get().fileSystem.cp(source, target, {
+                await get().fileSystem_cp_nodestate(source, target, {
                   errorOnExist: true,
                   force: false,
                   recursive: true,
                 });
               } catch (copyError) {
-                await get().fileSystem.rm(target, { force: true, recursive: true });
+                await get().fileSystem_rm_nodestate(target, { force: true, recursive: true });
                 throw new Error("CODEX_HOME 复制失败，原目录保持不变", {
                   cause: copyError,
                 });
               }
-              await get().fileSystem.rm(source, { recursive: true }).catch(() => {
+              await get().fileSystem_rm_nodestate(source, { recursive: true }).catch(() => {
                 oldPathCleanupFailed = true;
               });
             }

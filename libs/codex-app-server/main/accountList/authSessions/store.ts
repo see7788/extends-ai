@@ -54,7 +54,7 @@ type AuthSessionsSlice = {
     errorSet(input: z.infer<typeof errorSetValidator>): void;
   };
 };
-type nodeState_t = { webContents?: WebContents };
+type nodeState_t = { webContents_nodestate?: WebContents };
 
 const initial: AuthSessions = { byAccountId: {} };
 const authSessions = {
@@ -92,7 +92,7 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice, nodeState_t> = (se
     /unauthenticated/i,
     /login required/i,
   ].some(pattern => pattern.test(error));
-  const stateSend = (): void => get().webContents?.send(
+  const stateSend = (): void => get().webContents_nodestate?.send(
     authSessions.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().authSessions }),
   );
@@ -105,7 +105,7 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice, nodeState_t> = (se
       stateSend();
     },
     communicationStart() {
-      const contents = get().webContents;
+      const contents = get().webContents_nodestate;
       if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
       contents.ipc.handle(authSessions.channel, (_event, input: unknown) => {
         authSessions.requestValidator.parse(input);
