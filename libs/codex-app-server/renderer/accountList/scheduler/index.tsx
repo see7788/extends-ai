@@ -44,17 +44,42 @@ const Scheduler = ({
       ? Math.max(Date.now(), lastRunAt + delay)
       : Date.now()).toISOString()
     : null;
-  const queryNodes: TreeDataNode[] = [
-    { key: "last", title: "上次查询" },
-    { key: "failures", title: "连续失败" },
-    { key: "next", title: "下次查询" },
-    { key: "run", title: "立即查询" },
-    ...(value.error ? [{ key: "error", title: "查询错误" }] : []),
-  ];
   const treeData: TreeDataNode[] = [{
-    children: queryNodes,
     key: "query-all",
-    title: "查询全部账号",
+    title: <Typography.Text>查询全部账号</Typography.Text>,
+    children: [
+      {
+        key: "last",
+        title: <Typography.Text>上次查询：{timeText(value.lastRunAt)}</Typography.Text>,
+      },
+      {
+        key: "failures",
+        title: <Typography.Text>连续失败：{value.consecutiveFailures} 次</Typography.Text>,
+      },
+      {
+        key: "next",
+        title: <Typography.Text>下次查询：{timeText(nextRunAt)}</Typography.Text>,
+      },
+      {
+        key: "run",
+        title: (
+          <Button
+            icon={<ReloadOutlined />}
+            iconPlacement="end"
+            type="text"
+            onClick={() => void runNow()}
+          >
+            立即查询
+          </Button>
+        ),
+      },
+      ...(value.error
+        ? [{
+          key: "error",
+          title: <Alert message={value.error} showIcon type="warning" />,
+        }]
+        : []),
+    ],
   }];
   return (
     <Tree
@@ -63,33 +88,6 @@ const Scheduler = ({
       selectedKeys={[]}
       styles={{ root: { background: "transparent" } }}
       treeData={treeData}
-      titleRender={node => {
-          if (node.key === "query-all") {
-            return <Typography.Text>查询全部账号</Typography.Text>;
-          }
-          if (node.key === "last") {
-            return <Typography.Text>上次查询：{timeText(value.lastRunAt)}</Typography.Text>;
-          }
-          if (node.key === "failures") {
-            return <Typography.Text>连续失败：{value.consecutiveFailures} 次</Typography.Text>;
-          }
-          if (node.key === "next") {
-            return <Typography.Text>下次查询：{timeText(nextRunAt)}</Typography.Text>;
-          }
-          if (node.key === "run") {
-            return (
-              <Button
-                icon={<ReloadOutlined />}
-                iconPlacement="end"
-                type="text"
-                onClick={() => void runNow()}
-              >
-                立即查询
-              </Button>
-            );
-          }
-          return value.error ? <Alert message={value.error} showIcon type="warning" /> : null;
-      }}
     />
   );
 };
