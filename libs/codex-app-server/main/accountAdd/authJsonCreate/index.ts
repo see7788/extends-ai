@@ -1,20 +1,19 @@
-import {
-  applicationRead,
-  windowOpen,
-} from "browser-partition-main/browser/index.ts";
 import store from "../../store.ts";
 import type { AuthJsonCreateInput } from "./store.ts";
 
 const create = async (input: {
   carrier: AuthJsonCreateInput;
 }) => {
-  const application = await applicationRead({ browserId: input.carrier.browserId });
-  let opened: Awaited<ReturnType<typeof windowOpen>> | undefined;
+  const browserActions = store.getState().browserActions;
+  const application = await browserActions.applicationRead({
+    browserId: input.carrier.browserId,
+  });
+  let opened: Awaited<ReturnType<typeof browserActions.windowOpen>> | undefined;
   try {
     const source = await store.getState().authJsonCreateActions.create({
       browserId: input.carrier.browserId,
       openAuthUrl: async (authUrl, signal) => {
-        opened = await windowOpen(
+        opened = await browserActions.windowOpen(
           application.executablePath,
           authUrl,
           application.launchArguments,

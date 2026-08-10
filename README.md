@@ -1,5 +1,19 @@
 # extends-ai
 
+## 切片与通信边界
+
+- main 主仓库只组合切片并保存当前窗口的 `webContents`；窗口创建后先写入 `webContents`，再启动各切片业务。
+- 每个 main `store.ts` 是完整生产者：验证器、数据、Actions、自己的状态推送和自己的页面命令都在本切片闭合；通信直接使用 `get().webContents?.send(...)` 与当前窗口的 `webContents.ipc`。
+- 所有业务生产者统一使用 `ImmerStateCreator` 切片风格；有数据、只有数据、只有 Actions、无持久状态都不允许改变写法。只有负责组合切片与配置持久化的主 `store.ts` 不是切片。
+- 切片只能增改删查自己的数据。允许读取其他切片作为输入；需要写入多个切片的流程必须由消费者透明调用主仓库中的多个 Actions，不得塞回任一生产者。
+- `index.ts` 只保留包入口或跨切片消费者；原始 Node/Electron 过程实现放在同目录 `process.ts`。只转发 Actions、只重新导出对象的 `index.ts` 不允许存在。
+- 依赖方向固定为 `index.ts → 主 store → 切片 Actions`；任何 `store.ts → index.ts` 都是逆向调用，禁止存在。`process.ts` 不读取业务 store，切片只能单向调用 process 原语。
+- main 禁止使用动态 `import()` 隐藏依赖；renderer 需要共享验证器或 IPC 契约时，只导入切片自己的 `public.ts`。`public.ts` 必须直接定义真实契约，不能成为 `store.ts` 的转发套壳，也不能包含 Node/Electron 实体。
+- 每个切片只使用一个以切片名命名的 IPC channel；renderer invoke、main handle 与 main 状态推送共用该 channel，请求通过具名 `method` 验证器区分。禁止为单个 Action 或 stateRead/stateUpdated 拆分额外 channel。
+- main 切片导出的 Node/Electron 成员使用准确类型；renderer 读取切片契约时不加载 Node 实体。Node 模块、文件系统、Session 与窗口实现只在对应 Action 实际执行时取得。
+- preload 仍是唯一、很薄的 Electron 转发层；不承担业务验证、切片路由或集中业务挂载。
+- 通信载体不改变切片边界：Electron 切片自行注册并处理自己的 `webContents.ipc`；Hono 路由实例留在消费者入口并调用切片 Actions，不进入仓库；涉及多个切片的请求仍由消费者透明编排。
+
 ## 当前应用组合
 
 - `apps/main` 只实例化 Codex 账号维护窗口；托盘只保留“打开 Codex 账号管理”和“退出”。
@@ -113,7 +127,7 @@ extends-ai/
 │  └─ 已验收：开发态每个 renderer 只有一个入口并保持 HMR
 ├─ libs/browser-partition/            # 无业务状态的浏览器与隔离窗口生产者
 │  ├─ main/
-│  │  ├─ browser/                     # 发现、校验并打开系统浏览器
+│  │  ├─ browser/                     # 浏览器生产者切片；store 提供 Actions，process 承载系统进程实现
 │  │  └─ BrowserWindow/               # 创建指定 Electron Session 的隔离窗口
 │  ├─ preload/                        # 唯一通用安全 bridge；被所有业务窗口直接加载
 │  └─ renderer/public.ts             # 唯一公共类型化 invoke/read/subscribe；只具名导出

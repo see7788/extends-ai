@@ -1,6 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { accounts as producer } from "codex-app-server-main/accountList/accounts/store.ts";
-import { invoke } from "browser-partition-renderer/public.ts";
+import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
 const accountsValidator = producer.stateValidator;
@@ -10,6 +10,7 @@ type AccountsSlice = {
   accounts: Accounts;
   accountsActions: {
     accountDelete(input: AccountsDeleteInput): Promise<void>;
+    connect(): () => void;
     stateSet(input: Accounts): void;
   };
 };
@@ -21,15 +22,27 @@ const accounts = {
   resultValidator: producer.resultValidator,
 };
 
-const accountsStore: ImmerStateCreator<AccountsSlice> = set => ({
+const accountsStore: ImmerStateCreator<
+  AccountsSlice,
+  IpcSlice
+> = (set, get) => ({
   accounts: structuredClone(producer.initial),
   accountsActions: {
     async accountDelete(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: accounts.channel.accountDelete,
         input,
         inputValidator: accounts.input.accountDelete,
         resultValidator: accounts.resultValidator,
+      });
+    },
+    connect() {
+      return get().ipcActions.stateConnect({
+        error: console.error,
+        readChannel: accounts.channel.stateRead,
+        stateSet: get().accountsActions.stateSet,
+        stateUpdatedChannel: accounts.channel.stateUpdated,
+        validator: accounts.accountsValidator,
       });
     },
     stateSet(input) {

@@ -7,6 +7,7 @@ import {
   Typography,
 } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import AuthJsonCreate from "../accountAdd/authJsonCreate/index.tsx";
 import AuthJsonImport from "../accountAdd/authJsonImport/index.tsx";
@@ -41,6 +42,16 @@ const AccountPage = () => {
   const authSession = store(
     state => state.authSessions.byAccountId[accountId],
   );
+  useEffect(() => {
+    const state = store.getState();
+    const disconnect = [
+      state.accountActions.connect(),
+      state.authSessionsActions.connect(),
+      state.rateLimitsActions.connect(),
+      state.usageActions.connect(),
+    ];
+    return () => disconnect.forEach(run => run());
+  }, []);
   return (
     <div style={pageStyle}>
       <Hyperspeed />
@@ -113,6 +124,17 @@ const AccountListItem = ({ accountId }: { accountId: string }) => {
 const AccountsPage = () => {
   const order = store(state => state.accounts.order);
   const settings = store(state => state.globalSettings);
+  useEffect(() => {
+    const state = store.getState();
+    const disconnect = [
+      state.accountActions.connect(),
+      state.accountsActions.connect(),
+      state.authSessionsActions.connect(),
+      state.rateLimitsActions.connect(),
+      state.usageActions.connect(),
+    ];
+    return () => disconnect.forEach(run => run());
+  }, []);
   const items = [
     {
       key: "global-settings",

@@ -1,53 +1,112 @@
-import { z } from "zod";
+import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
+import { browser } from "./public.ts";
+import {
+  applicationRead as browserApplicationRead,
+  applicationsRead as browserApplicationsRead,
+  executableOpen as browserExecutableOpen,
+  open as browserOpen,
+  remoteDebugRead as browserRemoteDebugRead,
+  windowClose as browserWindowClose,
+  windowHandlesRead as browserWindowHandlesRead,
+  windowOpen as browserWindowOpen,
+  windowOpenRead as browserWindowOpenRead,
+} from "./process.ts";
 
-const browserIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
-const browserApplicationValidator = z.object({
-  executablePath: z.string().trim().min(1),
-  launchArguments: z.array(z.string()),
-  name: z.string().trim().min(1).max(120),
-  sourcePath: z.string().trim().min(1).optional(),
-});
-const browserApplicationItemValidator = z.object({
-  id: browserIdValidator,
-  importSupported: z.boolean(),
-  name: z.string().trim().min(1).max(120),
-});
-const browserApplicationsValidator = z.array(browserApplicationItemValidator);
-const browserWindowHandlesValidator = z.object({
-  handles: z.array(z.number().int().positive()),
-});
-const browserWindowCloseValidator = z.object({ closed: z.boolean() });
-const environmentTextValidator = z.string().trim().min(1);
-const shortcutValidator = z.object({
-  arguments: z.string(),
-  executablePath: z.string().trim().min(1),
-  name: z.string().trim().min(1),
-  sourcePath: z.string().trim().min(1),
-});
-const shortcutsResultValidator = z.object({
-  shortcuts: z.array(shortcutValidator),
-});
-const urlValidator = z.string().url();
-const commandValidator = z.object({});
-const applicationReadValidator = z.object({ browserId: browserIdValidator });
-const openValidator = applicationReadValidator.extend({ url: urlValidator });
-const browser = {
-  browserApplicationValidator,
-  browserApplicationsValidator,
-  browserIdValidator,
-  browserWindowCloseValidator,
-  browserWindowHandlesValidator,
-  environmentTextValidator,
-  channel: {
-    applicationsRead: "browser-partition:browser:applications-read",
-  },
-  input: {
-    applicationRead: applicationReadValidator,
-    command: commandValidator,
-    open: openValidator,
-  },
-  shortcutsResultValidator,
-  urlValidator,
+type BrowserApplication = ReturnType<typeof browser.browserApplicationValidator.parse>;
+type BrowserApplications = ReturnType<typeof browser.browserApplicationsValidator.parse>;
+type RemoteDebug = {
+  devToolsActivePortPath: string;
+  inspectUrl: string;
+};
+type WindowOpen = {
+  close(): Promise<boolean>;
+  closed: Promise<void>;
+};
+type BrowserSlice = {
+  browserActions: {
+    applicationRead(input: unknown): Promise<BrowserApplication>;
+    applicationsRead(): Promise<BrowserApplications>;
+    executableOpen(
+      executablePath: string,
+      url: string,
+      launchArguments?: string[],
+    ): Promise<void>;
+    install(): () => void;
+    open(input: unknown): Promise<void>;
+    remoteDebugRead(
+      executablePath: string,
+      launchArguments?: string[],
+    ): Promise<RemoteDebug>;
+    windowClose(executablePath: string, handle: number): Promise<boolean>;
+    windowHandlesRead(executablePath: string): Promise<number[]>;
+    windowOpen(
+      executablePath: string,
+      url: string,
+      launchArguments?: string[],
+      signal?: AbortSignal,
+    ): Promise<WindowOpen>;
+    windowOpenRead(executablePath: string): Promise<boolean>;
+  };
 };
 
-export { browser };
+const browserStore: ImmerStateCreator<
+  BrowserSlice,
+  { webContents?: WebContents }
+> = (_set, get) => ({
+  browserActions: {
+    async applicationRead(input) {
+      return browserApplicationRead(input);
+    },
+    async applicationsRead() {
+      return browserApplicationsRead();
+    },
+    async executableOpen(executablePath, url, launchArguments) {
+      await browserExecutableOpen(
+        executablePath,
+        url,
+        launchArguments,
+      );
+    },
+    install() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) {
+        throw new Error("Browser WebContents 不可用");
+      }
+      contents.ipc.handle(browser.channel.applicationsRead, async (_event, input: unknown) => {
+        browser.input.command.parse(input);
+        return get().browserActions.applicationsRead();
+      });
+      return () => contents.ipc.removeHandler(browser.channel.applicationsRead);
+    },
+    async open(input) {
+      await browserOpen(input);
+    },
+    async remoteDebugRead(executablePath, launchArguments) {
+      return browserRemoteDebugRead(
+        executablePath,
+        launchArguments,
+      );
+    },
+    async windowClose(executablePath, handle) {
+      return browserWindowClose(executablePath, handle);
+    },
+    async windowHandlesRead(executablePath) {
+      return browserWindowHandlesRead(executablePath);
+    },
+    async windowOpen(executablePath, url, launchArguments, signal) {
+      return browserWindowOpen(
+        executablePath,
+        url,
+        launchArguments,
+        signal,
+      );
+    },
+    async windowOpenRead(executablePath) {
+      return browserWindowOpenRead(executablePath);
+    },
+  },
+});
+
+export { browser, type BrowserSlice };
+export default browserStore;

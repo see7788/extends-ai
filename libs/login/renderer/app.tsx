@@ -1,5 +1,6 @@
 import { Masonry } from "antd";
 import Hyperspeed from "extends-react/src/Hyperspeed";
+import { useEffect } from "react";
 import Account from "./accounts/index.tsx";
 import CookieImport from "./cookieImport/index.tsx";
 import Login from "./login/index.tsx";
@@ -8,6 +9,8 @@ import store from "./store.ts";
 const App = () => {
   const accountsState = store(state => state.accounts);
   const identify = store(state => state.accountsActions.cookieImportConsume);
+
+  useEffect(() => store.getState().accountsActions.connect(), []);
 
   const identifiedBrowserIds = new Set(accountsState.order.flatMap(email => (
     accountsState.byEmail[email]?.sources.map(source => source.browserId) ?? []

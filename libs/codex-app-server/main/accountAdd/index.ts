@@ -1,8 +1,6 @@
 import {
   BrowserWindow as ElectronBrowserWindow,
-  ipcMain,
   type IpcMainInvokeEvent,
-  type WebContents,
 } from "electron";
 import { errorText } from "../public.ts";
 import store from "../store.ts";
@@ -16,43 +14,35 @@ import authJsonImportRun, {
 } from "./authJsonImport/index.ts";
 import { authJsonImport } from "./authJsonImport/store.ts";
 
-let renderer: WebContents | undefined;
-
-const rendererSet = (event: IpcMainInvokeEvent): void => {
-  renderer = event.sender;
-};
 const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
   const parent = ElectronBrowserWindow.fromWebContents(event.sender);
   if (!parent) throw new Error("无法取得账号管理窗口");
   return parent;
 };
-const send = (channel: string, value: unknown): void => {
-  if (renderer && !renderer.isDestroyed()) renderer.send(channel, value);
-};
 const install = (): (() => void) => {
+    const contents = store.getState().webContents;
+    if (!contents || contents.isDestroyed()) {
+      throw new Error("CodexAppServer WebContents 不可用");
+    }
     store.getState().authJsonImportActions.operationCancel();
 
-    ipcMain.handle(authJsonCreate.channel.create, async (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(authJsonCreate.channel.create, async (_event, input: unknown) => {
       const carrier = authJsonCreate.input.create.parse(input);
       const result = await authJsonCreateRun({ carrier });
       await authJsonImportRun(result.source);
       return authJsonCreate.result.create.parse({ created: true });
     });
-    ipcMain.handle(authJsonCreate.channel.cancel, (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(authJsonCreate.channel.cancel, (_event, input: unknown) => {
       authJsonCreate.input.command.parse(input);
       return authJsonCreate.result.cancel.parse({
         canceled: store.getState().authJsonCreateActions.cancel(),
       });
     });
-    ipcMain.handle(authJsonCreate.channel.stateRead, event => {
-      rendererSet(event);
-      return authJsonCreate.authJsonCreateValidator.parse(store.getState().authJsonCreate);
-    });
+    contents.ipc.handle(authJsonCreate.channel.stateRead, () => (
+      authJsonCreate.authJsonCreateValidator.parse(store.getState().authJsonCreate)
+    ));
 
-    ipcMain.handle(authJsonImport.channel.clipboard, async (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(authJsonImport.channel.clipboard, async (_event, input: unknown) => {
       authJsonImport.input.command.parse(input);
       const actions = store.getState().authJsonImportActions;
       actions.operationStart();
@@ -65,8 +55,7 @@ const install = (): (() => void) => {
         throw error;
       }
     });
-    ipcMain.handle(authJsonImport.channel.default, async (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(authJsonImport.channel.default, async (_event, input: unknown) => {
       authJsonImport.input.command.parse(input);
       const actions = store.getState().authJsonImportActions;
       actions.operationStart();
@@ -79,8 +68,7 @@ const install = (): (() => void) => {
         throw error;
       }
     });
-    ipcMain.handle(authJsonImport.channel.select, async (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(authJsonImport.channel.select, async (event, input: unknown) => {
       authJsonImport.input.command.parse(input);
       const sourcePath = await selectPath(parentRead(event));
       if (!sourcePath) return authJsonImport.result.import.parse({ imported: false });
@@ -95,36 +83,18 @@ const install = (): (() => void) => {
         throw error;
       }
     });
-    ipcMain.handle(authJsonImport.channel.stateRead, event => {
-      rendererSet(event);
-      return authJsonImport.authJsonImportValidator.parse(store.getState().authJsonImport);
-    });
-
-    const unsubscribe = store.subscribe((state, previous) => {
-      if (state.authJsonCreate !== previous.authJsonCreate) {
-        send(
-          authJsonCreate.channel.stateUpdated,
-          authJsonCreate.authJsonCreateValidator.parse(state.authJsonCreate),
-        );
-      }
-      if (state.authJsonImport !== previous.authJsonImport) {
-        send(
-          authJsonImport.channel.stateUpdated,
-          authJsonImport.authJsonImportValidator.parse(state.authJsonImport),
-        );
-      }
-    });
+    contents.ipc.handle(authJsonImport.channel.stateRead, () => (
+      authJsonImport.authJsonImportValidator.parse(store.getState().authJsonImport)
+    ));
     return () => {
       store.getState().authJsonCreateActions.dispose();
-      unsubscribe();
-      renderer = undefined;
-      ipcMain.removeHandler(authJsonCreate.channel.cancel);
-      ipcMain.removeHandler(authJsonCreate.channel.create);
-      ipcMain.removeHandler(authJsonCreate.channel.stateRead);
-      ipcMain.removeHandler(authJsonImport.channel.clipboard);
-      ipcMain.removeHandler(authJsonImport.channel.default);
-      ipcMain.removeHandler(authJsonImport.channel.select);
-      ipcMain.removeHandler(authJsonImport.channel.stateRead);
+      contents.ipc.removeHandler(authJsonCreate.channel.cancel);
+      contents.ipc.removeHandler(authJsonCreate.channel.create);
+      contents.ipc.removeHandler(authJsonCreate.channel.stateRead);
+      contents.ipc.removeHandler(authJsonImport.channel.clipboard);
+      contents.ipc.removeHandler(authJsonImport.channel.default);
+      contents.ipc.removeHandler(authJsonImport.channel.select);
+      contents.ipc.removeHandler(authJsonImport.channel.stateRead);
     };
 };
 

@@ -1,5 +1,6 @@
 import { CloseCircleOutlined, LoginOutlined } from "@ant-design/icons";
 import { App as AntdApp, Button, Flex, Tree, Typography } from "antd";
+import { useEffect } from "react";
 import GlassCard from "../public/GlassCard.tsx";
 import store from "../store.ts";
 
@@ -7,6 +8,7 @@ const Login = () => {
   const { message } = AntdApp.useApp();
   const loginState = store(state => state.login);
   const actions = store(state => state.loginActions);
+  useEffect(() => actions.connect(), [actions]);
   const errorShow = (error: unknown): void => {
     void message.error(error instanceof Error ? error.message : String(error));
   };

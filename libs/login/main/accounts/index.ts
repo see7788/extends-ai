@@ -1,8 +1,6 @@
 import {
   BrowserWindow as ElectronBrowserWindow,
-  ipcMain,
   type IpcMainInvokeEvent,
-  type WebContents,
 } from "electron";
 import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
 import store from "../store.ts";
@@ -15,18 +13,17 @@ const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
 };
 
 const install = (): (() => void) => {
-  const renderers = new Set<WebContents>();
-  const rendererSet = (event: IpcMainInvokeEvent): void => {
-    renderers.add(event.sender);
-  };
-  ipcMain.handle(accounts.channel.cookieImportConsume, async (event, input: unknown) => {
-    rendererSet(event);
+  const contents = store.getState().webContents;
+  if (!contents || contents.isDestroyed()) {
+    throw new Error("Login WebContents 不可用");
+  }
+  contents.ipc.handle(accounts.channel.cookieImportConsume, async (_event, input: unknown) => {
     accounts.input.command.parse(input);
     const candidate = store.getState().cookieImport.candidate;
     if (store.getState().cookieImport.status !== "ready" || !candidate) {
       throw new Error("没有待识别的浏览器登录态");
     }
-    const account = await store.getState().accountsActions.candidateConsume({
+    const value = await store.getState().accountsActions.candidateConsume({
       partition: candidate.partition,
       source: {
         browserId: candidate.browserId,
@@ -36,19 +33,17 @@ const install = (): (() => void) => {
     store.getState().cookieImportActions.candidateClear({
       partition: candidate.partition,
     });
-    return accounts.result.account.parse({ account });
+    return accounts.result.account.parse({ account: value });
   });
-  ipcMain.handle(accounts.channel.open, async (event, input: unknown) => {
-    rendererSet(event);
-    return accounts.result.command.parse({
+  contents.ipc.handle(accounts.channel.open, async (event, input: unknown) => (
+    accounts.result.command.parse({
       completed: await store.getState().accountsActions.open(
         input,
         parentRead(event),
       ),
-    });
-  });
-  ipcMain.handle(accounts.channel.remove, async (event, input: unknown) => {
-    rendererSet(event);
+    })
+  ));
+  contents.ipc.handle(accounts.channel.remove, async (_event, input: unknown) => {
     const value = accounts.input.email.parse(input);
     const sources = store.getState().accounts.byEmail[value.email]?.sources ?? [];
     const completed = await store.getState().accountsActions.remove(value);
@@ -62,37 +57,23 @@ const install = (): (() => void) => {
         }
       }
     }
-    return accounts.result.command.parse({
-      completed,
-    });
+    return accounts.result.command.parse({ completed });
   });
-  ipcMain.handle(accounts.channel.validate, async (event, input: unknown) => {
-    rendererSet(event);
-    return accounts.result.command.parse({
+  contents.ipc.handle(accounts.channel.validate, async (_event, input: unknown) => (
+    accounts.result.command.parse({
       completed: await store.getState().accountsActions.validate(input),
-    });
-  });
-  ipcMain.handle(accounts.channel.stateRead, event => {
-    rendererSet(event);
-    return accounts.accountsValidator.parse(store.getState().accounts);
-  });
-  const unsubscribe = store.subscribe((state, previous) => {
-    if (state.accounts === previous.accounts) return;
-    const value = accounts.accountsValidator.parse(state.accounts);
-    for (const renderer of renderers) {
-      if (renderer.isDestroyed()) renderers.delete(renderer);
-      else renderer.send(accounts.channel.stateUpdated, value);
-    }
-  });
+    })
+  ));
+  contents.ipc.handle(accounts.channel.stateRead, () => (
+    accounts.accountsValidator.parse(store.getState().accounts)
+  ));
   return () => {
     store.getState().accountsActions.dispose();
-    unsubscribe();
-    renderers.clear();
-    ipcMain.removeHandler(accounts.channel.cookieImportConsume);
-    ipcMain.removeHandler(accounts.channel.open);
-    ipcMain.removeHandler(accounts.channel.remove);
-    ipcMain.removeHandler(accounts.channel.stateRead);
-    ipcMain.removeHandler(accounts.channel.validate);
+    contents.ipc.removeHandler(accounts.channel.cookieImportConsume);
+    contents.ipc.removeHandler(accounts.channel.open);
+    contents.ipc.removeHandler(accounts.channel.remove);
+    contents.ipc.removeHandler(accounts.channel.stateRead);
+    contents.ipc.removeHandler(accounts.channel.validate);
   };
 };
 

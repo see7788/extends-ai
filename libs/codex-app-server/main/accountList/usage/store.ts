@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { castDraft } from "immer";
 import { z } from "zod";
 
@@ -42,6 +43,7 @@ type UsageSlice = {
   usage: Usage;
   usageActions: {
     accountDelete(input: AccountInput): void;
+    install(): () => void;
     loadingSet(input: AccountInput): void;
     resultSet(input: ResultSetInput): void;
     errorSet(input: ErrorSetInput): void;
@@ -74,7 +76,15 @@ const usage = {
   usageValidator,
 };
 
-const usageStore: ImmerStateCreator<UsageSlice> = (set, get) => ({
+const usageStore: ImmerStateCreator<
+  UsageSlice,
+  { webContents?: WebContents }
+> = (set, get) => {
+  const stateSend = (): void => get().webContents?.send(
+    usage.channel.stateUpdated,
+    usageValidator.parse(get().usage),
+  );
+  return ({
   usage: structuredClone(initial),
   usageActions: {
     accountDelete(input) {
@@ -82,6 +92,17 @@ const usageStore: ImmerStateCreator<UsageSlice> = (set, get) => ({
       set(state => {
         delete state.usage.byAccountId[accountId];
       });
+      stateSend();
+    },
+    install() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) {
+        throw new Error("CodexAppServer WebContents 不可用");
+      }
+      contents.ipc.handle(usage.channel.stateRead, () => (
+        usageValidator.parse(get().usage)
+      ));
+      return () => contents.ipc.removeHandler(usage.channel.stateRead);
     },
     loadingSet(input) {
       const value = accountCommandValidator.parse(input);
@@ -94,6 +115,7 @@ const usageStore: ImmerStateCreator<UsageSlice> = (set, get) => ({
           error: null,
         };
       });
+      stateSend();
     },
     resultSet(input) {
       const value = resultSetValidator.parse(input);
@@ -105,6 +127,7 @@ const usageStore: ImmerStateCreator<UsageSlice> = (set, get) => ({
           error: null,
         };
       });
+      stateSend();
     },
     errorSet(input) {
       const value = errorSetValidator.parse(input);
@@ -117,9 +140,11 @@ const usageStore: ImmerStateCreator<UsageSlice> = (set, get) => ({
           error: value.error,
         };
       });
+      stateSend();
     },
   },
-});
+  });
+};
 
 export { usage };
 export default usageStore;

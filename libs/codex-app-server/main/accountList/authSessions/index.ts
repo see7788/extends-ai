@@ -1,13 +1,9 @@
-import { app, ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import { app } from "electron";
 import { errorText } from "../../public.ts";
 import { accountAuthPath } from "../../process.ts";
 import store from "../../store.ts";
 import { authSessions } from "./store.ts";
 
-let renderer: WebContents | undefined;
-const rendererSet = (event: IpcMainInvokeEvent): void => {
-  renderer = event.sender;
-};
 export const read = async (input: unknown): Promise<void> => {
   const value = authSessions.input.command.parse(input);
   const account = store.getState().account[value.accountId];
@@ -42,31 +38,19 @@ export const read = async (input: unknown): Promise<void> => {
 };
 
 const install = (): (() => void) => {
-    const stateRead = () => authSessions.authSessionsValidator.parse(
-      store.getState().authSessions,
-    );
-    ipcMain.handle(authSessions.channel.read, async (event, input: unknown) => {
-      rendererSet(event);
-      await read(input);
-      return authSessions.resultValidator.parse({ ok: true });
-    });
-    ipcMain.handle(authSessions.channel.stateRead, event => {
-      rendererSet(event);
-      return stateRead();
-    });
-    const unsubscribe = store.subscribe((state, previous) => {
-      if (
-        state.authSessions !== previous.authSessions
-        && renderer
-        && !renderer.isDestroyed()
-      ) renderer.send(authSessions.channel.stateUpdated, stateRead());
-    });
-    return () => {
-      unsubscribe();
-      renderer = undefined;
-      ipcMain.removeHandler(authSessions.channel.read);
-      ipcMain.removeHandler(authSessions.channel.stateRead);
-    };
+  const storeDispose = store.getState().authSessionsActions.install();
+  const contents = store.getState().webContents;
+  if (!contents || contents.isDestroyed()) {
+    throw new Error("CodexAppServer WebContents 不可用");
+  }
+  contents.ipc.handle(authSessions.channel.read, async (_event, input: unknown) => {
+    await read(input);
+    return authSessions.resultValidator.parse({ ok: true });
+  });
+  return () => {
+    contents.ipc.removeHandler(authSessions.channel.read);
+    storeDispose();
+  };
 };
 
 export default install;

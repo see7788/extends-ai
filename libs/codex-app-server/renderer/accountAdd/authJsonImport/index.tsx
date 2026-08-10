@@ -4,6 +4,7 @@ import {
   FolderOpenOutlined,
 } from "@ant-design/icons";
 import { Alert, App as AntdApp, Button, Tree, type TreeDataNode } from "antd";
+import { useEffect } from "react";
 import { errorText } from "../../public/index.ts";
 import GlassCard from "../../public/GlassCard.tsx";
 import store from "../../store.ts";
@@ -12,6 +13,7 @@ const AuthJsonImport = () => {
   const { message } = AntdApp.useApp();
   const state = store(value => value.authJsonImport);
   const actions = store(value => value.authJsonImportActions);
+  useEffect(() => actions.connect(), [actions]);
   const run = async (action: () => Promise<void>): Promise<void> => {
     try {
       await action();

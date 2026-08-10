@@ -3,19 +3,17 @@ import { join } from "node:path";
 import {
   app,
   BrowserWindow as ElectronBrowserWindow,
-  ipcMain,
   type IpcMainInvokeEvent,
-  type WebContents,
 } from "electron";
+import BrowserPartitionWindow from "browser-partition-main/BrowserWindow/index.ts";
 import { accountAuthPath, authFileCopy, authFileCopySync } from "../../process.ts";
 import store from "../../store.ts";
-import AccountBrowserWindow from "./BrowserWindow/index.ts";
 import { account } from "./store.ts";
 
-let renderer: WebContents | undefined;
-const rendererSet = (event: IpcMainInvokeEvent): void => {
-  renderer = event.sender;
-};
+const officialUrl = "https://chatgpt.com/";
+let officialPartition: string | undefined;
+let officialWindow: BrowserPartitionWindow | undefined;
+
 const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
   const parent = ElectronBrowserWindow.fromWebContents(event.sender);
   if (!parent) throw new Error("无法取得账号管理窗口");
@@ -32,7 +30,32 @@ const officialOpen = async (
     if (!selected.webAccess) {
       throw new Error("该账号没有内嵌网页登录会话，请通过内嵌 ChatGPT 登录重新添加");
     }
-    await AccountBrowserWindow.open(parent, selected.webAccess.partition);
+    const partition = selected.webAccess.partition;
+    if (officialWindow && officialPartition === partition) {
+      await officialWindow.show();
+      return;
+    }
+    officialWindow?.dispose();
+    officialWindow = undefined;
+    officialPartition = undefined;
+    let created: BrowserPartitionWindow | undefined;
+    created = await BrowserPartitionWindow.open({
+      height: 780,
+      minHeight: 520,
+      minWidth: 760,
+      onClose: () => {
+        if (officialWindow !== created) return;
+        officialWindow = undefined;
+        officialPartition = undefined;
+      },
+      parent,
+      partition,
+      title: "ChatGPT",
+      url: officialUrl,
+      width: 1100,
+    });
+    officialWindow = created;
+    officialPartition = partition;
 };
 
 export const enabledSet = async (input: unknown): Promise<void> => {
@@ -70,38 +93,32 @@ export const initialize = (): void => {
 };
 
 const install = (): (() => void) => {
+    const contents = store.getState().webContents;
+    if (!contents || contents.isDestroyed()) {
+      throw new Error("CodexAppServer WebContents 不可用");
+    }
     const stateRead = () => account.accountStateValidator.parse(store.getState().account);
-    ipcMain.handle(account.channel.enabledSet, async (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(account.channel.enabledSet, async (_event, input: unknown) => {
       await enabledSet(input);
       return account.resultValidator.parse({ ok: true });
     });
-    ipcMain.handle(account.channel.labelSet, (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(account.channel.labelSet, (_event, input: unknown) => {
       store.getState().accountActions.labelSet(account.input.labelSet.parse(input));
       return account.resultValidator.parse({ ok: true });
     });
-    ipcMain.handle(account.channel.officialOpen, async (event, input: unknown) => {
-      rendererSet(event);
+    contents.ipc.handle(account.channel.officialOpen, async (event, input: unknown) => {
       await officialOpen(input, parentRead(event));
       return account.resultValidator.parse({ ok: true });
     });
-    ipcMain.handle(account.channel.stateRead, event => {
-      rendererSet(event);
-      return stateRead();
-    });
-    const unsubscribe = store.subscribe((state, previous) => {
-      if (state.account !== previous.account && renderer && !renderer.isDestroyed()) {
-        renderer.send(account.channel.stateUpdated, stateRead());
-      }
-    });
+    contents.ipc.handle(account.channel.stateRead, stateRead);
     return () => {
-      unsubscribe();
-      renderer = undefined;
-      ipcMain.removeHandler(account.channel.enabledSet);
-      ipcMain.removeHandler(account.channel.labelSet);
-      ipcMain.removeHandler(account.channel.officialOpen);
-      ipcMain.removeHandler(account.channel.stateRead);
+      officialWindow?.dispose();
+      officialWindow = undefined;
+      officialPartition = undefined;
+      contents.ipc.removeHandler(account.channel.enabledSet);
+      contents.ipc.removeHandler(account.channel.labelSet);
+      contents.ipc.removeHandler(account.channel.officialOpen);
+      contents.ipc.removeHandler(account.channel.stateRead);
     };
 };
 

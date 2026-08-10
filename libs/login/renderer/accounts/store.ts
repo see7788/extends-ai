@@ -1,6 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import { accounts as producer } from "login-main/accounts/store.ts";
-import { invoke } from "browser-partition-renderer/public.ts";
+import { accounts as producer } from "login-main/accounts/public.ts";
+import type { IpcSlice } from "browser-partition-renderer/public.ts";
 
 type EmailInput = ReturnType<typeof producer.input.email.parse>;
 type Account = ReturnType<typeof producer.result.account.parse>["account"];
@@ -8,6 +8,7 @@ type Account = ReturnType<typeof producer.result.account.parse>["account"];
 type AccountsSlice = {
   accounts: ReturnType<typeof producer.accountsValidator.parse>;
   accountsActions: {
+    connect(): () => void;
     cookieImportConsume(): Promise<Account>;
     open(input: EmailInput): Promise<void>;
     remove(input: EmailInput): Promise<void>;
@@ -16,19 +17,31 @@ type AccountsSlice = {
   };
 };
 
-const accountsStore: ImmerStateCreator<AccountsSlice> = set => ({
+const accountsStore: ImmerStateCreator<
+  AccountsSlice,
+  IpcSlice
+> = (set, get) => ({
   accounts: structuredClone(producer.initial),
   accountsActions: {
     async cookieImportConsume() {
-      return (await invoke({
+      return (await get().ipcActions.invoke({
         channel: producer.channel.cookieImportConsume,
         input: {},
         inputValidator: producer.input.command,
         resultValidator: producer.result.account,
       })).account;
     },
+    connect() {
+      return get().ipcActions.stateConnect({
+        error: console.error,
+        readChannel: producer.channel.stateRead,
+        stateSet: get().accountsActions.stateSet,
+        stateUpdatedChannel: producer.channel.stateUpdated,
+        validator: producer.accountsValidator,
+      });
+    },
     async open(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: producer.channel.open,
         input,
         inputValidator: producer.input.email,
@@ -36,7 +49,7 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = set => ({
       });
     },
     async remove(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: producer.channel.remove,
         input,
         inputValidator: producer.input.email,
@@ -49,7 +62,7 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = set => ({
       });
     },
     async validate(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: producer.channel.validate,
         input,
         inputValidator: producer.input.email,

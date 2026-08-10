@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { z } from "zod";
 
 const authJsonImportValidator = z.object({
@@ -67,13 +68,22 @@ const authJsonImport = {
   sourceValidator,
 };
 
-const authJsonImportStore: ImmerStateCreator<AuthJsonImportSlice> = (set, get) => ({
+const authJsonImportStore: ImmerStateCreator<
+  AuthJsonImportSlice,
+  { webContents?: WebContents }
+> = (set, get) => {
+  const stateSend = (): void => get().webContents?.send(
+    authJsonImport.channel.stateUpdated,
+    authJsonImportValidator.parse(get().authJsonImport),
+  );
+  return ({
   authJsonImport: structuredClone(initial),
   authJsonImportActions: {
     operationCancel() {
       set(state => {
         state.authJsonImport = structuredClone(initial);
       });
+      stateSend();
     },
     operationFail(input) {
       const value = operationFailValidator.parse(input);
@@ -83,6 +93,7 @@ const authJsonImportStore: ImmerStateCreator<AuthJsonImportSlice> = (set, get) =
           status: "error",
         };
       });
+      stateSend();
     },
     operationStart() {
       set(state => {
@@ -91,14 +102,17 @@ const authJsonImportStore: ImmerStateCreator<AuthJsonImportSlice> = (set, get) =
           status: "working",
         };
       });
+      stateSend();
     },
     operationSucceed() {
       set(state => {
         state.authJsonImport = structuredClone(initial);
       });
+      stateSend();
     },
   },
-});
+  });
+};
 
 export { authJsonImport };
 export default authJsonImportStore;

@@ -1,6 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { authSessions as producer } from "codex-app-server-main/accountList/authSessions/store.ts";
-import { invoke } from "browser-partition-renderer/public.ts";
+import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
 const authSessionsValidator = producer.authSessionsValidator;
@@ -9,6 +9,7 @@ type AuthSessionsCommandInput = z.infer<typeof producer.input.command>;
 type AuthSessionsSlice = {
   authSessions: AuthSessions;
   authSessionsActions: {
+    connect(): () => void;
     read(input: AuthSessionsCommandInput): Promise<void>;
     stateSet(input: AuthSessions): void;
   };
@@ -20,11 +21,23 @@ const authSessions = {
   input: producer.input,
   resultValidator: producer.resultValidator,
 };
-const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = set => ({
+const authSessionsStore: ImmerStateCreator<
+  AuthSessionsSlice,
+  IpcSlice
+> = (set, get) => ({
   authSessions: structuredClone(producer.initial),
   authSessionsActions: {
+    connect() {
+      return get().ipcActions.stateConnect({
+        error: console.error,
+        readChannel: authSessions.channel.stateRead,
+        stateSet: get().authSessionsActions.stateSet,
+        stateUpdatedChannel: authSessions.channel.stateUpdated,
+        validator: authSessions.authSessionsValidator,
+      });
+    },
     async read(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: authSessions.channel.read,
         input,
         inputValidator: authSessions.input.command,

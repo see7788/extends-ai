@@ -1,8 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import accountsInstall from "./accounts/index.ts";
-import cookieImportInstall from "./cookieImport/index.ts";
-import loginInstall from "./login/index.ts";
 import store from "./store.ts";
 import { electronRendererUrlRead } from "./process.ts";
 
@@ -36,12 +34,14 @@ class Login {
         sandbox: true,
       },
     });
+    store.setState({ webContents: this.window.webContents });
     this.disposeCommunication = [
+      store.getState().browserActions.install(),
       accountsInstall(),
-      loginInstall(partition => (
+      store.getState().loginActions.install(this.window, partition => (
         store.getState().accountsActions.loginIdentify(partition)
       )),
-      cookieImportInstall(),
+      store.getState().cookieImportActions.install(),
     ];
     this.ready = this.rendererLoad();
     this.window.on("close", event => {
@@ -63,6 +63,7 @@ class Login {
     if (this.disposed) return;
     this.disposed = true;
     for (const run of this.disposeCommunication.reverse()) run();
+    store.setState({ webContents: undefined });
     if (!this.window.isDestroyed()) this.window.destroy();
   }
 

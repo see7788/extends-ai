@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { z } from "zod";
 
 const accountIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
@@ -52,6 +53,7 @@ type AuthSessionsSlice = {
   authSessions: AuthSessions;
   authSessionsActions: {
     accountDelete(input: z.infer<typeof accountCommandValidator>): void;
+    install(): () => void;
     loadingSet(input: LoadingSetInput): void;
     resultSet(input: ResultSetInput): void;
     errorSet(input: ErrorSetInput): void;
@@ -97,7 +99,15 @@ const authSessions = {
   resultValidator,
 };
 
-const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = (set, get) => ({
+const authSessionsStore: ImmerStateCreator<
+  AuthSessionsSlice,
+  { webContents?: WebContents }
+> = (set, get) => {
+  const stateSend = (): void => get().webContents?.send(
+    authSessions.channel.stateUpdated,
+    authSessionsValidator.parse(get().authSessions),
+  );
+  return ({
   authSessions: structuredClone(initial),
   authSessionsActions: {
     accountDelete(input) {
@@ -105,6 +115,17 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = (set, get) => ({
       set(state => {
         delete state.authSessions.byAccountId[accountId];
       });
+      stateSend();
+    },
+    install() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) {
+        throw new Error("CodexAppServer WebContents 不可用");
+      }
+      contents.ipc.handle(authSessions.channel.stateRead, () => (
+        authSessionsValidator.parse(get().authSessions)
+      ));
+      return () => contents.ipc.removeHandler(authSessions.channel.stateRead);
     },
     loadingSet(input) {
       const value = loadingSetValidator.parse(input);
@@ -117,6 +138,7 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = (set, get) => ({
           error: null,
         };
       });
+      stateSend();
     },
     resultSet(input) {
       const value = resultSetValidator.parse(input);
@@ -135,6 +157,7 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = (set, get) => ({
           error: null,
         };
       });
+      stateSend();
     },
     errorSet(input) {
       const value = errorSetValidator.parse(input);
@@ -150,9 +173,11 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice> = (set, get) => ({
           error: value.error,
         };
       });
+      stateSend();
     },
   },
-});
+  });
+};
 
 export { authSessions };
 export default authSessionsStore;

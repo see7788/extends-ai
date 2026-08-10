@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { castDraft } from "immer";
 import { z } from "zod";
 
@@ -59,6 +60,7 @@ type RateLimitsSlice = {
   rateLimits: RateLimits;
   rateLimitsActions: {
     accountDelete(input: AccountInput): void;
+    install(): () => void;
     loadingSet(input: AccountInput): void;
     resultSet(input: ResultSetInput): void;
     errorSet(input: ErrorSetInput): void;
@@ -94,7 +96,15 @@ const rateLimits = {
   windowValidator,
 };
 
-const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = (set, get) => ({
+const rateLimitsStore: ImmerStateCreator<
+  RateLimitsSlice,
+  { webContents?: WebContents }
+> = (set, get) => {
+  const stateSend = (): void => get().webContents?.send(
+    rateLimits.channel.stateUpdated,
+    rateLimitsValidator.parse(get().rateLimits),
+  );
+  return ({
   rateLimits: structuredClone(initial),
   rateLimitsActions: {
     accountDelete(input) {
@@ -102,6 +112,17 @@ const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = (set, get) => ({
       set(state => {
         delete state.rateLimits.byAccountId[accountId];
       });
+      stateSend();
+    },
+    install() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) {
+        throw new Error("CodexAppServer WebContents 不可用");
+      }
+      contents.ipc.handle(rateLimits.channel.stateRead, () => (
+        rateLimitsValidator.parse(get().rateLimits)
+      ));
+      return () => contents.ipc.removeHandler(rateLimits.channel.stateRead);
     },
     loadingSet(input) {
       const value = accountCommandValidator.parse(input);
@@ -114,6 +135,7 @@ const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = (set, get) => ({
           error: null,
         };
       });
+      stateSend();
     },
     resultSet(input) {
       const value = resultSetValidator.parse(input);
@@ -125,6 +147,7 @@ const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = (set, get) => ({
           error: null,
         };
       });
+      stateSend();
     },
     errorSet(input) {
       const value = errorSetValidator.parse(input);
@@ -137,9 +160,11 @@ const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = (set, get) => ({
           error: value.error,
         };
       });
+      stateSend();
     },
   },
-});
+  });
+};
 
 export { rateLimits };
 export default rateLimitsStore;

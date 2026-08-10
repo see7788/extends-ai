@@ -1,14 +1,13 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { electronRendererUrlRead } from "./process.ts";
-import accountAddInstall from "./accountAdd/index.ts";
 import globalSettingsInstall, { initialize as globalSettingsInitialize } from "./globalSettings/index.ts";
+import accountAddInstall from "./accountAdd/index.ts";
 import accountListStart, { stop as accountListStop } from "./accountList/index.ts";
 import accountInstall, { initialize as accountInitialize } from "./accountList/account/index.ts";
 import accountsInstall from "./accountList/accounts/index.ts";
 import authSessionsInstall from "./accountList/authSessions/index.ts";
 import rateLimitsInstall from "./accountList/rateLimits/index.ts";
-import schedulerInstall from "./accountList/scheduler/index.ts";
 import usageInstall from "./accountList/usage/index.ts";
 import store from "./store.ts";
 
@@ -26,8 +25,6 @@ class CodexAppServer {
   private readonly window: BrowserWindow;
 
   constructor() {
-    globalSettingsInitialize();
-    accountInitialize();
     this.window = new BrowserWindow({
       autoHideMenuBar: true,
       width: 1100,
@@ -44,24 +41,33 @@ class CodexAppServer {
         sandbox: true,
       },
     });
+    store.setState({ webContents: this.window.webContents });
     this.disposeCommunication = [
+      store.getState().browserActions.install(),
       globalSettingsInstall(),
       accountAddInstall(),
       accountInstall(),
       accountsInstall(),
       authSessionsInstall(),
       rateLimitsInstall(),
-      schedulerInstall(),
+      store.getState().schedulerActions.install(),
       usageInstall(),
     ];
     const route = store.getState().accounts.order.length === 0 ? "/" : "/accounts";
-    this.ready = this.rendererLoad(route);
+    const initialize = Promise.resolve().then(() => {
+      globalSettingsInitialize();
+      accountInitialize();
+      if (!this.disposed) accountListStart();
+    });
+    this.ready = Promise.all([
+      initialize,
+      this.rendererLoad(route),
+    ]).then(() => undefined);
     this.window.on("close", event => {
       if (this.disposed) return;
       event.preventDefault();
       this.window.hide();
     });
-    accountListStart();
   }
 
   async show(): Promise<void> {
@@ -81,6 +87,7 @@ class CodexAppServer {
     this.disposed = true;
     accountListStop();
     for (const run of this.disposeCommunication.reverse()) run();
+    store.setState({ webContents: undefined });
     if (!this.window.isDestroyed()) this.window.destroy();
   }
 

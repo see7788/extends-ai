@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "browser-partition-main": "workspace:*",
+    "extends-zustand": "workspace:*",
     "zod": "^4.0.0"
   }
 }

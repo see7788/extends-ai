@@ -1,6 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { account as producer } from "codex-app-server-main/accountList/account/store.ts";
-import { invoke } from "browser-partition-renderer/public.ts";
+import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
 const accountValidator = producer.accountStateValidator;
@@ -12,6 +12,7 @@ type AccountOfficialOpenInput = z.infer<typeof producer.input.officialOpen>;
 type AccountSlice = {
   account: AccountState;
   accountActions: {
+    connect(): () => void;
     enabledSet(input: AccountEnabledSetInput): Promise<void>;
     labelSet(input: AccountLabelSetInput): Promise<void>;
     officialOpen(input: AccountOfficialOpenInput): Promise<void>;
@@ -26,11 +27,23 @@ const account = {
   input: producer.input,
   resultValidator: producer.resultValidator,
 };
-const accountStore: ImmerStateCreator<AccountSlice> = set => ({
+const accountStore: ImmerStateCreator<
+  AccountSlice,
+  IpcSlice
+> = (set, get) => ({
   account: structuredClone(producer.initial),
   accountActions: {
+    connect() {
+      return get().ipcActions.stateConnect({
+        error: console.error,
+        readChannel: account.channel.stateRead,
+        stateSet: get().accountActions.stateSet,
+        stateUpdatedChannel: account.channel.stateUpdated,
+        validator: account.accountValidator,
+      });
+    },
     async enabledSet(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: account.channel.enabledSet,
         input,
         inputValidator: account.input.enabledSet,
@@ -38,7 +51,7 @@ const accountStore: ImmerStateCreator<AccountSlice> = set => ({
       });
     },
     async labelSet(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: account.channel.labelSet,
         input,
         inputValidator: account.input.labelSet,
@@ -46,7 +59,7 @@ const accountStore: ImmerStateCreator<AccountSlice> = set => ({
       });
     },
     async officialOpen(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: account.channel.officialOpen,
         input,
         inputValidator: account.input.officialOpen,

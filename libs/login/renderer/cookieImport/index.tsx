@@ -32,6 +32,8 @@ const CookieImport = ({
     void message.error(error instanceof Error ? error.message : String(error));
   };
 
+  useEffect(() => actions.connect(), [actions]);
+
   useEffect(() => {
     setLoading(true);
     void actions.applicationsRead()

@@ -1,13 +1,8 @@
-import { app, ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import { app } from "electron";
 import { errorText } from "../../public.ts";
 import { accountAuthPath } from "../../process.ts";
 import store from "../../store.ts";
 import { rateLimits } from "./store.ts";
-
-let renderer: WebContents | undefined;
-const rendererSet = (event: IpcMainInvokeEvent): void => {
-  renderer = event.sender;
-};
 
 export const read = async (input: unknown): Promise<void> => {
     const value = rateLimits.input.command.parse(input);
@@ -39,27 +34,19 @@ export const read = async (input: unknown): Promise<void> => {
 };
 
 const install = (): (() => void) => {
-    const stateRead = () => rateLimits.rateLimitsValidator.parse(store.getState().rateLimits);
-    ipcMain.handle(rateLimits.channel.read, async (event, input: unknown) => {
-      rendererSet(event);
-      await read(input);
-      return rateLimits.commandResultValidator.parse({ ok: true });
-    });
-    ipcMain.handle(rateLimits.channel.stateRead, event => {
-      rendererSet(event);
-      return stateRead();
-    });
-    const unsubscribe = store.subscribe((state, previous) => {
-      if (state.rateLimits !== previous.rateLimits && renderer && !renderer.isDestroyed()) {
-        renderer.send(rateLimits.channel.stateUpdated, stateRead());
-      }
-    });
-    return () => {
-      unsubscribe();
-      renderer = undefined;
-      ipcMain.removeHandler(rateLimits.channel.read);
-      ipcMain.removeHandler(rateLimits.channel.stateRead);
-    };
+  const storeDispose = store.getState().rateLimitsActions.install();
+  const contents = store.getState().webContents;
+  if (!contents || contents.isDestroyed()) {
+    throw new Error("CodexAppServer WebContents 不可用");
+  }
+  contents.ipc.handle(rateLimits.channel.read, async (_event, input: unknown) => {
+    await read(input);
+    return rateLimits.commandResultValidator.parse({ ok: true });
+  });
+  return () => {
+    contents.ipc.removeHandler(rateLimits.channel.read);
+    storeDispose();
+  };
 };
 
 export default install;

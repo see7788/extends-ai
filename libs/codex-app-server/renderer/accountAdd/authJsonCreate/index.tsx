@@ -23,6 +23,8 @@ const AuthJsonCreate = () => {
     void message.error(errorText(error));
   };
 
+  useEffect(() => actions.connect(), [actions]);
+
   useEffect(() => {
     setLoading(true);
     void actions.applicationsRead()

@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { z } from "zod";
 
 const accountIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
@@ -37,7 +38,15 @@ const accounts = {
   stateValidator: accountsValidator,
 };
 
-const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
+const accountsStore: ImmerStateCreator<
+  AccountsSlice,
+  { webContents?: WebContents }
+> = (set, get) => {
+  const stateSend = (): void => get().webContents?.send(
+    accounts.channel.stateUpdated,
+    accountsValidator.parse(get().accounts),
+  );
+  return ({
   accounts: structuredClone(initial),
   accountsActions: {
     accountAdd(input) {
@@ -47,15 +56,18 @@ const accountsStore: ImmerStateCreator<AccountsSlice> = (set, get) => ({
           state.accounts.order.push(accountId);
         }
       });
+      stateSend();
     },
     accountDelete(input) {
       const { accountId } = accountInputValidator.parse(input);
       set(state => {
         state.accounts.order = state.accounts.order.filter(id => id !== accountId);
       });
+      stateSend();
     },
   },
-});
+  });
+};
 
 export { accounts };
 export default accountsStore;

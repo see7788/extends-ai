@@ -33,6 +33,7 @@ const GlobalSettings = () => {
   const actions = store(state => state.globalSettingsActions);
   const [form, setForm] = useState(value);
   const [pending, setPending] = useState<Pending>(null);
+  useEffect(() => actions.connect(), [actions]);
   useEffect(() => setForm(value), [value]);
   const update = async (key: Exclude<Pending, null>, action: () => Promise<void>) => {
     setPending(key);

@@ -1,6 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { rateLimits as producer } from "codex-app-server-main/accountList/rateLimits/store.ts";
-import { invoke } from "browser-partition-renderer/public.ts";
+import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
 const rateLimitsValidator = producer.rateLimitsValidator;
@@ -9,6 +9,7 @@ type RateLimitsReadInput = z.infer<typeof producer.input.command>;
 type RateLimitsSlice = {
   rateLimits: RateLimits;
   rateLimitsActions: {
+    connect(): () => void;
     read(input: RateLimitsReadInput): Promise<void>;
     stateSet(input: RateLimits): void;
   };
@@ -20,11 +21,23 @@ const rateLimits = {
   input: producer.input,
   rateLimitsValidator,
 };
-const rateLimitsStore: ImmerStateCreator<RateLimitsSlice> = set => ({
+const rateLimitsStore: ImmerStateCreator<
+  RateLimitsSlice,
+  IpcSlice
+> = (set, get) => ({
   rateLimits: structuredClone(producer.initial),
   rateLimitsActions: {
+    connect() {
+      return get().ipcActions.stateConnect({
+        error: console.error,
+        readChannel: rateLimits.channel.stateRead,
+        stateSet: get().rateLimitsActions.stateSet,
+        stateUpdatedChannel: rateLimits.channel.stateUpdated,
+        validator: rateLimits.rateLimitsValidator,
+      });
+    },
     async read(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: rateLimits.channel.read,
         input,
         inputValidator: rateLimits.input.command,

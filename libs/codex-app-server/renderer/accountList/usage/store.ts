@@ -1,6 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { usage as producer } from "codex-app-server-main/accountList/usage/store.ts";
-import { invoke } from "browser-partition-renderer/public.ts";
+import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
 
 const usageValidator = producer.usageValidator;
@@ -9,6 +9,7 @@ type UsageReadInput = z.infer<typeof producer.input.command>;
 type UsageSlice = {
   usage: Usage;
   usageActions: {
+    connect(): () => void;
     read(input: UsageReadInput): Promise<void>;
     stateSet(input: Usage): void;
   };
@@ -20,11 +21,23 @@ const usage = {
   input: producer.input,
   usageValidator,
 };
-const usageStore: ImmerStateCreator<UsageSlice> = set => ({
+const usageStore: ImmerStateCreator<
+  UsageSlice,
+  IpcSlice
+> = (set, get) => ({
   usage: structuredClone(producer.initial),
   usageActions: {
+    connect() {
+      return get().ipcActions.stateConnect({
+        error: console.error,
+        readChannel: usage.channel.stateRead,
+        stateSet: get().usageActions.stateSet,
+        stateUpdatedChannel: usage.channel.stateUpdated,
+        validator: usage.usageValidator,
+      });
+    },
     async read(input) {
-      await invoke({
+      await get().ipcActions.invoke({
         channel: usage.channel.read,
         input,
         inputValidator: usage.input.command,

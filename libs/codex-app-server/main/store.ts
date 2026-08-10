@@ -1,7 +1,8 @@
 import cwdPersist from "extends-zustand/cwdPersist";
-import { app } from "electron";
+import { app, type WebContents } from "electron";
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
+import browserStore from "browser-partition-main/browser/store.ts";
 import authJsonCreateStore, { authJsonCreate } from "./accountAdd/authJsonCreate/store.ts";
 import authJsonImportStore from "./accountAdd/authJsonImport/store.ts";
 import globalSettingsStore from "./globalSettings/store.ts";
@@ -14,7 +15,9 @@ import schedulerStore from "./accountList/scheduler/store.ts";
 import usageStore, { usage } from "./accountList/usage/store.ts";
 import pkg from "./package.json";
 
-type Store = ReturnType<typeof accountStore>
+type Store = { webContents?: WebContents }
+  & ReturnType<typeof browserStore>
+  & ReturnType<typeof accountStore>
   & ReturnType<typeof authJsonCreateStore>
   & ReturnType<typeof authJsonImportStore>
   & ReturnType<typeof globalSettingsStore>
@@ -28,6 +31,8 @@ type Store = ReturnType<typeof accountStore>
 const store = createStore<Store>()(
   cwdPersist({
     initializer: immer((...options) => ({
+      webContents: undefined,
+      ...browserStore(...options),
       ...accountStore(...options),
       ...authJsonCreateStore(...options),
       ...authJsonImportStore(...options),

@@ -1,12 +1,6 @@
-import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
 import store from "../../store.ts";
 import { enabledSet } from "../account/index.ts";
 import { accounts } from "./store.ts";
-
-let renderer: WebContents | undefined;
-const rendererSet = (event: IpcMainInvokeEvent): void => {
-  renderer = event.sender;
-};
 
 const read = () => {
     return accounts.stateValidator.parse(store.getState().accounts);
@@ -31,25 +25,18 @@ const accountDelete = async (input: unknown): Promise<void> => {
 };
 
 const install = (): (() => void) => {
-    ipcMain.handle(accounts.channel.accountDelete, async (event, input: unknown) => {
-      rendererSet(event);
+    const contents = store.getState().webContents;
+    if (!contents || contents.isDestroyed()) {
+      throw new Error("CodexAppServer WebContents 不可用");
+    }
+    contents.ipc.handle(accounts.channel.accountDelete, async (_event, input: unknown) => {
       await accountDelete(input);
       return accounts.resultValidator.parse({ ok: true });
     });
-    ipcMain.handle(accounts.channel.stateRead, event => {
-      rendererSet(event);
-      return read();
-    });
-    const unsubscribe = store.subscribe((state, previous) => {
-      if (state.accounts !== previous.accounts && renderer && !renderer.isDestroyed()) {
-        renderer.send(accounts.channel.stateUpdated, read());
-      }
-    });
+    contents.ipc.handle(accounts.channel.stateRead, read);
     return () => {
-      unsubscribe();
-      renderer = undefined;
-      ipcMain.removeHandler(accounts.channel.accountDelete);
-      ipcMain.removeHandler(accounts.channel.stateRead);
+      contents.ipc.removeHandler(accounts.channel.accountDelete);
+      contents.ipc.removeHandler(accounts.channel.stateRead);
     };
 };
 

@@ -5,8 +5,8 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
-import { app, ipcMain } from "electron";
-import { browser } from "./store.ts";
+import { app } from "electron";
+import { browser } from "./public.ts";
 type BrowserApplication = ReturnType<typeof browser.browserApplicationValidator.parse>;
 
 const execFileAsync = promisify(execFile);
@@ -228,14 +228,6 @@ export const executableOpen = async (
     });
 };
 
-const install = (): (() => void) => {
-    ipcMain.handle(browser.channel.applicationsRead, async (_event, input: unknown) => {
-      browser.input.command.parse(input);
-      return applicationsRead();
-    });
-    return () => ipcMain.removeHandler(browser.channel.applicationsRead);
-};
-
 export const open = async (input: unknown): Promise<void> => {
     const value = browser.input.open.parse(input);
     const application = await applicationRead(value);
@@ -428,5 +420,3 @@ export const windowOpen = async (
 export const windowOpenRead = async (executablePath: string): Promise<boolean> => {
     return (await windowHandlesRead(executablePath)).length > 0;
 };
-
-export default install;

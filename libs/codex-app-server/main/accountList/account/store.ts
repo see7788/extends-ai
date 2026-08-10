@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { z } from "zod";
 
 const accountIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
@@ -65,7 +66,15 @@ const account = {
   resultValidator,
 };
 
-const accountStore: ImmerStateCreator<AccountSlice> = (set, get) => ({
+const accountStore: ImmerStateCreator<
+  AccountSlice,
+  { webContents?: WebContents }
+> = (set, get) => {
+  const stateSend = (): void => get().webContents?.send(
+    account.channel.stateUpdated,
+    accountStateValidator.parse(get().account),
+  );
+  return ({
   account: structuredClone(initial),
   accountActions: {
     accountSet(input) {
@@ -78,23 +87,27 @@ const accountStore: ImmerStateCreator<AccountSlice> = (set, get) => ({
         }
         state.account[value.id] = value;
       });
+      stateSend();
     },
     accountDelete(input) {
       const { accountId } = readValidator.parse(input);
       set(state => {
         delete state.account[accountId];
       });
+      stateSend();
     },
     enabledClear() {
       set(state => {
         for (const item of Object.values(state.account)) item.enabled = false;
       });
+      stateSend();
     },
     normalize() {
       const value = accountStateValidator.parse(get().account);
       set(state => {
         state.account = value;
       });
+      stateSend();
     },
     labelSet(input) {
       const value = labelSetValidator.parse(input);
@@ -103,6 +116,7 @@ const accountStore: ImmerStateCreator<AccountSlice> = (set, get) => ({
         if (!current) throw new Error(`账号不存在: ${value.accountId}`);
         current.label = value.label;
       });
+      stateSend();
     },
     enabledSet(input) {
       const value = enabledSetValidator.parse(input);
@@ -114,9 +128,11 @@ const accountStore: ImmerStateCreator<AccountSlice> = (set, get) => ({
           item.enabled = item.id === value.accountId;
         }
       });
+      stateSend();
     },
   },
-});
+  });
+};
 
 export { account, type WebAccess };
 export default accountStore;

@@ -1,10 +1,8 @@
 import { app, Menu, Tray, nativeImage } from "electron";
-import browserPartitionInstall from "browser-partition-main";
 import CodexAppServer from "codex-app-server-main";
 import trayIconPath from "./icon.png?asset";
 
 let codexAppServer: CodexAppServer | undefined;
-let browserPartitionDispose: (() => void) | undefined;
 let tray: Tray | undefined;
 if (!app.isPackaged) app.commandLine.appendSwitch("remote-debugging-port", "9222");
 const singleInstance = app.requestSingleInstanceLock();
@@ -18,7 +16,6 @@ const trayImage = () => {
 };
 
 const ready = async (): Promise<void> => {
-  browserPartitionDispose = browserPartitionInstall();
   codexAppServer = new CodexAppServer();
   tray = new Tray(trayImage());
   tray.setToolTip("Codex 账号管理");
@@ -49,8 +46,6 @@ if (!singleInstance) {
   app.on("before-quit", () => {
     codexAppServer?.dispose();
     codexAppServer = undefined;
-    browserPartitionDispose?.();
-    browserPartitionDispose = undefined;
     tray?.destroy();
     tray = undefined;
   });

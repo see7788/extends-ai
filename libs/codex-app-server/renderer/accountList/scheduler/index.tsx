@@ -7,6 +7,7 @@ import {
   Typography,
   type TreeDataNode,
 } from "antd";
+import { useEffect } from "react";
 import { errorText, timeText } from "../../public/index.ts";
 import store from "../../store.ts";
 
@@ -25,10 +26,11 @@ const Scheduler = ({
 }: SchedulerProps) => {
   const { message } = AntdApp.useApp();
   const value = store(state => state.scheduler);
-  const runNowAction = store(state => state.schedulerActions.runNow);
+  const actions = store(state => state.schedulerActions);
+  useEffect(() => actions.connect(), [actions]);
   const runNow = async (): Promise<void> => {
     try {
-      await runNowAction();
+      await actions.runNow();
     } catch (error) {
       void message.error(errorText(error));
     }

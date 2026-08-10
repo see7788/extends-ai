@@ -2,7 +2,6 @@ import { errorText } from "../public.ts";
 import store from "../store.ts";
 import { read as authSessionsRead } from "./authSessions/index.ts";
 import { read as rateLimitsRead } from "./rateLimits/index.ts";
-import { start as schedulerStart, stop as schedulerStop } from "./scheduler/index.ts";
 import { read as usageRead } from "./usage/index.ts";
 
 let refreshing: Promise<void> | undefined;
@@ -58,21 +57,21 @@ export const refresh = (): Promise<void> => {
 
 const start = (): void => {
     queryStateClear();
-    schedulerStart(refresh);
+    store.getState().schedulerActions.start(refresh);
     if (dataMissing()) void refresh();
 };
 
 export const pause = async (): Promise<void> => {
-    schedulerStop();
+    store.getState().schedulerActions.stop();
     await refreshing;
 };
 
 export const resume = (): void => {
-    schedulerStart(refresh);
+    store.getState().schedulerActions.start(refresh);
 };
 
 export const stop = (): void => {
-    schedulerStop();
+    store.getState().schedulerActions.stop();
 };
 
 export default start;
