@@ -16,8 +16,7 @@ type GlobalSettingsSlice = {
   globalSettings: GlobalSettings;
   globalSettingsActions: {
     codexHomeDefaultRestore(): Promise<void>;
-    codexHomeDelete(): Promise<void>;
-    codexHomeSet(input: z.infer<typeof producer.input.codexHomeSet>): Promise<void>;
+    codexHomeSelect(): Promise<void>;
     codexHomeVisibleSet(input: z.infer<typeof codexHomeVisibleSetValidator>): void;
     maintenanceEnabledSet(input: z.infer<typeof producer.input.maintenanceEnabledSet>): Promise<void>;
     maintenanceIntervalHoursSet(
@@ -54,19 +53,11 @@ const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice> = set => ({
         resultValidator: globalSettings.resultValidator,
       });
     },
-    async codexHomeDelete() {
+    async codexHomeSelect() {
       await invoke({
-        channel: globalSettings.channel.codexHomeDelete,
+        channel: globalSettings.channel.codexHomeSelect,
         input: {},
         inputValidator: globalSettings.input.command,
-        resultValidator: globalSettings.resultValidator,
-      });
-    },
-    async codexHomeSet(input) {
-      await invoke({
-        channel: globalSettings.channel.codexHomeSet,
-        input,
-        inputValidator: globalSettings.input.codexHomeSet,
         resultValidator: globalSettings.resultValidator,
       });
     },

@@ -150,7 +150,7 @@ extends-ai/
       │  ├─ rateLimits/               # 额度监听、查询与本切片 UI
       │  ├─ scheduler/                # 全账号查询状态、立即查询 Action 与“查询全部账号”Tree 节点
       │  └─ usage/                    # 用量监听、查询与本切片 UI
-      ├─ globalSettings/              # 全局设置状态、Actions 与设置 Tree；由 accountList 和 scheduler 组合为一张卡片
+      ├─ globalSettings/              # 全局设置状态、Actions 与设置 Tree；CODEX_HOME 只显示路径，并提供主进程选择目录与还原默认路径
       ├─ theme/store.ts               # renderer 主题数据切片，无虚假 UI
       ├─ public/                      # 无业务的公共 UI 与文本工具
       ├─ app.tsx                      # 应用壳：主题上下文与路由 Outlet
@@ -188,6 +188,7 @@ extends-ai/
 - `login` 与 `codex-app-server` 相互独立，只共同消费 `browser-partition`。
 - `authJsonCreate` 只有一个官方创建流程，指定的外部浏览器是唯一 `openAuthUrl` 载体；每次只新开并追踪一个授权窗口，成功、页面取消、59 秒超时或失败后统一关闭，用户直接关闭该窗口等价于取消。
 - 自动查询与立即查询只查询账号信息；Token 是否刷新交给官方 Codex App Server 判断，不实现强制刷新。
+- CODEX_HOME 路径由 renderer 纯文本展示；选择目录由主进程打开系统目录选择器，还原默认路径复用同一迁移方法，不提供手输路径和删除配置入口。
 - 启用账号由主进程唯一控制，renderer 不伪造启用状态。
 
 ## 当前执行顺序

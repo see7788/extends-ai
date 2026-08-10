@@ -1,4 +1,11 @@
-import { app, ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import {
+  app,
+  BrowserWindow as ElectronBrowserWindow,
+  dialog,
+  ipcMain,
+  type IpcMainInvokeEvent,
+  type WebContents,
+} from "electron";
 import { isAbsolute, join, resolve } from "node:path";
 import { pause as accountListPause, resume as accountListResume } from "../accountList/index.ts";
 import { codexHomeMove, pathSame } from "../process.ts";
@@ -8,6 +15,11 @@ import { globalSettings } from "./store.ts";
 let renderer: WebContents | undefined;
 const rendererSet = (event: IpcMainInvokeEvent): void => {
   renderer = event.sender;
+};
+const parentRead = (event: IpcMainInvokeEvent): ElectronBrowserWindow => {
+  const parent = ElectronBrowserWindow.fromWebContents(event.sender);
+  if (!parent) throw new Error("无法取得账号管理窗口");
+  return parent;
 };
 const pathNormalize = (value: string): string => {
   if (!isAbsolute(value)) throw new Error(`CODEX_HOME 必须是绝对路径：${value}`);
@@ -28,19 +40,6 @@ const codexHomeSet = async (input: unknown): Promise<void> => {
       if (result.oldPathCleanupFailed) {
         console.warn(`CODEX_HOME 已迁移，但原目录未能清理：${current ?? "未配置"}`);
       }
-    } finally {
-      accountListResume();
-    }
-};
-
-const codexHomeDelete = async (): Promise<void> => {
-    if (store.getState().authJsonImport.status === "working") {
-      throw new Error("账号添加期间不能删除 CODEX_HOME 配置");
-    }
-    await accountListPause();
-    try {
-      store.getState().globalSettingsActions.codexHomeDelete();
-      store.getState().accountActions.enabledClear();
     } finally {
       accountListResume();
     }
@@ -70,21 +69,24 @@ const install = (): (() => void) => {
     const stateRead = () => globalSettings.globalSettingsValidator.parse(
       store.getState().globalSettings,
     );
-    ipcMain.handle(globalSettings.channel.codexHomeSet, async (event, input: unknown) => {
+    ipcMain.handle(globalSettings.channel.codexHomeSelect, async (event, input: unknown) => {
       rendererSet(event);
-      await codexHomeSet(input);
+      globalSettings.input.command.parse(input);
+      const current = store.getState().globalSettings.codexHome;
+      const result = await dialog.showOpenDialog(parentRead(event), {
+        title: "选择 CODEX_HOME",
+        buttonLabel: "选择",
+        defaultPath: current ?? undefined,
+        properties: ["openDirectory", "createDirectory"],
+      });
+      const codexHome = result.filePaths[0];
+      if (!result.canceled && codexHome) await codexHomeSet({ codexHome });
       return globalSettings.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(globalSettings.channel.codexHomeDefaultRestore, async (event, input: unknown) => {
       rendererSet(event);
       globalSettings.input.command.parse(input);
       await codexHomeDefaultRestore();
-      return globalSettings.resultValidator.parse({ ok: true });
-    });
-    ipcMain.handle(globalSettings.channel.codexHomeDelete, async (event, input: unknown) => {
-      rendererSet(event);
-      globalSettings.input.command.parse(input);
-      await codexHomeDelete();
       return globalSettings.resultValidator.parse({ ok: true });
     });
     ipcMain.handle(globalSettings.channel.maintenanceEnabledSet, (event, input: unknown) => {
@@ -133,8 +135,7 @@ const install = (): (() => void) => {
       unsubscribe();
       renderer = undefined;
       ipcMain.removeHandler(globalSettings.channel.codexHomeDefaultRestore);
-      ipcMain.removeHandler(globalSettings.channel.codexHomeDelete);
-      ipcMain.removeHandler(globalSettings.channel.codexHomeSet);
+      ipcMain.removeHandler(globalSettings.channel.codexHomeSelect);
       ipcMain.removeHandler(globalSettings.channel.maintenanceEnabledSet);
       ipcMain.removeHandler(globalSettings.channel.maintenanceIntervalHoursSet);
       ipcMain.removeHandler(globalSettings.channel.maintenanceRetryCountSet);

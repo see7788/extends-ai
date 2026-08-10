@@ -21,7 +21,6 @@ type GlobalSettingsSlice = {
   globalSettings: GlobalSettings;
   globalSettingsActions: {
     codexHomeSet(input: z.infer<typeof codexHomeSetValidator>): void;
-    codexHomeDelete(): void;
     initialize(input: GlobalSettings): void;
     maintenanceEnabledSet(input: z.infer<typeof maintenanceEnabledSetValidator>): void;
     maintenanceIntervalHoursSet(input: z.infer<typeof maintenanceIntervalHoursSetValidator>): void;
@@ -39,9 +38,8 @@ const initial: GlobalSettings = {
 };
 const globalSettings = {
   channel: {
-    codexHomeSet: "global-settings:codex-home-set",
+    codexHomeSelect: "global-settings:codex-home-select",
     codexHomeDefaultRestore: "global-settings:codex-home-default-restore",
-    codexHomeDelete: "global-settings:codex-home-delete",
     maintenanceEnabledSet: "global-settings:maintenance-enabled-set",
     maintenanceIntervalHoursSet: "global-settings:maintenance-interval-hours-set",
     maintenanceRetryCountSet: "global-settings:maintenance-retry-count-set",
@@ -62,14 +60,9 @@ const globalSettings = {
   resultValidator,
 };
 
-const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice> = (set, get) => ({
+const globalSettingsStore: ImmerStateCreator<GlobalSettingsSlice> = set => ({
   globalSettings: structuredClone(initial),
   globalSettingsActions: {
-    codexHomeDelete() {
-      set(state => {
-        state.globalSettings.codexHome = null;
-      });
-    },
     codexHomeSet(input) {
       const value = codexHomeSetValidator.parse(input);
       set(state => {
