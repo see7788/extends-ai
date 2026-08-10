@@ -11,19 +11,18 @@ const schedulerValidator = z.object({
 const runFinishValidator = schedulerValidator.pick({ lastRunAt: true, error: true });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  z.object({ method: z.literal("runNow") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
   value: schedulerValidator,
 });
-const commandResultValidator = z.object({ ok: z.literal(true) });
 
 type Scheduler = z.infer<typeof schedulerValidator>;
 type RunFinishInput = z.infer<typeof runFinishValidator>;
 type SchedulerSlice = {
   scheduler: Scheduler;
   schedulerActions: {
+    communicationStart(): () => void;
     normalize(): void;
     runStart(): void;
     runFinish(input: RunFinishInput): void;
@@ -42,7 +41,6 @@ const initial: Scheduler = {
 };
 const scheduler = {
   channel: "scheduler",
-  commandResultValidator,
   initial,
   messageValidator,
   requestValidator,
@@ -53,6 +51,15 @@ const scheduler = {
 const schedulerStore: ImmerStateCreator<SchedulerSlice, nodeState_t> = (set, get) => ({
   scheduler: structuredClone(initial),
   schedulerActions: {
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+      contents.ipc.handle(scheduler.channel, (_event, input: unknown) => {
+        scheduler.requestValidator.parse(input);
+        return scheduler.schedulerValidator.parse(get().scheduler);
+      });
+      return () => contents.ipc.removeHandler(scheduler.channel);
+    },
     normalize() {
       const value = schedulerValidator.safeParse(get().scheduler);
       set(state => {

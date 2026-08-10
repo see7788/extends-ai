@@ -77,30 +77,18 @@ const browserCookiesValidator = z.object({
 
 const channel = "cookieImport";
 const request = {
-  applicationsRead: z.object({ method: z.literal("applicationsRead") }),
   authorizationTimeoutSecondsSet: z.object({
     method: z.literal("authorizationTimeoutSecondsSet"),
     input: authorizationTimeoutSecondsSetValidator,
   }),
-  cancel: z.object({ method: z.literal("cancel") }),
-  start: z.object({
-    method: z.literal("start"),
-    input: createValidator,
-  }),
   stateRead: z.object({ method: z.literal("stateRead") }),
 };
 const requestValidator = z.discriminatedUnion("method", [
-  request.applicationsRead,
   request.authorizationTimeoutSecondsSet,
-  request.cancel,
-  request.start,
   request.stateRead,
 ]);
 const result = {
-  applicationsRead: browser.browserApplicationsValidator,
-  cancel: z.object({ canceled: z.boolean() }),
   setting: z.object({ updated: z.boolean() }),
-  start: z.object({ completed: z.boolean() }),
 };
 
 type CookieImportContract = {
@@ -126,7 +114,7 @@ type CookieImportContract = {
 };
 
 type CookieImport = z.infer<typeof cookieImportValidator>;
-type BrowserApplications = z.infer<typeof result.applicationsRead>;
+type BrowserApplications = z.infer<typeof browser.browserApplicationsValidator>;
 type CookieImportCreateInput = z.infer<typeof createValidator>;
 type DevToolsMessage = z.infer<typeof devToolsMessageValidator>;
 type DevToolsTargets = z.infer<typeof devToolsTargetsValidator>;
@@ -161,6 +149,7 @@ type CookieImportSlice = {
       input: z.infer<typeof authorizationTimeoutSecondsSetValidator>,
     ): void;
     candidateClear(input: z.infer<typeof candidateClearValidator>): boolean;
+    communicationStart(): () => void;
     connectionOpen(input: {
       endpoint: string;
       signal: AbortSignal;
@@ -431,6 +420,21 @@ const cookieImportStore: ImmerStateCreator<
       });
       get().cookieImportPrivateActions.stateSend();
       return cleared;
+    },
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
+      contents.ipc.handle(cookieImport.channel, (_event, input: unknown) => {
+        const requestValue = cookieImport.requestValidator.parse(input);
+        switch (requestValue.method) {
+        case "authorizationTimeoutSecondsSet":
+          get().cookieImportActions.authorizationTimeoutSecondsSet(requestValue.input);
+          return cookieImport.result.setting.parse({ updated: true });
+        case "stateRead":
+          return cookieImport.cookieImportValidator.parse(get().cookieImport);
+        }
+      });
+      return () => contents.ipc.removeHandler(cookieImport.channel);
     },
     connectionOpen(input) {
       const endpoint = endpointValidator.parse(input.endpoint);
@@ -735,6 +739,7 @@ export {
   cookieImport,
   type CookieImport,
   type CookieImportCreateInput,
+  type CookieImportSlice,
   type nodeState_t,
 };
 export default cookieImportStore;

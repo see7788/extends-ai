@@ -16,17 +16,14 @@ const accountSessionValidator = z.object({
 }).passthrough();
 const request = {
   cancel: z.object({ method: z.literal("cancel") }),
-  start: z.object({ method: z.literal("start") }),
   stateRead: z.object({ method: z.literal("stateRead") }),
 };
 const requestValidator = z.discriminatedUnion("method", [
   request.cancel,
-  request.start,
   request.stateRead,
 ]);
 const result = {
   cancel: z.object({ canceled: z.boolean() }),
-  start: z.object({ completed: z.boolean() }),
 };
 
 type LoginState = z.infer<typeof loginValidator>;
@@ -51,6 +48,7 @@ type LoginSlice = {
   login: LoginState;
   loginActions: {
     cancel(): boolean;
+    communicationStart(): () => void;
     create(): Promise<{ partition: string }>;
     operationCancel(): void;
     operationSucceed(): void;
@@ -84,6 +82,20 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
         if (!active) return false;
         active.cancel();
         return true;
+      },
+      communicationStart() {
+        const contents = get().loginWindow?.webContents;
+        if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
+        contents.ipc.handle(login.channel, (_event, input: unknown) => {
+          const requestValue = login.requestValidator.parse(input);
+          switch (requestValue.method) {
+          case "cancel":
+            return login.result.cancel.parse({ canceled: get().loginActions.cancel() });
+          case "stateRead":
+            return login.loginValidator.parse(get().login);
+          }
+        });
+        return () => contents.ipc.removeHandler(login.channel);
       },
       async create() {
         if (active) throw new Error("已有内嵌登录窗口正在使用");
@@ -226,5 +238,5 @@ const loginStore: ImmerStateCreator<LoginSlice, nodeState_t> = (set, get) => {
   };
 };
 
-export { login, type LoginState, type nodeState_t };
+export { login, type LoginSlice, type LoginState, type nodeState_t };
 export default loginStore;

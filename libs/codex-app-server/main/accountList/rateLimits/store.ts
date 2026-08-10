@@ -50,10 +50,8 @@ const resultSetValidator = accountCommandValidator.extend({
   updatedAt: z.string().datetime({ offset: true }),
 });
 const errorSetValidator = accountCommandValidator.extend({ error: z.string() });
-const commandResultValidator = z.object({ ok: z.literal(true) });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  accountCommandValidator.extend({ method: z.literal("read") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
@@ -66,6 +64,7 @@ type RateLimitsSlice = {
   rateLimits: RateLimits;
   rateLimitsActions: {
     accountDelete(input: AccountInput): void;
+    communicationStart(): () => void;
     loadingSet(input: AccountInput): void;
     resultSet(input: z.infer<typeof resultSetValidator>): void;
     errorSet(input: z.infer<typeof errorSetValidator>): void;
@@ -85,7 +84,6 @@ const rateLimits = {
   accountStateValidator,
   bucketValidator,
   channel: "rateLimits",
-  commandResultValidator,
   initial,
   input: {
     command: accountCommandValidator,
@@ -112,6 +110,15 @@ const rateLimitsStore: ImmerStateCreator<RateLimitsSlice, nodeState_t> = (set, g
         const { accountId } = accountCommandValidator.parse(input);
         set(state => { delete state.rateLimits.byAccountId[accountId]; });
         stateSend();
+      },
+      communicationStart() {
+        const contents = get().webContents;
+        if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+        contents.ipc.handle(rateLimits.channel, (_event, input: unknown) => {
+          rateLimits.requestValidator.parse(input);
+          return rateLimits.rateLimitsValidator.parse(get().rateLimits);
+        });
+        return () => contents.ipc.removeHandler(rateLimits.channel);
       },
       loadingSet(input) {
         const value = accountCommandValidator.parse(input);

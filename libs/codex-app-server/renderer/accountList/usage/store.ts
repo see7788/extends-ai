@@ -5,6 +5,7 @@ import {
   type Usage,
 } from "codex-app-server-main/accountList/usage/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 type UsageSlice = {
   usage: Usage;
   usageActions: {
@@ -35,10 +36,10 @@ const usageStore: ImmerStateCreator<
     },
     async read(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "read" as const, ...input },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.commandResultValidator,
+        channel: accountList.channel,
+        input: { input, method: "usageRead" as const },
+        inputValidator: accountList.request.usageRead,
+        resultValidator: accountList.result.command,
       });
     },
     stateSet(input) {

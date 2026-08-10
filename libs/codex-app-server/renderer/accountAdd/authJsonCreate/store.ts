@@ -9,6 +9,7 @@ import {
   type BrowserApplications,
 } from "browser-partition-main/browser/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountAdd } from "codex-app-server-main/accountAdd/store.ts";
 
 type AuthJsonCreateSlice = {
   authJsonCreate: AuthJsonCreate;
@@ -37,10 +38,10 @@ const authJsonCreateStore: ImmerStateCreator<
     },
     async cancel() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "cancel" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.result.cancel,
+        channel: accountAdd.channel,
+        input: { method: "authJsonCreateCancel" as const },
+        inputValidator: accountAdd.request.authJsonCreateCancel,
+        resultValidator: accountAdd.result.cancel,
       });
     },
     connect() {
@@ -58,10 +59,10 @@ const authJsonCreateStore: ImmerStateCreator<
     },
     async create(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "create" as const, ...input },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.result.create,
+        channel: accountAdd.channel,
+        input: { input, method: "authJsonCreate" as const },
+        inputValidator: accountAdd.request.authJsonCreate,
+        resultValidator: accountAdd.result.create,
       });
     },
     stateSet(input) {

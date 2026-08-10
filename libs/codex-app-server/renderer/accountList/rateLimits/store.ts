@@ -5,6 +5,7 @@ import {
   type RateLimits,
 } from "codex-app-server-main/accountList/rateLimits/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 type RateLimitsSlice = {
   rateLimits: RateLimits;
   rateLimitsActions: {
@@ -35,10 +36,10 @@ const rateLimitsStore: ImmerStateCreator<
     },
     async read(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "read" as const, ...input },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.commandResultValidator,
+        channel: accountList.channel,
+        input: { input, method: "rateLimitsRead" as const },
+        inputValidator: accountList.request.rateLimitsRead,
+        resultValidator: accountList.result.command,
       });
     },
     stateSet(input) {

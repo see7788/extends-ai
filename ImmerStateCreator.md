@@ -104,6 +104,8 @@ export default itemStore;
 
 `nodeState_t` 的顶层成员只能是运行时值或实体引用，禁止是函数。实体可以保留其原生方法，但禁止把业务操作包装成注入方法。
 
+可延后取得的运行时值必须如实声明为可选值，并在宿主创建后直接通过主 store 改值，例如 `store.setState({ webContents })`；禁止为赋值再造 Actions、安装器或转发层。该成员必须由持久化白名单自然排除。
+
 `nodeState_t` 禁止：
 
 - 嵌套命名空间或 Actions；
@@ -114,9 +116,11 @@ export default itemStore;
 ## 组合定律
 
 ```text
-main/store/
-├─ index.ts       # 主 store
-└─ nodeState.ts   # 全部 nodeState_t 的运行时实体实现
+main/
+├─ index.ts       # 根执行入口
+└─ store/
+   ├─ index.ts    # 主 store
+   └─ nodeState.ts # 全部 nodeState_t 的运行时实体实现
 ```
 
 `nodeState.ts` 默认导出标准 `ImmerStateCreator<NodeState>`。`NodeState` 是全部业务切片所声明 `nodeState_t` 的交叉类型；该切片只生产运行时值，不包含 Actions，不消费业务切片。
@@ -176,6 +180,8 @@ account-events
 框架可使用不同发送原语，但必须使用同一通信地址；不得用适配器、包装函数、文件或对象把一个切片伪装成多个地址。框架无法满足时，停止修改并请求决策。
 
 传输适配层只透明转发框架原语，不识别切片、方法或数据；Electron 的 preload 属于传输适配层。
+
+通信注册属于切片自身能力。每个生产者或消费者切片必须由自身 Actions 使用注入的运行时实体注册、解析并注销自己的唯一通信地址；根执行入口只注入运行时值并调用这些 Actions，禁止出现 `ipc.handle`、路由方法分支、请求解析或结果解析。跨切片命令只能由具有明确语义的消费者切片使用自己的地址承载，禁止借用生产者地址转发。
 
 ## 入口消费定律
 

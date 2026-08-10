@@ -6,6 +6,8 @@ import {
   type CookieImportCreateInput,
 } from "login-main/cookieImport/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { browser } from "browser-partition-main/browser/store.ts";
+import { accountAdd } from "login-main/accountAdd/store.ts";
 
 type CookieImportSlice = {
   cookieImport: CookieImport;
@@ -26,18 +28,18 @@ const cookieImportStore: ImmerStateCreator<
   cookieImportActions: {
     async applicationsRead() {
       return get().ipcActions.invoke({
-        channel: producer.channel,
+        channel: browser.channel,
         input: { method: "applicationsRead" as const },
-        inputValidator: producer.request.applicationsRead,
-        resultValidator: producer.result.applicationsRead,
+        inputValidator: browser.request.applicationsRead,
+        resultValidator: browser.result.applicationsRead,
       });
     },
     async cancel() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "cancel" as const },
-        inputValidator: producer.request.cancel,
-        resultValidator: producer.result.cancel,
+        channel: accountAdd.channel,
+        input: { method: "cookieImportCancel" as const },
+        inputValidator: accountAdd.request.cookieImportCancel,
+        resultValidator: accountAdd.result.cancel,
       });
     },
     connect() {
@@ -57,10 +59,10 @@ const cookieImportStore: ImmerStateCreator<
     },
     async start(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { input, method: "start" as const },
-        inputValidator: producer.request.start,
-        resultValidator: producer.result.start,
+        channel: accountAdd.channel,
+        input: { input, method: "cookieImportStart" as const },
+        inputValidator: accountAdd.request.cookieImportStart,
+        resultValidator: accountAdd.result.command,
       });
     },
     stateSet(input) {

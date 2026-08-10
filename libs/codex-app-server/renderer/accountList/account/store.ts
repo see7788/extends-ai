@@ -7,6 +7,7 @@ import {
   type LabelSetInput,
 } from "codex-app-server-main/accountList/account/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 
 type AccountSlice = {
   account: AccountState;
@@ -40,10 +41,10 @@ const accountStore: ImmerStateCreator<
     },
     async enabledSet(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "enabledSet" as const, ...input },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.resultValidator,
+        channel: accountList.channel,
+        input: { input, method: "enabledSet" as const },
+        inputValidator: accountList.request.enabledSet,
+        resultValidator: accountList.result.command,
       });
     },
     async labelSet(input) {

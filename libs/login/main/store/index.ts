@@ -3,6 +3,8 @@ import cwdPersist from "extends-zustand/cwdPersist";
 import { app } from "electron";
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
+import accountAddStore from "../accountAdd/store.ts";
+import accountListStore from "../accountList/store.ts";
 import accountsStore from "../accounts/store.ts";
 import cookieImportStore from "../cookieImport/store.ts";
 import loginStore, { login } from "../login/store.ts";
@@ -13,7 +15,9 @@ type Store = ReturnType<typeof nodeState>
   & ReturnType<typeof browserStore>
   & ReturnType<typeof accountsStore>
   & ReturnType<typeof cookieImportStore>
-  & ReturnType<typeof loginStore>;
+  & ReturnType<typeof loginStore>
+  & ReturnType<typeof accountAddStore>
+  & ReturnType<typeof accountListStore>;
 type PersistedState = Pick<Store, "accounts" | "cookieImport" | "login">;
 
 const persistedStateRead = (state: Store): PersistedState => ({
@@ -38,6 +42,8 @@ const store = createStore<Store>()(
       ...accountsStore<Store>(...options),
       ...cookieImportStore<Store>(...options),
       ...loginStore<Store>(...options),
+      ...accountAddStore<Store>(...options),
+      ...accountListStore<Store>(...options),
     })),
     name: pkg.name,
   }),

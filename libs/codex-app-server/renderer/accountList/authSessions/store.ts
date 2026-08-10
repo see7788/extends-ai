@@ -5,6 +5,7 @@ import {
   type AuthSessions,
 } from "codex-app-server-main/accountList/authSessions/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 type AuthSessionsSlice = {
   authSessions: AuthSessions;
   authSessionsActions: {
@@ -35,10 +36,10 @@ const authSessionsStore: ImmerStateCreator<
     },
     async read(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "read" as const, ...input },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.resultValidator,
+        channel: accountList.channel,
+        input: { input, method: "authSessionsRead" as const },
+        inputValidator: accountList.request.authSessionsRead,
+        resultValidator: accountList.result.command,
       });
     },
     stateSet(input) {

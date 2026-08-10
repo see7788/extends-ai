@@ -8,11 +8,18 @@ import * as fileSystem from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import process from "node:process";
+import type { nodeState_t as AccountAddNodeState } from "../accountAdd/store.ts";
+import type { nodeState_t as AccountListNodeState } from "../accountList/store.ts";
 import type { nodeState_t as AccountsNodeState } from "../accounts/store.ts";
 import type { nodeState_t as CookieImportNodeState } from "../cookieImport/store.ts";
 import type { nodeState_t as LoginNodeState } from "../login/store.ts";
 
-type NodeState = AccountsNodeState & BrowserNodeState & CookieImportNodeState & LoginNodeState & {
+type NodeState = AccountAddNodeState
+  & AccountListNodeState
+  & AccountsNodeState
+  & BrowserNodeState
+  & CookieImportNodeState
+  & LoginNodeState & {
   electronRendererUrl?: string;
   webContents?: WebContents;
 };

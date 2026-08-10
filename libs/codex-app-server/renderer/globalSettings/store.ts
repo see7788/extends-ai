@@ -9,6 +9,7 @@ import {
 } from "codex-app-server-main/globalSettings/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import { z } from "zod";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 
 const globalSettingsValidator = producer.globalSettingsValidator;
 const globalSettingsStateValidator = globalSettingsValidator.extend({
@@ -57,18 +58,18 @@ const globalSettingsStore: ImmerStateCreator<
     },
     async codexHomeDefaultRestore() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
+        channel: accountList.channel,
         input: { method: "codexHomeDefaultRestore" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.resultValidator,
+        inputValidator: accountList.request.codexHomeDefaultRestore,
+        resultValidator: accountList.result.command,
       });
     },
     async codexHomeSelect() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
+        channel: accountList.channel,
         input: { method: "codexHomeSelect" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.resultValidator,
+        inputValidator: accountList.request.codexHomeSelect,
+        resultValidator: accountList.result.command,
       });
     },
     codexHomeVisibleSet(input) {

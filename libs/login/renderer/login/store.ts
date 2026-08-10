@@ -1,6 +1,7 @@
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import { login as producer, type LoginState } from "login-main/login/store.ts";
+import { accountAdd } from "login-main/accountAdd/store.ts";
 type LoginSlice = {
   login: LoginState;
   loginActions: {
@@ -39,10 +40,10 @@ const loginStore: ImmerStateCreator<LoginSlice, IpcSlice> = (set, get) => ({
     },
     async start() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "start" as const },
-        inputValidator: producer.request.start,
-        resultValidator: producer.result.start,
+        channel: accountAdd.channel,
+        input: { method: "loginStart" as const },
+        inputValidator: accountAdd.request.loginStart,
+        resultValidator: accountAdd.result.command,
       });
     },
     stateSet(input) {

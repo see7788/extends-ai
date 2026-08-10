@@ -4,6 +4,7 @@ import {
   type AuthJsonImport,
 } from "codex-app-server-main/accountAdd/authJsonImport/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountAdd } from "codex-app-server-main/accountAdd/store.ts";
 
 type AuthJsonImportSlice = {
   authJsonImport: AuthJsonImport;
@@ -24,10 +25,10 @@ const authJsonImportStore: ImmerStateCreator<
   authJsonImportActions: {
     async clipboard() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "clipboard" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.result.import,
+        channel: accountAdd.channel,
+        input: { method: "authJsonImportClipboard" as const },
+        inputValidator: accountAdd.request.authJsonImportClipboard,
+        resultValidator: accountAdd.result.import,
       });
     },
     connect() {
@@ -45,18 +46,18 @@ const authJsonImportStore: ImmerStateCreator<
     },
     async default() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "default" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.result.import,
+        channel: accountAdd.channel,
+        input: { method: "authJsonImportDefault" as const },
+        inputValidator: accountAdd.request.authJsonImportDefault,
+        resultValidator: accountAdd.result.import,
       });
     },
     async select() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "select" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.result.import,
+        channel: accountAdd.channel,
+        input: { method: "authJsonImportSelect" as const },
+        inputValidator: accountAdd.request.authJsonImportSelect,
+        resultValidator: accountAdd.result.import,
       });
     },
     stateSet(input) {

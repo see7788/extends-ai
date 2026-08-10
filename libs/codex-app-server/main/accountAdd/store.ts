@@ -1,6 +1,7 @@
 import type { BrowserSlice } from "browser-partition-main/browser/store.ts";
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
 import type { WebContents } from "electron";
+import { z } from "zod";
 import type { AccountSlice, WebAccess } from "../accountList/account/store.ts";
 import type { AccountsSlice } from "../accountList/accounts/store.ts";
 import type { AuthSessionsSlice } from "../accountList/authSessions/store.ts";
@@ -49,18 +50,49 @@ type AuthJsonSource = {
   sourceText: string;
   webAccess?: WebAccess;
 };
+const request = {
+  authJsonCreate: z.object({
+    input: authJsonCreate.input.create,
+    method: z.literal("authJsonCreate"),
+  }),
+  authJsonCreateCancel: z.object({ method: z.literal("authJsonCreateCancel") }),
+  authJsonImportClipboard: z.object({ method: z.literal("authJsonImportClipboard") }),
+  authJsonImportDefault: z.object({ method: z.literal("authJsonImportDefault") }),
+  authJsonImportSelect: z.object({ method: z.literal("authJsonImportSelect") }),
+};
+const requestValidator = z.discriminatedUnion("method", [
+  request.authJsonCreate,
+  request.authJsonCreateCancel,
+  request.authJsonImportClipboard,
+  request.authJsonImportDefault,
+  request.authJsonImportSelect,
+]);
+const result = {
+  cancel: z.object({ canceled: z.boolean() }),
+  create: z.object({ created: z.boolean() }),
+  import: z.object({ imported: z.boolean() }),
+};
 type AccountAddSlice = {
   accountAddActions: {
     authJsonCreate(input: unknown): Promise<void>;
     authJsonCreateCancel(): boolean;
     authJsonImport(input: AuthJsonSource): Promise<string>;
+    authJsonImportRequest(input: unknown): Promise<boolean>;
     clipboardImport(): Promise<boolean>;
+    communicationStart(): () => void;
     defaultImport(): Promise<boolean>;
     dispose(): void;
     pathImport(sourcePath: string): Promise<string>;
     selectImport(): Promise<boolean>;
   };
 };
+
+const accountAdd = {
+  channel: "accountAdd",
+  request,
+  requestValidator,
+  result,
+} as const;
 
 const accountAddStore: ImmerStateCreator<
   AccountAddSlice,
@@ -207,6 +239,26 @@ const accountAddStore: ImmerStateCreator<
         get().usageActions.accountDelete({ accountId: id });
         return id;
       },
+      async authJsonImportRequest(input) {
+        const requestValue = requestValidator.parse(input);
+        if (!requestValue.method.startsWith("authJsonImport")) {
+          throw new Error("auth.json 导入方法无效");
+        }
+        const actions = get().authJsonImportActions;
+        actions.operationStart();
+        try {
+          const imported = requestValue.method === "authJsonImportClipboard"
+            ? await get().accountAddActions.clipboardImport()
+            : requestValue.method === "authJsonImportDefault"
+              ? await get().accountAddActions.defaultImport()
+              : await get().accountAddActions.selectImport();
+          actions.operationSucceed();
+          return imported;
+        } catch (error) {
+          actions.operationFail({ error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
+      },
       async clipboardImport() {
         const sourceText = get().electron.clipboard.readText();
         if (!sourceText.trim()) throw new Error("剪贴板中没有 auth.json 内容");
@@ -221,6 +273,31 @@ const accountAddStore: ImmerStateCreator<
         if (!codexHome) throw new Error("请先配置 CODEX_HOME");
         await get().accountAddActions.pathImport(get().path.join(codexHome, "auth.json"));
         return true;
+      },
+      communicationStart() {
+        const contents = get().webContents;
+        if (!contents || contents.isDestroyed()) {
+          throw new Error("CodexAppServer WebContents 不可用");
+        }
+        contents.ipc.handle(accountAdd.channel, async (_event, input: unknown) => {
+          const requestValue = accountAdd.requestValidator.parse(input);
+          switch (requestValue.method) {
+          case "authJsonCreate":
+            await get().accountAddActions.authJsonCreate(requestValue.input);
+            return accountAdd.result.create.parse({ created: true });
+          case "authJsonCreateCancel":
+            return accountAdd.result.cancel.parse({
+              canceled: get().accountAddActions.authJsonCreateCancel(),
+            });
+          case "authJsonImportClipboard":
+          case "authJsonImportDefault":
+          case "authJsonImportSelect":
+            return accountAdd.result.import.parse({
+              imported: await get().accountAddActions.authJsonImportRequest(requestValue),
+            });
+          }
+        });
+        return () => contents.ipc.removeHandler(accountAdd.channel);
       },
       dispose() {
         get().authJsonCreateActions.dispose();
@@ -257,5 +334,5 @@ const accountAddStore: ImmerStateCreator<
   };
 };
 
-export type { AccountAddSlice, nodeState_t };
+export { accountAdd, type AccountAddSlice, type nodeState_t };
 export default accountAddStore;

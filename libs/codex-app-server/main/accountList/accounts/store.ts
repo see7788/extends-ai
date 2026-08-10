@@ -9,10 +9,8 @@ const accountsValidator = z.object({
 const accountInputValidator = z.object({
   accountId: accountIdValidator,
 });
-const resultValidator = z.object({ ok: z.literal(true) });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  accountInputValidator.extend({ method: z.literal("accountDelete") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
@@ -26,6 +24,7 @@ type AccountsSlice = {
   accountsActions: {
     accountAdd(input: AccountInput): void;
     accountDelete(input: AccountInput): void;
+    communicationStart(): () => void;
   };
 };
 
@@ -38,7 +37,6 @@ const accounts = {
     accountAdd: accountInputValidator,
     accountDelete: accountInputValidator,
   },
-  resultValidator,
   messageValidator,
   requestValidator,
   stateValidator: accountsValidator,
@@ -70,6 +68,15 @@ const accountsStore: ImmerStateCreator<
         state.accounts.order = state.accounts.order.filter(id => id !== accountId);
       });
       stateSend();
+    },
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+      contents.ipc.handle(accounts.channel, (_event, input: unknown) => {
+        accounts.requestValidator.parse(input);
+        return accounts.stateValidator.parse(get().accounts);
+      });
+      return () => contents.ipc.removeHandler(accounts.channel);
     },
   },
   });

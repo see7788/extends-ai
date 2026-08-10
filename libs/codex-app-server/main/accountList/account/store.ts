@@ -1,5 +1,6 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import type { WebContents } from "electron";
+import type BrowserPartitionWindow from "browser-partition-main/BrowserWindow.ts";
+import type { BrowserWindow as ElectronBrowserWindow, WebContents } from "electron";
 import { z } from "zod";
 
 const accountIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
@@ -27,7 +28,6 @@ const enabledSetValidator = readValidator.extend({ enabled: z.boolean() });
 const resultValidator = z.object({ ok: z.literal(true) });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  enabledSetValidator.extend({ method: z.literal("enabledSet") }),
   labelSetValidator.extend({ method: z.literal("labelSet") }),
   readValidator.extend({ method: z.literal("officialOpen") }),
 ]);
@@ -47,11 +47,19 @@ type AccountSlice = {
   accountActions: {
     accountSet(input: Account): void;
     accountDelete(input: z.infer<typeof readValidator>): void;
+    communicationStart(): () => void;
     enabledClear(): void;
+    dispose(): void;
     normalize(): void;
     labelSet(input: LabelSetInput): void;
     enabledSet(input: EnabledSetInput): void;
+    officialOpen(input: AccountReadInput): Promise<void>;
   };
+};
+type nodeState_t = {
+  browserPartitionWindow: Pick<typeof BrowserPartitionWindow, "open">;
+  electronBrowserWindow: Pick<typeof ElectronBrowserWindow, "fromWebContents">;
+  webContents?: WebContents;
 };
 
 const initial: AccountState = {};
@@ -75,8 +83,10 @@ const account = {
 
 const accountStore: ImmerStateCreator<
   AccountSlice,
-  { webContents?: WebContents }
+  nodeState_t
 > = (set, get) => {
+  let officialPartition: string | undefined;
+  let officialWindow: Awaited<ReturnType<typeof BrowserPartitionWindow.open>> | undefined;
   const stateSend = (): void => get().webContents?.send(
     account.channel,
     messageValidator.parse({ method: "stateUpdated", value: get().account }),
@@ -103,11 +113,35 @@ const accountStore: ImmerStateCreator<
       });
       stateSend();
     },
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+      contents.ipc.handle(account.channel, async (_event, input: unknown) => {
+        const requestValue = account.requestValidator.parse(input);
+        switch (requestValue.method) {
+        case "stateRead":
+          return account.accountStateValidator.parse(get().account);
+        case "labelSet":
+          get().accountActions.labelSet(requestValue);
+          break;
+        case "officialOpen":
+          await get().accountActions.officialOpen(requestValue);
+          break;
+        }
+        return account.resultValidator.parse({ ok: true });
+      });
+      return () => contents.ipc.removeHandler(account.channel);
+    },
     enabledClear() {
       set(state => {
         for (const item of Object.values(state.account)) item.enabled = false;
       });
       stateSend();
+    },
+    dispose() {
+      officialWindow?.dispose();
+      officialWindow = undefined;
+      officialPartition = undefined;
     },
     normalize() {
       const value = accountStateValidator.parse(get().account);
@@ -137,6 +171,40 @@ const accountStore: ImmerStateCreator<
       });
       stateSend();
     },
+    async officialOpen(input) {
+      const { accountId } = readValidator.parse(input);
+      const selected = get().account[accountId];
+      if (!selected) throw new Error(`账号不存在：${accountId}`);
+      if (!selected.webAccess) throw new Error("该账号没有内嵌网页登录会话");
+      const partition = selected.webAccess.partition;
+      if (officialWindow && officialPartition === partition) {
+        await officialWindow.show();
+        return;
+      }
+      officialWindow?.dispose();
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("账号管理窗口不可用");
+      const parent = get().electronBrowserWindow.fromWebContents(contents);
+      if (!parent) throw new Error("无法取得账号管理窗口");
+      let created: Awaited<ReturnType<typeof BrowserPartitionWindow.open>> | undefined;
+      created = await get().browserPartitionWindow.open({
+        height: 780,
+        minHeight: 520,
+        minWidth: 760,
+        onClose: () => {
+          if (officialWindow !== created) return;
+          officialWindow = undefined;
+          officialPartition = undefined;
+        },
+        parent,
+        partition,
+        title: "ChatGPT",
+        url: "https://chatgpt.com/",
+        width: 1100,
+      });
+      officialWindow = created;
+      officialPartition = partition;
+    },
   },
   });
 };
@@ -149,6 +217,7 @@ export {
   type AccountState,
   type EnabledSetInput,
   type LabelSetInput,
+  type nodeState_t,
   type WebAccess,
 };
 export default accountStore;

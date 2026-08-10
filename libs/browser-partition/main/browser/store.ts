@@ -1,4 +1,5 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { WebContents } from "electron";
 import { z } from "zod";
 
 const browserIdValidator = z.string().regex(/^[a-f0-9]{24}$/);
@@ -56,11 +57,13 @@ type nodeState_t = {
   browserOs: Pick<typeof import("node:os"), "homedir">;
   browserPath: Pick<typeof import("node:path"), "basename" | "join" | "resolve">;
   browserProcess: Pick<NodeJS.Process, "env" | "platform">;
+  webContents?: WebContents;
 };
 type BrowserSlice = {
   browserActions: {
     applicationRead(input: unknown): Promise<BrowserApplication>;
     applicationsRead(): Promise<BrowserApplications>;
+    communicationStart(): () => void;
     executableOpen(
       executablePath: string,
       url: string,
@@ -551,6 +554,18 @@ return {
   browserActions: {
     applicationRead,
     applicationsRead,
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+      contents.ipc.handle(browser.channel, async (_event, input: unknown) => {
+        const requestValue = browser.requestValidator.parse(input);
+        switch (requestValue.method) {
+        case "applicationsRead":
+          return browser.result.applicationsRead.parse(await applicationsRead());
+        }
+      });
+      return () => contents.ipc.removeHandler(browser.channel);
+    },
     executableOpen,
     open,
     remoteDebugRead,

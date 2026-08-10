@@ -4,6 +4,7 @@ import {
   type Scheduler,
 } from "codex-app-server-main/accountList/scheduler/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 type SchedulerSlice = {
   scheduler: Scheduler;
   schedulerActions: {
@@ -34,10 +35,10 @@ const schedulerStore: ImmerStateCreator<
     },
     async runNow() {
       await get().ipcActions.invoke({
-        channel: producer.channel,
+        channel: accountList.channel,
         input: { method: "runNow" as const },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.commandResultValidator,
+        inputValidator: accountList.request.runNow,
+        resultValidator: accountList.result.command,
       });
     },
     stateSet(input) {

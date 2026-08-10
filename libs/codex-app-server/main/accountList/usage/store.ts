@@ -33,10 +33,8 @@ const resultSetValidator = accountCommandValidator.extend({
   updatedAt: z.string().datetime({ offset: true }),
 });
 const errorSetValidator = accountCommandValidator.extend({ error: z.string() });
-const commandResultValidator = z.object({ ok: z.literal(true) });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  accountCommandValidator.extend({ method: z.literal("read") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
@@ -49,6 +47,7 @@ type UsageSlice = {
   usage: Usage;
   usageActions: {
     accountDelete(input: AccountInput): void;
+    communicationStart(): () => void;
     loadingSet(input: AccountInput): void;
     resultSet(input: z.infer<typeof resultSetValidator>): void;
     errorSet(input: z.infer<typeof errorSetValidator>): void;
@@ -67,7 +66,6 @@ const usage = {
   accountStateInitial,
   accountStateValidator,
   channel: "usage",
-  commandResultValidator,
   initial,
   input: {
     command: accountCommandValidator,
@@ -92,6 +90,15 @@ const usageStore: ImmerStateCreator<UsageSlice, nodeState_t> = (set, get) => {
         const { accountId } = accountCommandValidator.parse(input);
         set(state => { delete state.usage.byAccountId[accountId]; });
         stateSend();
+      },
+      communicationStart() {
+        const contents = get().webContents;
+        if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+        contents.ipc.handle(usage.channel, (_event, input: unknown) => {
+          usage.requestValidator.parse(input);
+          return usage.usageValidator.parse(get().usage);
+        });
+        return () => contents.ipc.removeHandler(usage.channel);
       },
       loadingSet(input) {
         const value = accountCommandValidator.parse(input);

@@ -34,10 +34,8 @@ const errorSetValidator = accountCommandValidator.extend({
   checkedAt: z.string().datetime({ offset: true }),
   error: z.string(),
 });
-const resultValidator = z.object({ ok: z.literal(true) });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  accountCommandValidator.extend({ method: z.literal("read") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
@@ -50,6 +48,7 @@ type AuthSessionsSlice = {
   authSessions: AuthSessions;
   authSessionsActions: {
     accountDelete(input: AccountCommandInput): void;
+    communicationStart(): () => void;
     loadingSet(input: AccountCommandInput): void;
     resultSet(input: z.infer<typeof resultSetValidator>): void;
     errorSet(input: z.infer<typeof errorSetValidator>): void;
@@ -72,7 +71,6 @@ const authSessions = {
   },
   messageValidator,
   requestValidator,
-  resultValidator,
 };
 
 const authSessionsStore: ImmerStateCreator<AuthSessionsSlice, nodeState_t> = (set, get) => {
@@ -101,11 +99,20 @@ const authSessionsStore: ImmerStateCreator<AuthSessionsSlice, nodeState_t> = (se
   return {
     authSessions: structuredClone(initial),
     authSessionsActions: {
-      accountDelete(input) {
+    accountDelete(input) {
         const { accountId } = accountCommandValidator.parse(input);
         set(state => { delete state.authSessions.byAccountId[accountId]; });
-        stateSend();
-      },
+      stateSend();
+    },
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+      contents.ipc.handle(authSessions.channel, (_event, input: unknown) => {
+        authSessions.requestValidator.parse(input);
+        return authSessions.authSessionsValidator.parse(get().authSessions);
+      });
+      return () => contents.ipc.removeHandler(authSessions.channel);
+    },
       loadingSet(input) {
         const value = accountCommandValidator.parse(input);
         set(state => {

@@ -6,6 +6,8 @@ import {
   type Accounts,
   type EmailInput,
 } from "login-main/accounts/store.ts";
+import { accountAdd } from "login-main/accountAdd/store.ts";
+import { accountList } from "login-main/accountList/store.ts";
 type AccountsSlice = {
   accounts: Accounts;
   accountsActions: {
@@ -23,10 +25,10 @@ const accountsStore: ImmerStateCreator<AccountsSlice, IpcSlice> = (set, get) => 
   accountsActions: {
     async cookieImportConsume() {
       return (await get().ipcActions.invoke({
-        channel: producer.channel,
+        channel: accountAdd.channel,
         input: { method: "cookieImportConsume" as const },
-        inputValidator: producer.request.cookieImportConsume,
-        resultValidator: producer.result.account,
+        inputValidator: accountAdd.request.cookieImportConsume,
+        resultValidator: accountAdd.result.account,
       })).account;
     },
     connect() {
@@ -54,10 +56,10 @@ const accountsStore: ImmerStateCreator<AccountsSlice, IpcSlice> = (set, get) => 
     },
     async remove(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
+        channel: accountList.channel,
         input: { input, method: "remove" as const },
-        inputValidator: producer.request.remove,
-        resultValidator: producer.result.command,
+        inputValidator: accountList.request.remove,
+        resultValidator: accountList.result.command,
       });
     },
     stateSet(input) {

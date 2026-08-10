@@ -10,17 +10,23 @@ import * as path from "node:path";
 import process from "node:process";
 import * as readLine from "node:readline";
 import type { nodeState_t as AccountListNodeState } from "../accountList/store.ts";
+import type { nodeState_t as AccountNodeState } from "../accountList/account/store.ts";
 import type { nodeState_t as ConnectionNodeState } from "../accountList/connection/store.ts";
 import type { nodeState_t as AccountAddNodeState } from "../accountAdd/store.ts";
+import type { nodeState_t as GlobalSettingsNodeState } from "../globalSettings/store.ts";
+import BrowserPartitionWindow from "browser-partition-main/BrowserWindow.ts";
 
 type NodeState = AccountAddNodeState
+  & AccountNodeState
   & AccountListNodeState
   & BrowserNodeState
-  & ConnectionNodeState & {
+  & ConnectionNodeState
+  & GlobalSettingsNodeState & {
   webContents?: WebContents;
 };
 
 const nodeState: ImmerStateCreator<NodeState> = () => ({
+  appHome: app.getPath("home"),
   appUserData: app.getPath("userData"),
   appTemp: app.getPath("temp"),
   browserApp: {
@@ -48,12 +54,19 @@ const nodeState: ImmerStateCreator<NodeState> = () => ({
     env: { ...process.env },
     platform: process.platform,
   },
+  browserPartitionWindow: {
+    open: BrowserPartitionWindow.open.bind(BrowserPartitionWindow),
+  },
   childProcess: {
     execFile: childProcess.execFile,
     spawn: childProcess.spawn,
   },
   crypto: {
     createHash: crypto.createHash,
+    randomUUID: crypto.randomUUID,
+  },
+  electronBrowserWindow: {
+    fromWebContents: electron.BrowserWindow.fromWebContents.bind(electron.BrowserWindow),
   },
   electron: {
     BrowserWindow: {
@@ -71,9 +84,13 @@ const nodeState: ImmerStateCreator<NodeState> = () => ({
     cp: fileSystem.cp,
     mkdir: fileSystem.mkdir,
     mkdtemp: fileSystem.mkdtemp,
+    open: fileSystem.open,
     readFile: fileSystem.readFile,
+    readdir: fileSystem.readdir,
+    rename: fileSystem.rename,
     rm: fileSystem.rm,
     stat: fileSystem.stat,
+    unlink: fileSystem.unlink,
     writeFile: fileSystem.writeFile,
   },
   os: {
@@ -83,7 +100,9 @@ const nodeState: ImmerStateCreator<NodeState> = () => ({
   path: {
     basename: path.basename,
     dirname: path.dirname,
+    isAbsolute: path.isAbsolute,
     join: path.join,
+    relative: path.relative,
     resolve: path.resolve,
   },
   process: {

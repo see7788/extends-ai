@@ -5,6 +5,7 @@ import {
   type Accounts,
 } from "codex-app-server-main/accountList/accounts/store.ts";
 import type { IpcSlice } from "browser-partition-renderer/public.ts";
+import { accountList } from "codex-app-server-main/accountList/store.ts";
 type AccountsSlice = {
   accounts: Accounts;
   accountsActions: {
@@ -22,10 +23,10 @@ const accountsStore: ImmerStateCreator<
   accountsActions: {
     async accountDelete(input) {
       await get().ipcActions.invoke({
-        channel: producer.channel,
-        input: { method: "accountDelete" as const, ...input },
-        inputValidator: producer.requestValidator,
-        resultValidator: producer.resultValidator,
+        channel: accountList.channel,
+        input: { input, method: "accountDelete" as const },
+        inputValidator: accountList.request.accountDelete,
+        resultValidator: accountList.result.command,
       });
     },
     connect() {

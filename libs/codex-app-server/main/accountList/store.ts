@@ -1,5 +1,7 @@
 import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
-import type { GlobalSettingsSlice } from "../globalSettings/store.ts";
+import type { WebContents } from "electron";
+import { z } from "zod";
+import { globalSettings, type GlobalSettingsSlice } from "../globalSettings/store.ts";
 import { account, type AccountSlice } from "./account/store.ts";
 import { accounts, type AccountsSlice } from "./accounts/store.ts";
 import { authSessions, type AuthSessionsSlice } from "./authSessions/store.ts";
@@ -9,9 +11,15 @@ import type { SchedulerSlice } from "./scheduler/store.ts";
 import { usage, type UsageSlice } from "./usage/store.ts";
 
 type nodeState_t = {
+  appHome: string;
   appUserData: string;
+  electron: {
+    BrowserWindow: Pick<typeof import("electron").BrowserWindow, "fromWebContents">;
+    dialog: Pick<typeof import("electron").dialog, "showOpenDialog">;
+  };
   fileSystem: Pick<typeof import("node:fs/promises"), "cp" | "mkdir" | "stat">;
   path: Pick<typeof import("node:path"), "dirname" | "join">;
+  webContents?: WebContents;
 };
 type ProducerSlices = AccountSlice
   & AccountsSlice
@@ -25,6 +33,9 @@ type AccountListSlice = {
   accountListActions: {
     accountDelete(input: unknown): Promise<void>;
     authSessionsRead(input: unknown): Promise<void>;
+    codexHomeDefaultRestore(): Promise<void>;
+    codexHomeSelect(): Promise<void>;
+    communicationStart(): () => void;
     enabledSet(input: unknown): Promise<void>;
     initialize(): Promise<void>;
     pause(): Promise<void>;
@@ -37,6 +48,34 @@ type AccountListSlice = {
     usageRead(input: unknown): Promise<void>;
   };
 };
+
+const request = {
+  accountDelete: z.object({ input: accounts.input.accountDelete, method: z.literal("accountDelete") }),
+  authSessionsRead: z.object({ input: authSessions.input.command, method: z.literal("authSessionsRead") }),
+  codexHomeDefaultRestore: z.object({ method: z.literal("codexHomeDefaultRestore") }),
+  codexHomeSelect: z.object({ method: z.literal("codexHomeSelect") }),
+  enabledSet: z.object({ input: account.input.enabledSet, method: z.literal("enabledSet") }),
+  rateLimitsRead: z.object({ input: rateLimits.input.command, method: z.literal("rateLimitsRead") }),
+  runNow: z.object({ method: z.literal("runNow") }),
+  usageRead: z.object({ input: usage.input.command, method: z.literal("usageRead") }),
+};
+const requestValidator = z.discriminatedUnion("method", [
+  request.accountDelete,
+  request.authSessionsRead,
+  request.codexHomeDefaultRestore,
+  request.codexHomeSelect,
+  request.enabledSet,
+  request.rateLimitsRead,
+  request.runNow,
+  request.usageRead,
+]);
+const result = { command: z.object({ ok: z.literal(true) }) };
+const accountList = {
+  channel: "accountList",
+  request,
+  requestValidator,
+  result,
+} as const;
 
 const accountListStore: ImmerStateCreator<
   AccountListSlice,
@@ -173,6 +212,75 @@ const accountListStore: ImmerStateCreator<
           });
           throw error;
         }
+      },
+      async codexHomeDefaultRestore() {
+        await get().accountListActions.pause();
+        try {
+          await get().globalSettingsActions.codexHomeMove({
+            codexHome: get().path.join(get().appHome, ".codex"),
+          });
+        } finally {
+          get().accountListActions.resume();
+        }
+      },
+      async codexHomeSelect() {
+        const contents = get().webContents;
+        if (!contents || contents.isDestroyed()) {
+          throw new Error("CodexAppServer WebContents 不可用");
+        }
+        const parent = get().electron.BrowserWindow.fromWebContents(contents);
+        if (!parent) throw new Error("无法取得账号管理窗口");
+        const selected = await get().electron.dialog.showOpenDialog(parent, {
+          buttonLabel: "选择",
+          defaultPath: get().globalSettings.codexHome ?? undefined,
+          properties: ["openDirectory", "createDirectory"],
+          title: "选择 CODEX_HOME",
+        });
+        const codexHome = selected.filePaths[0];
+        if (selected.canceled || !codexHome) return;
+        await get().accountListActions.pause();
+        try {
+          await get().globalSettingsActions.codexHomeMove({ codexHome });
+        } finally {
+          get().accountListActions.resume();
+        }
+      },
+      communicationStart() {
+        const contents = get().webContents;
+        if (!contents || contents.isDestroyed()) {
+          throw new Error("CodexAppServer WebContents 不可用");
+        }
+        contents.ipc.handle(accountList.channel, async (_event, input: unknown) => {
+          const requestValue = accountList.requestValidator.parse(input);
+          switch (requestValue.method) {
+          case "accountDelete":
+            await get().accountListActions.accountDelete(requestValue.input);
+            break;
+          case "authSessionsRead":
+            await get().accountListActions.authSessionsRead(requestValue.input);
+            break;
+          case "codexHomeDefaultRestore":
+            await get().accountListActions.codexHomeDefaultRestore();
+            break;
+          case "codexHomeSelect":
+            await get().accountListActions.codexHomeSelect();
+            break;
+          case "enabledSet":
+            await get().accountListActions.enabledSet(requestValue.input);
+            break;
+          case "rateLimitsRead":
+            await get().accountListActions.rateLimitsRead(requestValue.input);
+            break;
+          case "runNow":
+            await get().accountListActions.runNow();
+            break;
+          case "usageRead":
+            await get().accountListActions.usageRead(requestValue.input);
+            break;
+          }
+          return accountList.result.command.parse({ ok: true });
+        });
+        return () => contents.ipc.removeHandler(accountList.channel);
       },
       async enabledSet(input) {
         const value = account.input.enabledSet.parse(input);
@@ -315,5 +423,5 @@ const accountListStore: ImmerStateCreator<
   };
 };
 
-export type { AccountListSlice, nodeState_t };
+export { accountList, type AccountListSlice, type nodeState_t };
 export default accountListStore;

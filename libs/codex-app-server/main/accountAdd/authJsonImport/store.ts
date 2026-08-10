@@ -30,13 +30,8 @@ const accountReadResultValidator = z.object({
   requiresOpenaiAuth: z.boolean(),
 }).passthrough();
 const operationFailValidator = z.object({ error: z.string().min(1) });
-const commandValidator = z.object({});
-const importResultValidator = z.object({ imported: z.boolean() });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  z.object({ method: z.literal("clipboard") }),
-  z.object({ method: z.literal("default") }),
-  z.object({ method: z.literal("select") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
@@ -47,6 +42,7 @@ type AuthJsonImport = z.infer<typeof authJsonImportValidator>;
 type AuthJsonImportSlice = {
   authJsonImport: AuthJsonImport;
   authJsonImportActions: {
+    communicationStart(): () => void;
     operationCancel(): void;
     operationFail(input: z.infer<typeof operationFailValidator>): void;
     operationStart(): void;
@@ -65,10 +61,8 @@ const authJsonImport = {
   channel: "authJsonImport",
   initial,
   input: {
-    command: commandValidator,
     operationFail: operationFailValidator,
   },
-  result: { import: importResultValidator },
   messageValidator,
   requestValidator,
   sourceValidator,
@@ -85,6 +79,15 @@ const authJsonImportStore: ImmerStateCreator<
   return ({
   authJsonImport: structuredClone(initial),
   authJsonImportActions: {
+    communicationStart() {
+      const contents = get().webContents;
+      if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+      contents.ipc.handle(authJsonImport.channel, (_event, input: unknown) => {
+        authJsonImport.requestValidator.parse(input);
+        return authJsonImport.authJsonImportValidator.parse(get().authJsonImport);
+      });
+      return () => contents.ipc.removeHandler(authJsonImport.channel);
+    },
     operationCancel() {
       set(state => {
         state.authJsonImport = structuredClone(initial);
@@ -120,5 +123,9 @@ const authJsonImportStore: ImmerStateCreator<
   });
 };
 
-export { authJsonImport, type AuthJsonImport, type AuthJsonImportSlice };
+export {
+  authJsonImport,
+  type AuthJsonImport,
+  type AuthJsonImportSlice,
+};
 export default authJsonImportStore;

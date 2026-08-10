@@ -42,8 +42,6 @@ const loginCompletedValidator = z.object({
 const loginCancelValidator = z.object({ status: z.enum(["canceled", "notFound"]) });
 const requestValidator = z.discriminatedUnion("method", [
   z.object({ method: z.literal("stateRead") }),
-  z.object({ method: z.literal("cancel") }),
-  createInputValidator.extend({ method: z.literal("create") }),
 ]);
 const messageValidator = z.object({
   method: z.literal("stateUpdated"),
@@ -82,6 +80,7 @@ type AuthJsonCreateSlice = {
   authJsonCreate: AuthJsonCreate;
   authJsonCreateActions: {
     cancel(): boolean;
+    communicationStart(): () => void;
     create(input: AuthJsonCreateInput): Promise<AuthJsonCreateOperation>;
     dispose(): void;
   };
@@ -99,12 +98,7 @@ const authJsonCreate = {
   channel: "authJsonCreate",
   initial,
   input: {
-    command: z.object({}),
     create: createInputValidator,
-  },
-  result: {
-    cancel: z.object({ canceled: z.boolean() }),
-    create: z.object({ created: z.boolean() }),
   },
   messageValidator,
   requestValidator,
@@ -400,6 +394,15 @@ const authJsonCreateStore: ImmerStateCreator<
         if (!active || active.signal.aborted) return false;
         active.abort();
         return true;
+      },
+      communicationStart() {
+        const contents = get().webContents;
+        if (!contents || contents.isDestroyed()) throw new Error("WebContents 不可用");
+        contents.ipc.handle(authJsonCreate.channel, (_event, input: unknown) => {
+          authJsonCreate.requestValidator.parse(input);
+          return authJsonCreate.authJsonCreateValidator.parse(get().authJsonCreate);
+        });
+        return () => contents.ipc.removeHandler(authJsonCreate.channel);
       },
       async create(input) {
         if (active) throw new Error("已有 auth.json 创建操作正在进行");

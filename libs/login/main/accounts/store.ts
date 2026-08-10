@@ -42,16 +42,12 @@ const accountSessionValidator = z.object({
 }).passthrough();
 const commandValidator = z.object({});
 const request = {
-  cookieImportConsume: z.object({ method: z.literal("cookieImportConsume") }),
   open: z.object({ input: emailValidator, method: z.literal("open") }),
-  remove: z.object({ input: emailValidator, method: z.literal("remove") }),
   stateRead: z.object({ method: z.literal("stateRead") }),
   validate: z.object({ input: emailValidator, method: z.literal("validate") }),
 };
 const requestValidator = z.discriminatedUnion("method", [
-  request.cookieImportConsume,
   request.open,
-  request.remove,
   request.stateRead,
   request.validate,
 ]);
@@ -102,6 +98,7 @@ type AccountsSlice = {
       input: unknown,
       signal?: AbortSignal,
     ): Promise<Account>;
+    communicationStart(): () => void;
     dispose(): void;
     loginIdentify(partition: string): Promise<boolean>;
     open(input: unknown): Promise<boolean>;
@@ -207,6 +204,26 @@ const accountsStore: ImmerStateCreator<AccountsSlice, nodeState_t> = (set, get) 
           await get().accountsPrivateActions.partitionClear(previousPartition).catch(() => undefined);
         }
         return value;
+      },
+      communicationStart() {
+        const contents = get().loginWindow?.webContents;
+        if (!contents || contents.isDestroyed()) throw new Error("Login WebContents 不可用");
+        contents.ipc.handle(accounts.channel, async (_event, input: unknown) => {
+          const requestValue = accounts.requestValidator.parse(input);
+          switch (requestValue.method) {
+          case "open":
+            return accounts.result.command.parse({
+              completed: await get().accountsActions.open(requestValue.input),
+            });
+          case "stateRead":
+            return accounts.accountsValidator.parse(get().accounts);
+          case "validate":
+            return accounts.result.command.parse({
+              completed: await get().accountsActions.validate(requestValue.input),
+            });
+          }
+        });
+        return () => contents.ipc.removeHandler(accounts.channel);
       },
       dispose() {
         get().accountsPrivateActions.accountWindowDispose();
@@ -361,6 +378,7 @@ export {
   accounts,
   type Account,
   type AccountResult,
+  type AccountsSlice,
   type Accounts,
   type EmailInput,
   type nodeState_t,

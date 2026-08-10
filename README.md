@@ -16,10 +16,12 @@ extends-ai/
 │  └─ renderer/public.ts              # renderer IPC 能力切片
 ├─ libs/login/                        # 独立 ChatGPT 登录态管理应用
 │  ├─ main/
-│  │  ├─ index.ts                     # 唯一服务端入口，注册切片频道
+│  │  ├─ index.ts                     # 唯一服务端入口，注入运行时并启动切片通信
 │  │  ├─ store/
 │  │  │  ├─ index.ts                  # 唯一 main store 与持久化白名单
 │  │  │  └─ nodeState.ts              # 本 store 的运行时实体
+│  │  ├─ accountAdd/store.ts           # 添加账号消费者与唯一频道
+│  │  ├─ accountList/store.ts          # 已有账号消费者与唯一频道
 │  │  ├─ accounts/store.ts            # 已识别账号生产者
 │  │  ├─ cookieImport/store.ts        # 外部浏览器 Cookie 导入生产者
 │  │  └─ login/store.ts               # Electron 内嵌登录生产者
@@ -31,7 +33,7 @@ extends-ai/
 │     └─ login/                        # login 同构切片与 UI
 ├─ libs/codex-app-server/             # Codex auth.json、账号详情与额度维护应用
 │  ├─ main/
-│  │  ├─ index.ts                     # 唯一服务端入口；窗口、生命周期与频道注册
+│  │  ├─ index.ts                     # 唯一服务端入口；窗口、生命周期与通信启动
 │  │  ├─ store/
 │  │  │  ├─ index.ts                  # 唯一 main store 与持久化白名单
 │  │  │  └─ nodeState.ts              # 本 store 的运行时实体
@@ -67,6 +69,7 @@ extends-ai/
 - 服务端业务目录只存在 `store.ts`；仅运行端根和主 store 允许 `index.ts`。
 - 每个服务端切片只有与切片同名的一个频道；方法由频道载荷的 `method` 区分。
 - 每个生产者只改自身状态；`accountAdd`、`accountList` 是无数据消费者切片，只调用生产者 Actions。
+- 每个切片自行注册并注销唯一频道；根入口只注入 `webContents` 并启动各切片通信，不包含 IPC 定义与业务分发。
 - renderer 切片直接加载对应 main `store.ts` 提供的具名类型、验证器与频道契约。
 - `browser-partition/preload` 是工作区唯一 Electron preload 实现。
 - Node/Electron 实体仅由各独立 main store 的 `store/nodeState.ts` 注入；持久化使用逐项白名单。
