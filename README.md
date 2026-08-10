@@ -177,6 +177,7 @@ extends-ai/
 - 每个独立业务 renderer 根目录固定存在 `store.ts / routers.tsx / index.tsx`；即使只有一个页面，也使用 `react-router-dom` 的 Hash Router。
 - renderer 业务切片目录固定只有 `store.ts / index.tsx`：`store.ts` 定义同名镜像状态及向 main 发起明确方法的 Actions，`index.tsx` 只渲染状态并调用 Actions；不再并存 `index.ts` 与 `index.tsx`，也不保留套壳转发入口。
 - 每个切片 `store.ts` 只定义本切片的 `<切片名>` 与 `<切片名>Actions`；renderer 主 `store.ts` 组合切片，并在建仓后把 main 的首次状态和后续推送接入对应 `stateSet`。
+- 切片边界只约束生产者；UI、页面与路由是最终消费者，可以按用户理解组合多个切片。禁止把“切片独立”机械解释成“必须独立卡片、页面或布局”。
 - renderer 主仓库使用 Zustand `create`，组件直接调用 `store(selector)`；不再额外引入 `useStore(store, selector)` 适配层。
 - renderer 不导出 `useXxx` IPC 生命周期包装；UI 不直接导入 `invoke / read / subscribe / stateConnect`。
 - `app.tsx` 只负责应用主题上下文与路由 `Outlet`，不转发页面、不拥有业务 store，也不替根切片组合业务 UI。
