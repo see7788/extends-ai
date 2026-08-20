@@ -1,24 +1,9 @@
 import react from "@vitejs/plugin-react";
-import { resolve } from "node:path";
 import { defineConfig, type UserConfig } from "electron-vite";
-import { normalizePath, type Plugin } from "vite";
-import rendererReact from "electron-vite-config-lib/rendererReactPlugin/plugin";
+import preloadConfig from "electron-vite-config-lib/preloadCreate/vite/index";
+import rendererPlugin from "electron-vite-config-lib/rendererReactPlugin/plugin";
 
-const reactDevelopment = react().map(plugin => ({
-  ...plugin,
-  apply: "serve" as const,
-}));
-const rendererProject = "../../libs/codex-app-server/renderer";
-const rendererEntryCanonical: Plugin = {
-  apply: "serve",
-  name: "renderer-entry-canonical",
-  transformIndexHtml(html) {
-    const entry = normalizePath(resolve(rendererProject, "index.tsx"));
-    return html.replace("./index.tsx", `/@fs/${entry}`);
-  },
-};
-
-const config = {
+export default defineConfig({
   main: {
     build: {
       externalizeDeps: false,
@@ -27,37 +12,19 @@ const config = {
       },
     },
   },
-  preload: {
-    build: {
-      assetsInlineLimit: Number.POSITIVE_INFINITY,
-      cssCodeSplit: false,
-      externalizeDeps: false,
-      isolatedEntries: true,
-      rolldownOptions: {
-        input: {
-          "browser-partition-preload": "../../libs/browser-partition/preload/index.ts",
-        },
-        output: {
-          codeSplitting: false,
-          entryFileNames: "[name].cjs",
-          format: "cjs",
-        },
-      },
-    },
-  },
+  preload: preloadConfig({
+    paths: ["../../libs/browser-partition/preload/index.ts"],
+  }),
   renderer: {
     plugins: [
-      ...reactDevelopment,
-      rendererEntryCanonical,
-      rendererReact(
-        { otherPort: 5174 },
-        [rendererProject],
-      ),
+      react(),
+      rendererPlugin({
+        ports: [5173, 5174],
+        paths: ["../../libs/codex-app-server/renderer/index.tsx"],
+      }),
     ],
     resolve: {
       dedupe: ["react", "react-dom"],
     },
   },
-} satisfies UserConfig;
-
-export default defineConfig(config);
+});

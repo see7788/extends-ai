@@ -1,4 +1,4 @@
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import type { Interface as ReadLineInterface } from "node:readline";
 import { z, type ZodType } from "zod";

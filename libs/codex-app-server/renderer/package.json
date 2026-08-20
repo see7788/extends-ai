@@ -13,7 +13,7 @@
     "browser-partition-renderer": "workspace:*",
     "codex-app-server-main": "workspace:*",
     "extends-react": "workspace:*",
-    "extends-zustand": "workspace:*",
+    "zustand-lib": "workspace:*",
     "immer": "10.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

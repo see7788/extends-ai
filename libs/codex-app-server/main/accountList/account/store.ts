@@ -1,4 +1,4 @@
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import type BrowserPartitionWindow from "browser-partition-main/BrowserWindow.ts";
 import type { BrowserWindow as ElectronBrowserWindow, WebContents } from "electron";
 import { z } from "zod";

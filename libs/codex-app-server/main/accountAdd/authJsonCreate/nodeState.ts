@@ -1,4 +1,4 @@
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import { app } from "electron";
 import * as childProcess from "node:child_process";
 import * as fileSystem from "node:fs/promises";

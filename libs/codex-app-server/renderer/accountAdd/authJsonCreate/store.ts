@@ -1,4 +1,4 @@
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import {
   authJsonCreate as producer,
   type AuthJsonCreate,

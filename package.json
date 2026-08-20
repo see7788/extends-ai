@@ -8,17 +8,24 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "pnpm --filter extends-ai-main dev",
-    "typecheck": "pnpm --filter extends-ai-main --filter browser-partition-* --filter codex-app-server-* --filter login-* -r --if-present typecheck",
+    "dev": "vite --config apps/test/vite.config.ts --configLoader runner",
+    "main:dev": "pnpm --filter extends-ai-main dev",
+    "treeask:dev": "vite --config apps/test/vite.config.ts --configLoader runner",
+    "treeask:build": "vite build --config apps/test/vite.config.ts --configLoader runner",
+    "typecheck": "pnpm --filter extends-ai-main --filter browser-partition-* --filter codex-app-server-* --filter chatgtp-com-login-* --filter aiserver --filter treeask -r --if-present typecheck",
     "build": "pnpm typecheck && pnpm --filter extends-ai-main build"
   },
   "devDependencies": {
+    "@hono/node-server": "^1.19.11",
+    "@hono/vite-dev-server": "0.26.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.1.1",
     "electron-vite": "6.0.0-beta.1",
     "typescript": "^5.9.3",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vite-config-lib": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -27,7 +34,8 @@
     ],
     "overrides": {
       "tsx": "^4.20.0",
-      "typescript": "^5.8.0"
+      "typescript": "^5.8.0",
+      "vite": "8.0.11"
     }
   }
 }

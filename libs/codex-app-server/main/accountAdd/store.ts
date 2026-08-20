@@ -1,5 +1,5 @@
 import type { BrowserSlice } from "browser-partition-main/browser/store.ts";
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import type { WebContents } from "electron";
 import { z } from "zod";
 import type { AccountSlice, WebAccess } from "../accountList/account/store.ts";

@@ -1,19 +1,9 @@
 import { app, BrowserWindow } from "electron";
+import preloadPath from "electron-vite-config-lib/preloadCreate/electron";
+import rendererLoad from "electron-vite-config-lib/rendererReactPlugin/electron";
 import { join } from "node:path";
-import process from "node:process";
 import store from "./store/index.ts";
 
-const preloadPath = () => join(
-  app.getAppPath(),
-  "out",
-  "preload",
-  "browser-partition-preload.cjs",
-);
-const electronRendererUrlRead = (): string | undefined => {
-  const value = process.env.ELECTRON_RENDERER_URL?.trim();
-  if (!value) return undefined;
-  return new URL(value).toString();
-};
 class CodexAppServer {
   private disposed = false;
   private readonly disposeCommunication: Array<() => void>;
@@ -33,7 +23,7 @@ class CodexAppServer {
         contextIsolation: true,
         nodeIntegration: false,
         partition: "persist:codex-app-server",
-        preload: preloadPath(),
+        preload: preloadPath("browser-partition-preload"),
         sandbox: true,
       },
     });
@@ -71,7 +61,11 @@ class CodexAppServer {
     });
     this.ready = Promise.all([
       initialize,
-      this.rendererLoad(route),
+      rendererLoad({
+        hash: route,
+        name: "codex-app-server-renderer",
+        webContents: this.window.webContents,
+      }),
     ]).then(() => undefined);
     this.window.on("close", event => {
       if (this.disposed) return;
@@ -101,25 +95,6 @@ class CodexAppServer {
     for (const run of this.disposeCommunication.reverse()) run();
     store.setState({ webContents_nodestate: undefined });
     if (!this.window.isDestroyed()) this.window.destroy();
-  }
-
-  private rendererLoad(route: string): Promise<void> {
-    const rendererUrl = electronRendererUrlRead();
-    if (rendererUrl) {
-      const url = new URL(
-        "codex-app-server-renderer/",
-        rendererUrl,
-      );
-      url.hash = route;
-      return this.window.loadURL(url.toString());
-    }
-    return this.window.loadFile(join(
-      app.getAppPath(),
-      "out",
-      "renderer",
-      "codex-app-server-renderer",
-      "index.html",
-    ), { hash: route });
   }
 }
 

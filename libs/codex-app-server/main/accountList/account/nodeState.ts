@@ -1,5 +1,5 @@
 import BrowserPartitionWindow from "browser-partition-main/BrowserWindow.ts";
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import { BrowserWindow } from "electron";
 import type { nodeState_t } from "./store.ts";
 

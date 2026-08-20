@@ -14,7 +14,7 @@ extends-ai/
 │  │  └─ browser/store.ts / nodeState.ts # 浏览器生产者与所属运行时实体
 │  ├─ preload/index.ts                # 唯一 contextBridge/ipcRenderer 转发
 │  └─ renderer/public.ts              # renderer IPC 能力切片
-├─ libs/login/                        # 独立 ChatGPT 登录态管理应用
+├─ libs/chatgtp-com-login/            # 独立 ChatGPT 登录态管理应用
 │  ├─ main/
 │  │  ├─ index.ts                     # 唯一服务端入口，注入运行时并启动切片通信
 │  │  ├─ store/

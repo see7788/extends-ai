@@ -1,4 +1,4 @@
-import cwdPersist from "extends-zustand/cwdPersist";
+import cwdPersist from "zustand-lib/cwdPersist";
 import { app, type WebContents } from "electron";
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";

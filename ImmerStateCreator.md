@@ -46,7 +46,7 @@ imports
 可序列化业务类型只能由完整验证器推导。禁止先手写业务类型再补验证器；宿主实体、框架类型和不可序列化的内部句柄不受此条限制。
 
 ```ts
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import { z } from "zod";
 
 const itemValidator = z.object({ id: z.string().min(1) });

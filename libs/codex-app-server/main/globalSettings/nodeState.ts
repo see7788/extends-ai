@@ -1,4 +1,4 @@
-import type { ImmerStateCreator } from "extends-zustand/immerStateCreator";
+import type { ImmerStateCreator } from "zustand-lib/immerStateCreator";
 import * as crypto from "node:crypto";
 import * as fileSystem from "node:fs/promises";
 import * as path from "node:path";
