@@ -10,4 +10,9 @@ node_modules/
 **/.zustand/**
 **/**_bak/
 **/**.bak
+# Local backup directories and backup files are not tracked.
+**/.bak/
+**/.bak2/
+**/*.bak
+**/*.bak2
 .dist/**
