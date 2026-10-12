@@ -7,5 +7,5 @@ packages:
   - "../extends-zustand/libs/zustand-lib"
   - "../extends-react"
   - "../extends-vite"
-  - "../extends-hono/libs/vite-config-lib"
+  - "../extends-hono/libs/hono-vite-config"
   - "../extends-electron-vite/libs/electron-vite-config-lib"

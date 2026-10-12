@@ -40,9 +40,9 @@ importers:
       vite:
         specifier: 8.0.11
         version: 8.0.11(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12)
-      vite-config-lib:
+      hono-vite-config:
         specifier: workspace:*
-        version: link:../extends-hono/libs/vite-config-lib
+        version: link:../extends-hono/libs/hono-vite-config
 
   ../extends-electron-vite/libs/electron-vite-config-lib:
     devDependencies:
@@ -71,7 +71,7 @@ importers:
         specifier: 8.0.11
         version: 8.0.11(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12)
 
-  ../extends-hono/libs/vite-config-lib:
+  ../extends-hono/libs/hono-vite-config:
     dependencies:
       '@hono/vite-dev-server':
         specifier: 0.26.1
