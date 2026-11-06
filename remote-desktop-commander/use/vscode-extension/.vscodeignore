@@ -1,0 +1,15 @@
+﻿.vscode/**
+.vscode-test/**
+.log/**
+src/**
+node_modules/**
+.gitignore
+.npmignore
+.yarnrc
+**/tsconfig.json
+**/tsconfig.*.json
+tsconfig.base.json
+**/*.map
+**/*.ts
+CHANGELOG.md
+dist/release/**

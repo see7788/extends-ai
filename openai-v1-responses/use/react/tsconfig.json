@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.webbase.json",
+  "compilerOptions": {
+    "types": [
+      "vite/client",
+      "node"
+    ],
+    "noEmit": true,
+    "noImplicitAny": false
+  },
+  "include": [
+    "index.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
+}

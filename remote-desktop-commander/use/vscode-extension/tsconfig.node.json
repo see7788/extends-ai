@@ -1,0 +1,6 @@
+{
+  "extends": "../../../tsconfig.nodebase.json",
+  "compilerOptions": { "types": ["node", "vscode"] },
+  "include": ["esbuild.ts", "src/**/*.ts"],
+  "exclude": ["src/**/web/**"]
+}

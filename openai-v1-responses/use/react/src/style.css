@@ -1,0 +1,198 @@
+.hono-install-steps {
+  --ant-color-primary: #16a34a !important;
+  --ant-color-primary-hover: #15803d !important;
+  --ant-color-success: #16a34a !important;
+}
+.hono-install-steps .ant-steps-item-process .ant-steps-item-icon {
+  background-color: #16a34a !important;
+  border-color: #16a34a !important;
+}
+.hono-install-steps .ant-steps-item-process .ant-steps-icon,
+.hono-install-steps .ant-steps-item-process .ant-steps-item-title,
+.hono-install-steps .ant-steps-item-finish .ant-steps-icon,
+.hono-install-steps .ant-steps-item-finish .ant-steps-item-title {
+  color: #16a34a !important;
+}
+.hono-install-steps .ant-steps-item-process .ant-steps-icon {
+  color: #fff !important;
+}
+.hono-install-steps .ant-steps-item-finish .ant-steps-item-icon {
+  border-color: #16a34a !important;
+  background-color: transparent !important;
+}
+.hono-install-steps .ant-steps-item-finish .ant-steps-item-tail::after,
+.hono-install-steps .ant-steps-item-process .ant-steps-item-tail::after {
+  background-color: #16a34a !important;
+}
+.hono-install-steps .ant-steps-item-error .ant-steps-item-icon {
+  background-color: transparent !important;
+  border-color: #ff4d4f !important;
+}
+.hono-install-steps .ant-steps-item-error .ant-steps-icon,
+.hono-install-steps .ant-steps-item-error .ant-steps-item-title {
+  color: #ff4d4f !important;
+}
+.hono-install-steps .ant-steps-item:first-child .ant-steps-item-description { margin-top: 2px !important; }
+.brain-url-content { margin-top: 0; margin-bottom: 8px; }
+.brain-url-row { display: flex; align-items: center; width: 100%; min-width: 0; gap: 4px; }
+.brain-url-text { flex: 1; min-width: 0; }
+
+/* Keep every step description visually consistent and secondary. */
+.hono-install-steps .ant-steps-item-description {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+.shortcut-path-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.shortcut-path-row .ant-typography {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Alternating center-line timeline, matching the AI brain page. */
+.install-timeline-page {
+  width: min(960px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.install-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 16px;
+  padding: 4px 0;
+  isolation: isolate;
+}
+.install-timeline::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 18px;
+  bottom: 18px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--timeline-success);
+  opacity: .7;
+}
+.install-timeline-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr);
+  align-items: center;
+  min-height: 48px;
+}
+.install-timeline-content {
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--timeline-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.install-timeline-content.is-left {
+  grid-column: 1;
+  grid-row: 1;
+  text-align: right;
+}
+.install-timeline-content.is-right {
+  grid-column: 3;
+  grid-row: 1;
+  text-align: left;
+}
+.install-timeline-title {
+  margin: 0 0 4px;
+  color: var(--timeline-text);
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.install-timeline-node {
+  position: relative;
+  z-index: 2;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--timeline-success);
+  border-radius: 50%;
+  background: var(--timeline-bg);
+  color: var(--timeline-success);
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+.install-timeline-node.is-active,
+.install-timeline-node.is-completed {
+  color: #fff;
+  background: var(--timeline-success);
+}
+.install-timeline-node.is-pending {
+  border-color: var(--timeline-border);
+  color: var(--timeline-text-tertiary);
+}
+.install-timeline-node.is-error {
+  border-color: var(--timeline-error);
+  color: #fff;
+  background: var(--timeline-error);
+}
+.install-timeline-content.is-left .brain-url-row,
+.install-timeline-content.is-left .shortcut-path-row {
+  justify-content: flex-end;
+}
+.install-timeline-content.is-left .brain-url-row .brain-url-line {
+  text-align: right;
+}
+.install-timeline-content.is-left .brain-url-content > .ant-btn {
+  margin-left: auto;
+}
+.install-timeline-content.is-left .shortcut-step-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.shortcut-path-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.shortcut-path-row .ant-typography {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 640px) {
+  .install-timeline-page {
+    margin: 0 auto;
+    padding: 16px 10px;
+    justify-content: center;
+  }
+  .install-timeline { gap: 12px; }
+  .install-timeline-row {
+    grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+    min-height: 0;
+  }
+  .install-timeline-content { padding: 0 5px; font-size: 12px; }
+  .install-timeline-title { font-size: 14px; margin-bottom: 4px; }
+  .install-timeline-node { width: 26px; height: 26px; font-size: 11px; }
+}

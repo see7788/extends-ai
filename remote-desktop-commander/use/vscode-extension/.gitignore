@@ -1,0 +1,13 @@
+﻿# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Local tooling
+.log/
+.vscode-test/
+
+# Packaged extensions
+*.vsix
+.artifacts/

@@ -1,0 +1,8 @@
+{
+  "extends": "../../../tsconfig.webbase.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["index.ts"]
+}

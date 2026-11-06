@@ -1,0 +1,86 @@
+{
+    "name":  "remote-desktop-commander-mcpserver-vscode-extension",
+    "displayName":  "Remote Desktop Commander",
+    "description":  "Manage remote ChatGPT sessions and connect local MCP tools.",
+    "version":  "0.1.0",
+    "tpltype":  "vscode-extension-application",
+    "type":  "module",
+    "publisher":  "see7788",
+    "engines":  {
+                    "vscode":  "^1.100.0"
+                },
+    "categories":  [
+                       "Other"
+                   ],
+    "main":  "./dist/out/extension.js",
+    "icon":  "dist/resources/icon.png",
+    "activationEvents":  [
+                             "onStartupFinished"
+                         ],
+    "contributes":  {
+                        "commands":  [
+                                         {
+                                             "command":  "remoteDesktopCommander.openKasmVnc",
+                                             "title":  "Remote Desktop Commander: Open KasmVNC"
+                                         },
+                                         {
+                                             "command":  "remoteDesktopCommander.configureServer",
+                                             "title":  "Remote Desktop Commander: Configure Server"
+                                         },
+                                         {
+                                             "command":  "remoteDesktopCommander.refresh",
+                                             "title":  "Remote Desktop Commander: Refresh"
+                                         }
+                                     ],
+                        "viewsContainers":  {
+                                                "activitybar":  [
+                                                                    {
+                                                                        "id":  "remoteDesktopCommander",
+                                                                        "title":  "Remote Desktop Commander",
+                                                                        "icon":  "dist/resources/activitybar.png"
+                                                                    }
+                                                                ]
+                                            },
+                        "views":  {
+                                      "remoteDesktopCommander":  [
+                                                                     {
+                                                                         "id":  "remoteDesktopCommander.control",
+                                                                         "name":  "Remote Desktop Commander",
+                                                                         "type":  "webview",
+                                                                         "icon":  "dist/resources/activitybar.png"
+                                                                     }
+                                                                 ]
+                                  }
+                    },
+    "scripts":  {
+                    "typecheck":  "tsc -p tsconfig.node.json --noEmit \u0026\u0026 tsc -p tsconfig.web.json --noEmit",
+                    "predev":  "pnpm --dir ../../create/chrome-extension build \u0026\u0026 pnpm run typecheck",
+                    "dev":  "tsx esbuild.ts",
+                    "premarketplace":  "pnpm run typecheck",
+                    "marketplace":  "tsx esbuild.ts publish",
+                    "build":  "pnpm --dir ../../create/chrome-extension build \u0026\u0026 pnpm typecheck \u0026\u0026 tsx esbuild.ts",
+                    "package":  "pnpm build"
+                },
+    "dependencies":  {
+                         "peerjs":  "1.5.5",
+                         "react":  "^19.2.0",
+                         "react-dom":  "^19.2.0",
+                         "remote-desktop-commander-peerjs":  "workspace:*"
+                     },
+    "devDependencies":  {
+                            "@types/mocha":  "^10.0.10",
+                            "@types/node":  "^22.0.0",
+                            "@types/react":  "^19.0.0",
+                            "@types/react-dom":  "^19.0.0",
+                            "@types/vscode":  "^1.100.0",
+                            "@types/vscode-webview":  "^1.57.0",
+                            "@vscode/test-cli":  "^0.0.15",
+                            "@vscode/test-electron":  "^3.0.0",
+                            "@vscode/vsce":  "3.9.2",
+                            "esbuild":  "^0.25.0",
+                            "tsx":  "^4.20.0",
+                            "typescript":  "^5.9.3"
+                        },
+    "author":  "see7788",
+    "license":  "MIT"
+}

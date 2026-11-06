@@ -1,0 +1,14 @@
+{
+    "extends":  "../../../tsconfig.webbase.json",
+    "compilerOptions":  {
+                            "types":  [
+                                          "node",
+                                          "chrome"
+                                      ]
+                        },
+    "include":  [
+                    "vite.config.ts",
+                    "src/**/*.ts",
+                    "src/**/*.tsx"
+                ]
+}

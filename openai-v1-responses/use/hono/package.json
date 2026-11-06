@@ -1,0 +1,29 @@
+{
+  "name": "openai-v1-responses-use-hono",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./app": "./src/app.ts",
+    "./default/rpc": "./src/default/rpc.ts"
+  },
+  "scripts": {
+    "dev": "vite --configLoader runner",
+    "build": "vite build --configLoader runner",
+    "preview": "node dist/hono-create-authjson/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.11",
+    "@roamhq/wrtc": "0.10.0",
+    "hono": "4.12.30",
+    "hono-vite-config": "workspace:*",
+    "invoke-protocol": "workspace:*",
+    "peerjs": "1.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.40",
+    "typescript": "^5.8.0",
+    "vite": "^8.0.11"
+  }
+}
