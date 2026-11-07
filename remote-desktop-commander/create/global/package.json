@@ -1,0 +1,21 @@
+{
+  "name": "remote-desktop-commander-global",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./message": "./src/message.ts"
+  },
+  "scripts": { "build": "vite build --configLoader runner", "dev": "vite --configLoader runner", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": {
+    "@hono/node-server": "^1.19.17",
+    "hono": "4.12.30",
+    "hono-vite-config": "workspace:*",
+    "immer": "10.2.0",
+    "zod": "4.6.7",
+    "zustand": "5.0.13",
+    "zustand-lib": "workspace:*"
+  },
+  "devDependencies": { "@types/node": "^26.0.1", "typescript": "^5.9.3", "ubuntu-lib": "workspace:*", "vite": "^8.0.11" }
+}

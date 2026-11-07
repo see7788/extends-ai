@@ -1,69 +1,78 @@
 /// <reference types="chrome" />
-
 import { createRoot } from "react-dom/client";
-import { useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
+type PageState = { peerId?: string; address?: string; connected: boolean; error?: string; topicId?: string };
+type ChatTab = { id: number; title: string; active: boolean; state?: PageState };
 function PairPopup() {
-  const [value, setValue] = useState("");
-  const [status, setStatus] = useState("粘贴 VS Code 复制的连接 URL");
-
-  const save = async () => {
-    try {
-      const url = new URL(value.trim());
-      if (url.protocol !== "rdc-peer:" || url.hostname !== "connect") {
-        throw new Error("连接地址格式不正确");
-      }
-      const port = Number(url.searchParams.get("port"));
-      let config: RTCConfiguration = {};
-      const configText = url.searchParams.get("config");
-      if (configText) config = JSON.parse(configText) as RTCConfiguration;
-      const pairConfig = {
-        host: url.searchParams.get("host") ?? "",
-        port,
-        path: url.searchParams.get("path") ?? "/peerjs",
-        key: url.searchParams.get("key") ?? "peerjs",
-        secure: url.searchParams.get("secure") === "true",
-        config,
-        peerId: url.searchParams.get("peerId") ?? "",
-        pairId: url.searchParams.get("pairId") ?? "",
-        token: url.searchParams.get("token") ?? "",
-        sessionId: url.searchParams.get("sessionId") ?? undefined,
-      };
-      if (!pairConfig.host || !Number.isInteger(port) || port <= 0 || !pairConfig.peerId || !pairConfig.pairId || !pairConfig.token) {
-        throw new Error("连接 URL 缺少必要参数");
-      }
-      await chrome.storage.local.set({ pairConfig });
-      setStatus("连接配置已保存，正在连接 VS Code");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
-    }
+  const [tabs, setTabs] = useState<ChatTab[]>([]);
+  const [filter, setFilter] = useState("");
+  const [status, setStatus] = useState("正在读取 ChatGPT 标签页…");
+  const refresh = async () => {
+    const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const all = await chrome.tabs.query({});
+    const chatTabs = all.filter(tab => tab.id !== undefined && /^https:\/\/(chatgpt\.com|chat\.openai\.com)\//i.test(tab.url ?? ""));
+    const rows = await Promise.all(chatTabs.map(async tab => {
+      let state: PageState | undefined;
+      try { state = await chrome.tabs.sendMessage(tab.id!, { type: "rdc.state" }) as PageState; } catch { /* content script not ready */ }
+      return { id: tab.id!, title: tab.title || "ChatGPT", active: tab.id === active?.id, state };
+    }));
+    setTabs(rows);
+    setStatus(rows.length ? String(rows.length) + " 个 ChatGPT 话题" : "当前浏览器没有 ChatGPT 标签页");
   };
-
-  const clear = async () => {
-    await chrome.storage.local.remove("pairConfig");
-    setValue("");
-    setStatus("已断开连接");
+  useEffect(() => { void refresh(); }, []);
+  const visibleTabs = useMemo(() => {
+    const keyword = filter.trim().toLocaleLowerCase();
+    return keyword ? tabs.filter(tab => tab.title.toLocaleLowerCase().includes(keyword) || (tab.state?.topicId ?? "").includes(keyword)) : tabs;
+  }, [tabs, filter]);
+  const newTopic = async () => {
+    const { rdcInstanceId } = await chrome.storage.local.get("rdcInstanceId");
+    if (typeof rdcInstanceId !== "string" || !rdcInstanceId) { setStatus("Chromium 未配置 rdcInstanceId，请由 global 启动时注入"); return; }
+    const url = new URL("https://chatgpt.com/");
+    url.searchParams.set("rdcInstanceId", rdcInstanceId);
+    await chrome.tabs.create({ url: url.toString() });
+    await refresh();
   };
-
+  const activate = async (id: number) => {
+    await chrome.tabs.update(id, { active: true });
+    const tab = await chrome.tabs.get(id);
+    if (tab.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
+    await refresh();
+  };
+  const close = async (id: number) => { await chrome.tabs.remove(id); await refresh(); };
+  const copy = async (state?: PageState) => {
+    if (!state?.address) return;
+    await navigator.clipboard.writeText(state.address);
+    setStatus("PeerJS 地址已复制");
+  };
   return (
-    <main style={{ width: 340, padding: 14, color: "var(--vscode-foreground, #222)", fontFamily: "system-ui" }}>
-      <h3 style={{ margin: "0 0 10px" }}>Remote Desktop Commander</h3>
-      <p style={{ fontSize: 12, opacity: 0.75 }}>{status}</p>
-      <textarea
-        value={value}
-        onChange={event => setValue(event.target.value)}
-        placeholder="rdc-peer://connect?..."
-        rows={5}
-        style={{ boxSizing: "border-box", width: "100%", resize: "vertical", padding: 8 }}
-      />
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button onClick={() => void save()} style={{ flex: 1 }}>连接</button>
-        <button onClick={() => void clear()}>断开</button>
-      </div>
+    <main style={{ width: 390, padding: 12, color: "#222", fontFamily: "system-ui" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <strong>Remote Desktop Commander</strong><button onClick={() => void newTopic()}>＋ 新建话题</button>
+      </header>
+      <p style={{ margin: "8px 0", fontSize: 12, color: "#666" }}>{status}</p>
+      <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="搜索话题标题 / ID" style={{ boxSizing: "border-box", width: "100%", padding: 7 }} />
+      <section style={{ display: "grid", gap: 6, marginTop: 10, maxHeight: 430, overflow: "auto" }}>
+        {visibleTabs.map(tab => (
+          <article key={tab.id} style={{ padding: 8, border: "1px solid #ddd", borderRadius: 6, background: tab.active ? "#f0f5ff" : "#fff" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={tab.title}>{tab.title}</span>
+              <span style={{ fontSize: 10, color: tab.state?.connected ? "#16803c" : "#888" }}>{tab.state?.connected ? "Peer 就绪" : tab.state ? "连接中" : "页面加载中"}</span>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
+              <button onClick={() => void activate(tab.id)} disabled={tab.active}>切换</button>
+              <button onClick={() => void copy(tab.state)} disabled={!tab.state?.address}>复制 Peer</button>
+              <button onClick={() => void close(tab.id)}>关闭</button>
+            </div>
+          </article>
+        ))}
+        {!visibleTabs.length && <p style={{ fontSize: 12, color: "#888" }}>没有匹配的话题</p>}
+      </section>
+      <footer style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+        <span style={{ fontSize: 11, color: "#777" }}>每个话题独立 PeerJS / Runtime</span><button onClick={() => void refresh()}>刷新</button>
+      </footer>
     </main>
   );
 }
-
 const root = document.getElementById("app");
 if (!root) throw new Error("Extension popup root is missing");
 createRoot(root).render(<PairPopup />);

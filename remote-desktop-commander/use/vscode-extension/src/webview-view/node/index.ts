@@ -24,12 +24,7 @@ export default function create(context: vscode.ExtensionContext): vscode.Webview
         "\"></script></body></html>",
       ].join("");
       view.webview.onDidReceiveMessage(message => {
-        if (message?.type === "open") {
-          void vscode.commands.executeCommand("remoteDesktopCommander.openKasmVnc");
-        }
-        if (message?.type === "configure") {
-          void vscode.commands.executeCommand("remoteDesktopCommander.configureServer");
-        }
+        if (message?.type === "open") void vscode.commands.executeCommand("remoteDesktopCommander.openRuntime");
       }, undefined, context.subscriptions);
     },
   };

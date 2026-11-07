@@ -9,7 +9,8 @@
                        "remote-desktop-commander/use/vscode-extension",
                        "remote-desktop-commander/create/chrome-extension",
                        "remote-desktop-commander/use/commander-peerjs",
-                       "remote-desktop-commander/create/chatgpt-com-peerjs"
+                       "remote-desktop-commander/create/chatgpt-com-peerjs",
+                       "remote-desktop-commander/create/global"
                    ],
     "scripts":  {
                     "dev":  "vite --config apps/test/vite.config.ts --configLoader runner",
@@ -33,7 +34,8 @@
     "pnpm":  {
                  "onlyBuiltDependencies":  [
                                                "electron",
-                                               "esbuild"
+                                               "esbuild",
+                                               "@webrtc-node/webrtc"
                                            ],
                  "overrides":  {
                                    "tsx":  "^4.20.0",

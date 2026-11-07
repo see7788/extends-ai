@@ -2,65 +2,75 @@
 
 ## 项目结构
 
-属于父级 `F:\pro\extends-ai` pnpm workspace；本目录不是独立 pnpm 仓库。
-
 ```text
 remote-desktop-commander/
-├── use/
-│   ├── vscode-extension/      # VS Code 容器：页面与 Runtime 生命周期
-│   └── commander-peerjs/      # 本机能力：官方 Desktop Commander + PeerJS
 ├── create/
-│   ├── chatgpt-com-peerjs/    # ChatGPT 端 PeerJS 能力
-│   └── chrome-extension/      # 浏览器扩展：页面注入与 Tab 管理
-├── .log/
-└── README.md
+│   ├── chrome-extension/                  // Chrome 扩展：管理 ChatGPT 话题标签页
+│   │   ├── public/                        // 扩展图标等静态资源
+│   │   ├── src/
+│   │   │   ├── action.default_popup/      // 扩展弹窗：话题列表、搜索、新建、切换、关闭
+│   │   │   └── content_scripts/            // ChatGPT 页面注入：话题识别、PeerJS、工具交互
+│   │   ├── package.json
+│   │   └── vite.config.ts                 // CRXJS 构建、KasmVNC 扩展部署插件
+│   │
+│   ├── chatgpt-com-peerjs/                // ChatGPT 侧 MCP PeerJS 客户端
+│   │   ├── index.ts                       // MCP 初始化、工具发现与调用
+│   │   └── bridge.ts                      // 向 VNC Bridge 发布话题与 Peer 地址
+│   │
+│   └── global/                            // 云端 Hono API：管理多个 KasmVNC 实例
+│       ├── src/
+│       │   ├── index.ts                   // Hono Server 入口
+│       │   ├── message.ts                 // PeerJS 大消息分片与重组
+│       │   ├── store.ts                   // 只组合 Zustand 切片
+│       │   ├── declare/                    // Vite 插件生成的运行配置
+│       │   └── routers/
+│       │       ├── index.ts               // 只组合路由切片
+│       │       └── kasmvnc/
+│       │           ├── index.ts           // KasmVNC REST API、Zod 参数校验
+│       │           ├── zod.ts             // 请求验证器定义
+│       │           ├── store.ts           // KasmVNC 实例状态定义
+│       │           └── fun.ts             // 实例创建、启动、停止、删除
+│       ├── package.json
+│       └── vite.config.ts                 // Hono 构建 + ubuntu-lib 端口注入、SFTP、PM2 插件
+│
+├── use/
+│   ├── commander-peerjs/                   // VS Code Host 侧：连接每个话题的 PeerJS MCP
+│   │   ├── index.ts                       // Desktop Commander 子进程与 MCP 消息转发
+│   │   └── bridge.ts                      // 接收 VNC 内 Chrome 扩展的话题映射
+│   │
+│   └── vscode-extension/                  // VS Code 扩展：VNC Webview 与 Runtime 管理
+│       ├── src/
+│       │   ├── extension.ts               // 扩展激活与入口
+│       │   ├── webview-panel/              // VNC 页面承载与前后端通信
+│       │   ├── webview-view/               // 扩展侧边栏 Webview
+│       │   ├── tree-view/                  // VS Code 树视图
+│       │   └── status-bar/                 // 状态栏
+│       └── esbuild.ts                     // VS Code 扩展打包
+│
+└── README.md                              // 项目架构与结构说明
 ```
 
-## 对应关系
-
-- `vscode-extension` ↔ `kasm-vnc`：一个 VS Code Extension 容器对应一个 KasmVNC 浏览器容器。
-- 一个 VS Code Extension 可以管理多个话题页面；一个 Chrome Extension 可以管理同一浏览器中的多个 ChatGPT Tab。
-- **话题 = 浏览器 Tab = 一个 Commander PeerJS Runtime。** 三者一一对应。
-- VS Code 中每个话题有一个独立嵌入页面；同一个 VS Code 窗口可以同时打开多个话题页面。
-- 工作区路径只是对应 Runtime 的工作目录，不是 Runtime 唯一标识；同一工作区允许多个 Runtime。
-
-## 核心通信
+## 通信关系
 
 ```text
-chatgpt-com-peerjs
-        ⇅
-      PeerJS
-        ⇅
-commander-peerjs
+ChatGPT Tab
+  └── MCP PeerJS ── Commander Runtime ── Desktop Commander
+        │
+        └── Topic Bridge ── VS Code Extension Host
+                               │
+                               └── VNC Webview
 ```
 
-- `chatgpt-com-peerjs`：ChatGPT 端，负责工具调用决策、消息发出和结果接收。
-- `commander-peerjs`：本机 Node 端，组合官方 Desktop Commander，负责 MCP 工具发现、参数校验和工具执行。
-- PeerJS 是两端直接使用的双向传输通道；MCP 定义工具发现、调用、结果和错误的消息语义。
-- Chrome Extension 只是 ChatGPT 端的浏览器注入与 Observer 部署载体，不是核心通信中间层。
-- VS Code Extension 只是本机 Runtime 的容器与管理界面，不转发 MCP 工具消息。
+- 一个 VNC 实例对应一个 VS Code Extension 实例。
+- 一个 VNC 内运行一个 Chromium；Chrome 扩展管理其中多个 ChatGPT 话题 Tab。
+- 每个话题 Tab 对应独立 PeerJS MCP Peer 和 Commander Runtime。
+- `global` 管理云端多个 VNC 实例；`rdcInstanceId` 用于绑定 VNC 与 VS Code 实例。
+- `ubuntu-lib` 只由开发机 Vite 插件消费，负责远程资源分配、上传和部署；服务器运行时不依赖它。
 
-不增加 HTTP、SSE 或额外 MCP 转发服务。
+## 核心约定
 
-## 连接方式
-
-沿用 v1 的复制/粘贴方式：ChatGPT 端生成并展示 PeerJS 连接参数，VS Code Extension 粘贴后启动对应的 `commander-peerjs` Runtime 并建立连接。当前不实现复杂鉴权。
-
-## 开发约定
-
-- pnpm workspace 属于父级 `F:\pro\extends-ai`；各项目保留自己的 `package.json`。
-- workspace 包之间使用包名，不使用跨项目相对源码路径。
-- 只修改本项目；其他 extends 仓库中的库只消费。复用代码采用复制后修改。
-- Mihomo/VPN 不使用全局模式，需要时按需调用。
-- 临时文件和日志放在 `.log`。
-
-## 当前进度
-
-- 目录已按 `use` 和 `create` 两侧对齐。
-- `use/commander-peerjs` 已有项目入口清单；官方 Desktop Commander 与 PeerJS 的通信适配尚未实现。
-- `create/chatgpt-com-peerjs` 已建立目录，ChatGPT 端 PeerJS 通信尚未实现。
-- VS Code Extension 仍有旧版实现，需简化为 Runtime 容器；旧代码存在字符串未闭合的类型检查错误，详见 `.log/workspace-typecheck.log`。
-- Chrome Extension 已可独立构建和通过类型检查，但目前仍是旧版单连接实现，尚未完成多 Tab 管理和页面 Observer 的最终实现。
-- 尚未完成端到端真实通信验证。
-
-开发期间只维护结构、关键实现和实时进度；完成后再补充简洁的使用说明。
+- Hono 路由按切片组织；`routers/index.ts` 只组合切片。
+- 每个切片的 `zod.ts` 只定义 `*_zod` 验证器；路由校验后把解析结果传给业务方法。
+- 切片状态定义在自己的 `store.ts`；根 `store.ts` 只组合切片。
+- 业务方法较多或涉及生命周期时，放在切片的 `fun.ts` 或 `class.ts`。
+- 项目部署配置由 Vite 插件注入；不在业务代码中通过 `process.env` 猜测部署参数。

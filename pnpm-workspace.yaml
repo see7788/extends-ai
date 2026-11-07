@@ -10,3 +10,5 @@ packages:
   - "remote-desktop-commander/use/vscode-extension"
   - "remote-desktop-commander/create/chrome-extension"
   - "remote-desktop-commander/create/chatgpt-com-peerjs"
+
+  - "remote-desktop-commander/create/global"

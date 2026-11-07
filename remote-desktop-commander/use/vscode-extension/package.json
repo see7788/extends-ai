@@ -1,7 +1,7 @@
 {
     "name":  "remote-desktop-commander-mcpserver-vscode-extension",
     "displayName":  "Remote Desktop Commander",
-    "description":  "Manage remote ChatGPT sessions and connect local MCP tools.",
+    "description":  "Create one Desktop Commander Runtime for each ChatGPT topic tab.",
     "version":  "0.1.0",
     "tpltype":  "vscode-extension-application",
     "type":  "module",
@@ -20,16 +20,8 @@
     "contributes":  {
                         "commands":  [
                                          {
-                                             "command":  "remoteDesktopCommander.openKasmVnc",
-                                             "title":  "Remote Desktop Commander: Open KasmVNC"
-                                         },
-                                         {
-                                             "command":  "remoteDesktopCommander.configureServer",
-                                             "title":  "Remote Desktop Commander: Configure Server"
-                                         },
-                                         {
-                                             "command":  "remoteDesktopCommander.refresh",
-                                             "title":  "Remote Desktop Commander: Refresh"
+                                             "command":  "remoteDesktopCommander.openRuntime",
+                                             "title":  "Remote Desktop Commander: New Runtime"
                                          }
                                      ],
                         "viewsContainers":  {
@@ -59,15 +51,16 @@
                     "premarketplace":  "pnpm run typecheck",
                     "marketplace":  "tsx esbuild.ts publish",
                     "build":  "pnpm --dir ../../create/chrome-extension build \u0026\u0026 pnpm typecheck \u0026\u0026 tsx esbuild.ts",
-                    "package":  "pnpm build"
+                    "package":  "pnpm build",
+                    "package:artifact":  "pnpm --dir ../../create/chrome-extension build \u0026\u0026 pnpm typecheck \u0026\u0026 tsx esbuild.ts package-only"
                 },
     "dependencies":  {
                          "peerjs":  "1.5.5",
-                         "react":  "^19.2.0",
-                         "react-dom":  "^19.2.0",
-                         "remote-desktop-commander-peerjs":  "workspace:*"
+                         "@webrtc-node/webrtc":  "0.2.2"
                      },
     "devDependencies":  {
+                            "react":  "^19.2.0",
+                            "react-dom":  "^19.2.0",
                             "@types/mocha":  "^10.0.10",
                             "@types/node":  "^22.0.0",
                             "@types/react":  "^19.0.0",

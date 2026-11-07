@@ -10,9 +10,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "peerjs": "1.5.5",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "remote-desktop-commander-chatgpt-com-peerjs": "workspace:*"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.7.0",
@@ -20,6 +20,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "ubuntu-lib": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^8.2.2"
   }
