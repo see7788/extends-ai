@@ -1,5 +1,0 @@
-{
-  "extends": "../../../tsconfig.webbase.json",
-  "compilerOptions": { "types": ["vite/client", "vscode-webview"] },
-  "include": ["src/webview-panel/web/**/*.tsx", "src/webview-view/web/**/*.tsx"]
-}

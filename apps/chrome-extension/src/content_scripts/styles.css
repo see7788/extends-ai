@@ -1,0 +1,147 @@
+﻿﻿#mcp-browser-tabs-root .ant-btn {
+  background: #fff;
+  color: rgba(0, 0, 0, 0.88);
+  border-color: #d9d9d9;
+}
+
+#mcp-browser-tabs-root .ant-float-btn .mcp-browser-tabs-logo {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+#mcp-browser-tabs-root .ant-btn:hover,
+#mcp-browser-tabs-root .ant-btn:focus {
+  background: #fff;
+  color: rgba(0, 0, 0, 0.88);
+  border-color: #4096ff;
+}
+
+#mcp-browser-tabs-root .ant-float-btn,
+#mcp-browser-tabs-root .ant-float-btn:hover {
+  background: #000;
+}
+
+#mcp-browser-tabs-root .ant-btn-dangerous {
+  color: #ff4d4f;
+}
+
+#mcp-browser-tabs-root .mcp-browser-tabs-list .ant-btn {
+  min-width: 16px;
+  width: 16px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#mcp-browser-tabs-root .mcp-browser-tabs-list .ant-btn:hover,
+#mcp-browser-tabs-root .mcp-browser-tabs-list .ant-btn:focus {
+  border: 0;
+  background: transparent;
+}
+
+.mcp-browser-tabs-list .ant-list-item-action {
+  margin-inline-start: 4px;
+  gap: 0;
+}
+
+.mcp-browser-tabs-list .ant-list-item-action > li {
+  padding-inline: 0;
+}
+
+.mcp-browser-tabs-drawer .ant-drawer-content {
+  overflow: hidden;
+  background: #000 !important;
+}
+
+.mcp-browser-tabs-drawer .ant-drawer-content-wrapper,
+.mcp-browser-tabs-drawer .ant-drawer-section,
+.mcp-browser-tabs-drawer .ant-drawer-content,
+.mcp-browser-tabs-drawer .ant-drawer-body {
+  height: 100% !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.mcp-browser-tabs-drawer .ant-drawer-body {
+  position: relative;
+  min-height: 100%;
+}
+
+.mcp-browser-tabs-global-aurora {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.mcp-browser-tabs-global-aurora > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mcp-browser-tabs-global-aurora canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  background: #000 !important;
+}
+
+.mcp-browser-tabs-drawer .ant-drawer-body {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+.mcp-browser-tabs-layout {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  color: rgba(0, 0, 0, 0.88);
+  background: transparent;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-browser-tabs-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mcp-browser-tabs-list .ant-list-item {
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mcp-browser-tabs-layout .ant-typography {
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.mcp-browser-tabs-layout .ant-typography-secondary {
+  color: rgba(0, 0, 0, 0.58);
+}
+
+.mcp-browser-tabs-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 12px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}

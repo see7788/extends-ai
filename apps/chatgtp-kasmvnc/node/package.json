@@ -1,0 +1,28 @@
+﻿{
+  "name": "chatgtp-kasmvnc-node",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/mcpBridge/index.ts"
+  },
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "immer": "10.2.0",
+    "invoke-protocol": "workspace:*",
+    "peerjs": "^1.5.5",
+    "ubuntu-lib": "workspace:*",
+    "wrtc": "^0.4.7",
+    "ws": "^8.22.1",
+    "zustand": "5.0.13",
+    "zustand-lib": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.17",
+    "@types/ws": "^8.18.2",
+    "typescript": "5.9.3",
+    "vite": "^6.3.6"
+  }
+}

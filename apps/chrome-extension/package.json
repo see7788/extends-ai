@@ -1,0 +1,32 @@
+﻿{
+  "name": "chrome-extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "antd": "^6.3.7",
+    "extends-antd": "workspace:*",
+    "extends-icons": "workspace:*",
+    "invoke-protocol": "workspace:*",
+    "postprocessing": "6.39.2",
+    "react-src": "workspace:*",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "three": "0.180.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.7.0",
+    "@types/chrome": "0.1.43",
+    "@types/node": "20.17.17",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "0.180.0",
+    "typescript": "5.9.3",
+    "vite": "^8.2.2"
+  }
+}

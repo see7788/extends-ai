@@ -1,14 +1,11 @@
-packages:
-  - "openai-v1-responses/create/*"
-  - "openai-v1-responses/use/*"
-  - "../extends-ssh/ubuntu-lib"
-  - "../extends-mcp/libs/mcpserver"
-  - "../extends-zustand/libs/zustand-lib"
+﻿packages:
+  - "apps/**"
+  - "libs/**"
   - "../runtimeproxy/libs/invoke-protocol"
+  - "../extends-antd"
+  - "../extends-icons"
+  - "../extends-react/libs/react-src"
+  - "../extends-ssh/ubuntu-lib"
+  - "../extends-zustand/libs/zustand-lib"
   - "../extends-hono/libs/hono-vite-config"
-  - "remote-desktop-commander/use/commander-peerjs"
-  - "remote-desktop-commander/use/vscode-extension"
-  - "remote-desktop-commander/create/chrome-extension"
-  - "remote-desktop-commander/create/chatgpt-com-peerjs"
-
-  - "remote-desktop-commander/create/global"
+  - "../extends-mcp/libs/mcpserver"

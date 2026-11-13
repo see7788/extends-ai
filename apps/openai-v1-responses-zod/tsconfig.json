@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.nodebase.json",
+  "include": [
+    "index.ts"
+  ]
+}
