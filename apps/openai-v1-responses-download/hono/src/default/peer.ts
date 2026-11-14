@@ -1,4 +1,4 @@
-﻿﻿﻿import { createRequire } from "node:module";
+﻿﻿import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import wrtc from "@roamhq/wrtc";
 import type { DataConnection, Peer as PeerType, PeerJSOption } from "peerjs";

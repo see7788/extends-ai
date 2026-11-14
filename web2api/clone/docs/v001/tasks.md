@@ -1,0 +1,282 @@
+！！！每完成一个任务并且验证通过之后就commit一下！！固定提醒
+
+# Task-001: 建立 WXT 扩展与自动安装 E2E 骨架
+
+## 描述
+参考 OPCStack 建立 WXT + MV3 + TypeScript + Svelte 工程。使用 Playwright Chromium 自动加载 unpacked 扩展，并验证 Service Worker、Content Script 和 popup 三个入口真实运行。
+
+## 不包含
+- ChatGPT DOM 操作
+- daemon
+- Responses API
+
+## TODO 清单
+- [x] 1. 建立 pnpm、WXT、TypeScript、Vitest 和 Playwright 配置
+- [x] 2. 创建 background、content script 和 popup 最小入口
+- [x] 3. 创建 Playwright persistent context 扩展 fixture
+- [x] 4. 使用 route fixture 模拟 `chatgpt.com` 页面
+
+## 验收测试步骤
+1. 运行 `pnpm test:e2e:extension`
+2. 测试自动构建并加载 MV3 扩展，取得 extension ID
+3. 断言 popup 可打开、Content Script 只注入 `chatgpt.com`、Service Worker 可收发消息
+
+---
+
+# Task-002: 验证 ChatGPT DOM Adapter 五个硬点
+
+## 描述
+先用 fixture 测试实现单一 ChatGPT Adapter，再用专用持久化 Chromium profile 执行真实网页 smoke test。五个硬点任一失败就回到技术设计，不继续 daemon。
+
+## 不包含
+- 公共 HTTP API
+- 多标签页 Scheduler
+- OpenAI Responses 格式转换
+
+## TODO 清单
+- [x] 1. 测试并实现后台 tab 的 DOM 增量读取与完成检测
+- [x] 2. 测试并实现 conversation ID 识别
+- [x] 3. 测试并实现 `File` + `DataTransfer` 图片上传
+- [x] 4. 测试并实现模型与 reasoning effort 扫描和切换
+- [x] 5. 测试并实现最终生成图片字节提取
+- [x] 6. 记录真实网页 smoke test 结果和失败证据
+
+## 验收测试步骤
+1. 运行 DOM fixture 单元测试并确认全部通过
+2. 首次运行 `pnpm test:smoke:chatgpt:setup`，在专用 Chromium profile 登录 ChatGPT
+3. 之后运行 `pnpm test:smoke:chatgpt` 完成无人值守验收
+4. 确认五项能力全部通过；任一失败时任务不得标记完成
+
+2026-08-08 已在登录后的真实 ChatGPT 页面完成验收。由于 Codex In-App Browser 不能安装 unpacked 扩展，测试使用临时 CDP 消息桥接复用同一份 Adapter bundle 串联本地 daemon，没有复制 Cookie 或其他凭据。结果如下：
+
+- 两轮文本分别精确返回 `WEB2API_SMOKE_OK` 和 `WEB2API_CONTINUE_OK`，conversation ID 保持一致
+- 动态发现模型 `gpt-5.6-sol`、`gpt-5.5`、`o3`，动态发现思考等级 `fast`、`medium`、`high`、`xhigh`、`pro`
+- 真实切换到 `gpt-5.5 + medium` 后恢复原模型与思考等级
+- 外部 PNG 成功进入页面附件预览
+- 图片编辑请求经 `POST /v1/responses` 返回 HTTP 200，`image_generation_call.result` 为可解码 PNG，页面生成 1254 x 1254 图片
+
+仓库仍提供 `pnpm test:smoke:chatgpt:setup` 和 `pnpm test:smoke:chatgpt`，用于开发者在专用 Chromium profile 中重复验收，不读取日常 Chrome profile。
+
+---
+
+# Task-003: 实现 Node.js daemon CLI 与健康检查
+
+## 描述
+实现可通过 `glidea-web2api start` 启动的 Node.js + TypeScript 本地服务。首次启动生成配置和 API key，只提供认证、`/healthz` 与清晰的终端状态。
+
+## 不包含
+- `/v1/responses`
+- Chrome worker 管理
+- 系统后台服务安装
+
+## TODO 清单
+- [x] 1. 先写 CLI 启动与 HTTP E2E 测试
+- [x] 2. 实现配置文件、固定端口和 API key 生成
+- [x] 3. 实现 `GET /healthz` 与 Bearer 认证中间逻辑
+- [x] 4. 输出 base URL、API key 和扩展连接状态
+
+## 验收测试步骤
+1. 在空配置目录运行 `node bin/glidea-web2api.mjs start`
+2. `curl http://127.0.0.1:3210/healthz` 返回 daemon ready、extension disconnected
+3. 第二次启动复用同一 API key；端口占用时明确失败且不自动换端口
+
+---
+
+# Task-004: 建立 daemon 与扩展连接及单 worker 生命周期
+
+## 描述
+实现 Extension WebSocket Gateway、heartbeat 和 typed message schema。扩展维护一个自己创建的 ChatGPT tab，并把 ready、unhealthy 和关闭状态报告给 daemon。
+
+## 不包含
+- Prompt 提交
+- Responses 输出
+- 多标签页并发
+
+## TODO 清单
+- [x] 1. 先写握手、心跳和断线 E2E 测试
+- [x] 2. 定义共享 WebSocket schema 和协议版本
+- [x] 3. 实现 daemon Extension Gateway
+- [x] 4. 实现 Service Worker 自动连接和单 worker tab 生命周期
+- [x] 5. 在 popup 展示 daemon、worker 和 content script 状态
+
+## 验收测试步骤
+1. 启动 daemon 和 Playwright 扩展 E2E
+2. `/healthz` 从 extension disconnected 变为 connected、worker ready
+3. 关闭 worker tab 后状态变为 unhealthy，并按规则补建空闲 worker
+
+---
+
+# Task-005: 打通非流式文本 Responses 闭环
+
+## 描述
+实现第一条真实业务链路：本地客户端调用 `POST /v1/responses`，扩展在单个 ChatGPT 页面提交文本，daemon 返回非流式 Response JSON。只支持 `chatgpt/default`。
+
+## 不包含
+- SSE 流式输出
+- 多轮续接
+- 模型切换
+- 图片
+
+## TODO 清单
+- [x] 1. 先写 daemon 到假扩展的非流式 E2E 测试
+- [x] 2. 实现 Responses 请求 schema 和标准错误格式
+- [x] 3. 实现单 worker RequestTask 执行链路
+- [x] 4. 实现页面文本提交、最终文本读取和 conversation 绑定
+- [x] 5. 实现最终 Response JSON 投影
+
+## 验收测试步骤
+1. 使用官方 OpenAI SDK，把 `base_url` 指向本地 daemon
+2. 发送 `chatgpt/default` 文本请求
+3. 返回包含有效 `response.id` 和最终文本；未登录时返回 `chatgpt_login_required`
+
+---
+
+# Task-006: 支持流式文本与客户端取消
+
+## 描述
+在同一内部事件流上增加 typed SSE 投影。客户端断开时下发 `job.cancel`，Content Script 点击页面停止按钮并释放 worker。
+
+## 不包含
+- 多标签页并发
+- 图片 partial events
+- 请求结果找回
+
+## TODO 清单
+- [x] 1. 先写 SSE 顺序和断开取消 E2E 测试
+- [x] 2. 实现 assistant 文本非回滚增量提取
+- [x] 3. 实现完整 Responses SSE 生命周期事件
+- [x] 4. 实现 HTTP 断开到页面停止的取消链路
+
+## 验收测试步骤
+1. 发送 `stream: true` 请求并逐帧读取 SSE
+2. 事件顺序符合技术设计，delta 拼接等于最终文本
+3. 中途关闭客户端连接后网页停止生成，worker 回到 ready
+
+---
+
+# Task-007: 支持多轮会话与可配置标签页并发
+
+## 描述
+实现 response ID 编解码、`previous_response_id`、FIFO Scheduler、conversation lock 和固定 worker 池。默认两个标签页，不同对话并行，同一对话串行。
+
+## 不包含
+- 模型与 effort 切换
+- 图片
+- 持久化任务队列
+
+## TODO 清单
+- [x] 1. 先写多轮、同会话串行和跨会话并行 E2E 测试
+- [x] 2. 实现 response ID 编解码
+- [x] 3. 实现 Scheduler、conversation lock 和 worker lease
+- [x] 4. 实现扩展固定 tab pool 与导航重绑定
+- [x] 5. 支持 `max_tabs` 配置
+
+## 验收测试步骤
+1. 使用首轮 `response.id` 发起续接并确认进入同一 ChatGPT conversation
+2. 同时提交 A1、A2、B1，确认 A2 等待 A1，B1 可与 A1 并行
+3. 手动关闭 busy tab，确认当前任务失败且不会在另一 tab 自动重试
+
+---
+
+# Task-008: 支持动态模型与思考等级
+
+## 描述
+扩展扫描当前账号真实可见的模型与 effort，daemon 通过 `/v1/models` 暴露动态目录。显式选择无法映射时必须在提交 prompt 前失败。
+
+## 不包含
+- 固定维护 ChatGPT 模型表
+- 自动降级模型或 effort
+- 图片能力
+
+## TODO 清单
+- [x] 1. 先写 capability 更新和严格映射测试
+- [x] 2. 实现模型与 effort DOM 扫描
+- [x] 3. 实现 `capabilities.updated` 与动态 `/v1/models`
+- [x] 4. 实现提交前模型和 effort 切换
+
+## 验收测试步骤
+1. `GET /v1/models` 返回 `chatgpt/default` 和页面可见模型
+2. 选择一个可用模型与 effort，确认页面选项实际改变后再提交
+3. 请求不存在的值，确认返回 400 且 ChatGPT 页面没有新增消息
+
+---
+
+# Task-009: 支持图片输入、编辑与生成
+
+## 描述
+实现 HTTP(S) URL 和 base64 data URL 图片输入、多图顺序上传、文本生图、图片编辑及最终 base64 输出。整个链路仍使用真实 ChatGPT 页面控件。
+
+## 不包含
+- Files API 和 `file_id`
+- partial image events
+- 图片持久化和缓存
+
+## TODO 清单
+- [x] 1. 先写 URL、data URL、多图和生图 E2E 测试
+- [x] 2. 实现 daemon Image Resolver
+- [x] 3. 实现逐图 WebSocket 传输与附件 ready 确认
+- [x] 4. 实现文本生图和图片编辑提交
+- [x] 5. 实现最终图片字节提取与 `image_generation_call.result`
+
+## 验收测试步骤
+1. 分别用 data URL 和 HTTP URL 编辑图片，确认结果可解码
+2. 上传两张图片，确认页面预览和处理顺序与请求一致
+3. 执行纯文本生图；超限图片在提交前失败且不写临时文件
+
+---
+
+# Task-010: 完成 npm 分发与发布验收
+
+## 描述
+把 daemon 发布形态收口为 `glidea-web2api` npm CLI。通过一次性命令安装 Native Messaging Host，后续由 popup 管理 daemon、API key 和并发标签页。系统后台服务和 Node SEA 只做评估，不阻塞首个 npm 版本。
+
+## 不包含
+- Chrome Web Store 实际上架审批
+- 自动绕过登录、CAPTCHA 或风控
+- 强制安装系统后台服务
+- 无 Node.js 的单文件分发
+
+## TODO 清单
+- [x] 1. 验证 npm pack 后的 `glidea-web2api start`
+- [x] 2. 生成 WXT Chrome zip 并校验 manifest 权限
+- [x] 3. 实现 Native Messaging stdio 协议和 daemon controller
+- [x] 4. 实现 macOS、Linux 和 Windows 用户级 Native Host 安装逻辑
+- [x] 5. 验证复制后的 bundle 可脱离 npm 临时目录启动 daemon
+- [x] 6. 完成 popup 启停、重启、API key 和并发标签页管理
+- [x] 7. 在 popup 展示明确的登录和模型诊断
+- [x] 8. 建立一条发布前真实 ChatGPT smoke test 命令
+- [x] 9. 记录后台服务与 Node SEA 的后续决策，不实现未验证方案
+
+## 验收测试步骤
+1. 在无源码目录安装本地 npm tarball，执行一次性 Native Host 安装并由 popup 启动 daemon
+2. 加载扩展 zip，确认 popup 可管理 daemon、复制连接信息并修改并发标签页
+3. 使用 OpenAI SDK 完成文本、多轮、并发、模型和图片测试
+4. 检查默认日志不包含 prompt、response、图片、API key 或 ChatGPT 凭据
+
+---
+
+# Task-011: 支持提示词模拟函数工具调用
+
+## 描述
+在 Responses Translator 内把函数定义和本轮输入编码为严格提示词协议，把 ChatGPT 文本结果还原为标准 `function_call`。客户端执行函数后通过 `function_call_output` 和 `previous_response_id` 续接原对话。
+
+## 不包含
+- ChatGPT 私有网络 API
+- daemon 代替客户端执行函数
+- OpenAI 原生 Structured Outputs 或完整 JSON Schema 强校验
+- Web Search、File Search、Computer Use 和 MCP tools
+
+## TODO 清单
+- [x] 1. 先写函数调用与结果回传 E2E 测试
+- [x] 2. 实现函数提示词协议构造和严格边界解析
+- [x] 3. 实现 `function`、`tool_choice` 和 `parallel_tool_calls` 请求校验
+- [x] 4. 实现非流式 `function_call` 输出
+- [x] 5. 实现缓冲式函数 SSE 事件并防止私有协议泄漏
+- [x] 6. 实现 `function_call_output` 原对话续接
+- [x] 7. 通过真实 MV3 扩展 fixture E2E
+
+## 验收测试步骤
+1. 提交带 `get_weather` 定义的请求，确认返回标准 `function_call`
+2. 本地执行函数并携带 `call_id`、`previous_response_id` 回传结果
+3. 确认最终文本来自同一 ChatGPT conversation
+4. 使用 `stream: true` 确认只出现标准函数事件，不出现 `web2api_function_calls` 私有标记

@@ -1,0 +1,411 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
+import { ExtensionGateway, GatewayError, type TextJobResult, type TextJobHandle } from "./extension-gateway";
+import { decodeResponseId, encodeResponseId } from "./response-id";
+import { resolveImage, type ResolvedImage } from "./image-resolver";
+import { buildFunctionPrompt, parseFunctionResponse, ToolProtocolError, type FunctionCall, type FunctionResponse, type FunctionTool, type FunctionToolChoice, type FunctionToolOutput } from "./tool-protocol";
+import { providerFromModel, type Provider } from "../shared/protocol";
+
+type ResponsesRequest = {
+  provider: Provider;
+  model: string;
+  input: string;
+  stream: boolean;
+  conversationId: string | undefined;
+  reasoningEffort: string | undefined;
+  images: Array<ResolvedImage>;
+  generateImage: boolean;
+  functionTools: FunctionTool[];
+  toolChoice: FunctionToolChoice;
+  parallelToolCalls: boolean;
+};
+
+type StreamResponseState = {
+  responseId: string | undefined;
+  outputItemId: string;
+};
+
+type ResponsesBody = {
+  id: string;
+  object: "response";
+  created_at: number;
+  status: "completed";
+  model: string;
+  output: Array<{
+    id: string;
+    type: "message";
+    status: "completed";
+    role: "assistant";
+    content: Array<{ type: "output_text"; text: string; annotations: [] }>;
+  } | {
+    id: string;
+    type: "image_generation_call";
+    status: "completed";
+    result: string;
+  } | {
+    id: string;
+    type: "function_call";
+    status: "completed";
+    call_id: string;
+    name: string;
+    arguments: string;
+  }>;
+};
+
+export class ResponsesService {
+  private readonly gateway: ExtensionGateway;
+
+  public constructor(gateway: ExtensionGateway) {
+    this.gateway = gateway;
+  }
+
+  public async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    try {
+      const body: ResponsesRequest = await this.parseRequest(request);
+      if (body.stream) {
+        await this.handleStream(request, response, body);
+        return;
+      }
+      const result: TextJobResult = await this.gateway.executeTextJob(body.model, body.input, body.conversationId, body.reasoningEffort, body.images.map(toProtocolImage), body.generateImage);
+      const parsed: FunctionResponse = parseFunctionResponse(result.text, body.functionTools, body.toolChoice, body.parallelToolCalls);
+      const output: ResponsesBody["output"] = parsed.type === "function_calls"
+        ? parsed.calls.map((call: FunctionCall): ResponsesBody["output"][number] => toFunctionCallItem(call))
+        : [{
+            id: `msg_${randomUUID()}`,
+            type: "message",
+            status: "completed",
+            role: "assistant",
+            content: [{ type: "output_text", text: parsed.text, annotations: [] }]
+          }];
+      if (result.image !== undefined) {
+        output.push({ id: `ig_${randomUUID()}`, type: "image_generation_call", status: "completed", result: result.image.data });
+      }
+      const responseBody: ResponsesBody = {
+        id: encodeResponseId(body.provider, result.conversationId, randomUUID()),
+        object: "response",
+        created_at: Math.floor(Date.now() / 1000),
+        status: "completed",
+        model: body.model,
+        output
+      };
+      this.sendJson(response, 200, responseBody);
+    } catch (error: unknown) {
+      this.sendServiceError(response, error);
+    }
+  }
+
+  private async parseRequest(request: IncomingMessage): Promise<ResponsesRequest> {
+    const content: string = await readBody(request);
+    let value: unknown;
+    try {
+      value = JSON.parse(content) as unknown;
+    } catch {
+      throw new RequestError(400, "invalid_request", "Request body must be valid JSON");
+    }
+    if (typeof value !== "object" || value === null) {
+      throw new RequestError(400, "invalid_request", "Request body must be an object");
+    }
+    const record: Record<string, unknown> = value as Record<string, unknown>;
+    if (typeof record["model"] !== "string" || !this.gateway.supportsModel(record["model"])) {
+      throw new RequestError(400, "model_not_available", "Requested model is not available");
+    }
+    const provider: Provider | undefined = providerFromModel(record["model"]);
+    if (provider === undefined) {
+      throw new RequestError(400, "model_not_available", "Requested model is not available");
+    }
+    let input: string = "";
+    const images: Array<ResolvedImage> = [];
+    const toolOutputs: FunctionToolOutput[] = [];
+    if (typeof record["input"] === "string") {
+      input = record["input"];
+    } else if (Array.isArray(record["input"])) {
+      for (const item of record["input"]) {
+        if (typeof item !== "object" || item === null) {
+          throw new RequestError(400, "invalid_request", "input item must be an object");
+        }
+        const content: Record<string, unknown> = item as Record<string, unknown>;
+        if (content["type"] === "input_text" && typeof content["text"] === "string") {
+          input += `${input.length === 0 ? "" : "\n"}${content["text"]}`;
+          continue;
+        }
+        if (content["type"] === "input_image" && typeof content["image_url"] === "string") {
+          try {
+            images.push(await resolveImage(content["image_url"]));
+          } catch (error: unknown) {
+            throw new RequestError(400, "image_invalid", error instanceof Error ? error.message : String(error));
+          }
+          continue;
+        }
+        if (content["type"] === "function_call_output" && typeof content["call_id"] === "string" && typeof content["output"] === "string") {
+          toolOutputs.push({ call_id: content["call_id"], output: content["output"] });
+          continue;
+        }
+        throw new RequestError(400, "unsupported_parameter", "Unsupported input item");
+      }
+    } else {
+      throw new RequestError(400, "unsupported_parameter", "input must be a string or input item array");
+    }
+    let conversationId: string | undefined;
+    if (record["previous_response_id"] !== undefined) {
+      if (typeof record["previous_response_id"] !== "string") {
+        throw new RequestError(400, "invalid_request", "previous_response_id must be a string");
+      }
+      try {
+        const reference: ReturnType<typeof decodeResponseId> = decodeResponseId(record["previous_response_id"]);
+        if (reference.provider !== provider) {
+          throw new RequestError(400, "invalid_request", "previous_response_id belongs to a different provider");
+        }
+        conversationId = reference.conversationId;
+      } catch (error: unknown) {
+        if (error instanceof RequestError) {
+          throw error;
+        }
+        throw new RequestError(400, "invalid_request", "Invalid previous_response_id");
+      }
+    }
+    let reasoningEffort: string | undefined;
+    if (record["reasoning"] !== undefined) {
+      if (typeof record["reasoning"] !== "object" || record["reasoning"] === null) {
+        throw new RequestError(400, "invalid_request", "reasoning must be an object");
+      }
+      const reasoning: Record<string, unknown> = record["reasoning"] as Record<string, unknown>;
+      if (reasoning["effort"] !== undefined && typeof reasoning["effort"] !== "string") {
+        throw new RequestError(400, "invalid_request", "reasoning.effort must be a string");
+      }
+      reasoningEffort = reasoning["effort"] as string | undefined;
+      if (reasoningEffort !== undefined && !this.gateway.supportsReasoningEffort(record["model"], reasoningEffort)) {
+        throw new RequestError(400, "reasoning_effort_not_available", "Requested reasoning effort is not available");
+      }
+    }
+    let generateImage: boolean = false;
+    const functionTools: FunctionTool[] = [];
+    if (record["tools"] !== undefined) {
+      if (!Array.isArray(record["tools"])) {
+        throw new RequestError(400, "invalid_request", "tools must be an array");
+      }
+      for (const value of record["tools"]) {
+        if (typeof value !== "object" || value === null) {
+          throw new RequestError(400, "invalid_request", "tool must be an object");
+        }
+        const tool: Record<string, unknown> = value as Record<string, unknown>;
+        switch (tool["type"]) {
+          case "image_generation":
+            generateImage = true;
+            break;
+          case "function":
+            functionTools.push(parseFunctionTool(tool));
+            break;
+          default:
+            throw new RequestError(400, "unsupported_tool", "Unsupported tool type");
+        }
+      }
+    }
+    const functionNames: Set<string> = new Set<string>();
+    for (const tool of functionTools) {
+      if (functionNames.has(tool.name)) {
+        throw new RequestError(400, "invalid_request", "Function tool names must be unique");
+      }
+      functionNames.add(tool.name);
+    }
+    const toolChoice: FunctionToolChoice = parseToolChoice(record["tool_choice"], functionNames);
+    let parallelToolCalls: boolean = true;
+    if (record["parallel_tool_calls"] !== undefined) {
+      if (typeof record["parallel_tool_calls"] !== "boolean") {
+        throw new RequestError(400, "invalid_request", "parallel_tool_calls must be a boolean");
+      }
+      parallelToolCalls = record["parallel_tool_calls"];
+    }
+    let instructions: string | undefined;
+    if (record["instructions"] !== undefined) {
+      if (typeof record["instructions"] !== "string") {
+        throw new RequestError(400, "invalid_request", "instructions must be a string");
+      }
+      instructions = record["instructions"];
+    }
+    const activeFunctionTools: FunctionTool[] = toolChoice === "none" ? [] : functionTools;
+    if (functionTools.length > 0 || toolOutputs.length > 0) {
+      input = buildFunctionPrompt({ text: input, tool_outputs: toolOutputs }, activeFunctionTools, toolChoice, parallelToolCalls, instructions);
+    }
+    return { provider, model: record["model"], input, stream: record["stream"] === true, conversationId, reasoningEffort, images, generateImage, functionTools: activeFunctionTools, toolChoice, parallelToolCalls };
+  }
+
+  private async handleStream(request: IncomingMessage, response: ServerResponse, body: ResponsesRequest): Promise<void> {
+    const state: StreamResponseState = { responseId: undefined, outputItemId: `msg_${randomUUID()}` };
+    let clientClosed: boolean = false;
+    let handle: TextJobHandle;
+    try {
+      handle = this.gateway.startTextJob(body.model, body.input, {
+        onConversationBound: (conversationId: string): void => {
+          state.responseId = encodeResponseId(body.provider, conversationId, randomUUID());
+          this.writeEvent(response, "response.created", { type: "response.created", response: { id: state.responseId, object: "response", status: "in_progress", model: body.model } });
+          this.writeEvent(response, "response.in_progress", { type: "response.in_progress", response_id: state.responseId });
+          if (body.functionTools.length === 0) {
+            this.writeEvent(response, "response.output_item.added", { type: "response.output_item.added", response_id: state.responseId, item: { id: state.outputItemId, type: "message", role: "assistant" } });
+            this.writeEvent(response, "response.content_part.added", { type: "response.content_part.added", response_id: state.responseId, item_id: state.outputItemId });
+          }
+        },
+        onDelta: (delta: string): void => {
+          if (state.responseId !== undefined && body.functionTools.length === 0) {
+            this.writeEvent(response, "response.output_text.delta", { type: "response.output_text.delta", response_id: state.responseId, item_id: state.outputItemId, delta });
+          }
+        },
+        onImage: (): void => undefined
+      }, body.conversationId, body.reasoningEffort, body.images.map(toProtocolImage), body.generateImage);
+    } catch (error: unknown) {
+      this.sendServiceError(response, error);
+      return;
+    }
+    response.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache", connection: "keep-alive" });
+    const cancelOnDisconnect = (): void => {
+      if (!clientClosed) {
+        clientClosed = true;
+        this.gateway.cancelJob(handle.requestId);
+      }
+    };
+    request.on("close", cancelOnDisconnect);
+    response.on("close", cancelOnDisconnect);
+    try {
+      const result: TextJobResult = await handle.result;
+      if (clientClosed || state.responseId === undefined) {
+        return;
+      }
+      const parsed: FunctionResponse = parseFunctionResponse(result.text, body.functionTools, body.toolChoice, body.parallelToolCalls);
+      if (parsed.type === "function_calls") {
+        parsed.calls.forEach((call: FunctionCall, outputIndex: number): void => {
+          const item: ResponsesBody["output"][number] = toFunctionCallItem(call);
+          this.writeEvent(response, "response.output_item.added", { type: "response.output_item.added", response_id: state.responseId, output_index: outputIndex, item: { ...item, status: "in_progress", arguments: "" } });
+          this.writeEvent(response, "response.function_call_arguments.delta", { type: "response.function_call_arguments.delta", response_id: state.responseId, item_id: item.id, output_index: outputIndex, delta: call.arguments });
+          this.writeEvent(response, "response.function_call_arguments.done", { type: "response.function_call_arguments.done", response_id: state.responseId, item_id: item.id, output_index: outputIndex, arguments: call.arguments });
+          this.writeEvent(response, "response.output_item.done", { type: "response.output_item.done", response_id: state.responseId, output_index: outputIndex, item });
+        });
+      } else {
+        if (body.functionTools.length > 0) {
+          this.writeEvent(response, "response.output_item.added", { type: "response.output_item.added", response_id: state.responseId, item: { id: state.outputItemId, type: "message", role: "assistant" } });
+          this.writeEvent(response, "response.content_part.added", { type: "response.content_part.added", response_id: state.responseId, item_id: state.outputItemId });
+          this.writeEvent(response, "response.output_text.delta", { type: "response.output_text.delta", response_id: state.responseId, item_id: state.outputItemId, delta: parsed.text });
+        }
+        this.writeEvent(response, "response.output_text.done", { type: "response.output_text.done", response_id: state.responseId, item_id: state.outputItemId, text: parsed.text });
+        this.writeEvent(response, "response.content_part.done", { type: "response.content_part.done", response_id: state.responseId, item_id: state.outputItemId });
+        this.writeEvent(response, "response.output_item.done", { type: "response.output_item.done", response_id: state.responseId, item_id: state.outputItemId });
+      }
+      this.writeEvent(response, "response.completed", { type: "response.completed", response_id: state.responseId });
+      response.end();
+    } catch (error: unknown) {
+      if (!clientClosed) {
+        const code: string = error instanceof GatewayError ? error.code : error instanceof ToolProtocolError ? "tool_protocol_error" : "internal_error";
+        this.writeEvent(response, "error", { type: "error", error: { message: error instanceof Error ? error.message : String(error), code } });
+        response.end();
+      }
+    }
+  }
+
+  private sendServiceError(response: ServerResponse, error: unknown): void {
+    if (error instanceof RequestError) {
+      this.sendJson(response, error.statusCode, { error: { message: error.message, type: "invalid_request_error", code: error.code } });
+      return;
+    }
+    if (error instanceof GatewayError) {
+      const statusCode: number = error.code === "adapter_error" ? 502 : 503;
+      this.sendJson(response, statusCode, { error: { message: error.message, type: "server_error", code: error.code } });
+      return;
+    }
+    if (error instanceof ToolProtocolError) {
+      this.sendJson(response, 502, { error: { message: error.message, type: "server_error", code: "tool_protocol_error" } });
+      return;
+    }
+    this.sendJson(response, 500, { error: { message: "Internal daemon error", type: "server_error", code: "internal_error" } });
+  }
+
+  private sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
+    const content: string = JSON.stringify(body);
+    response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(content) });
+    response.end(content);
+  }
+
+  private writeEvent(response: ServerResponse, event: string, body: unknown): void {
+    response.write(`event: ${event}\ndata: ${JSON.stringify(body)}\n\n`);
+  }
+}
+
+function parseFunctionTool(tool: Record<string, unknown>): FunctionTool {
+  if (typeof tool["name"] !== "string" || tool["name"].length === 0) {
+    throw new RequestError(400, "invalid_request", "Function tool name must be a non-empty string");
+  }
+  if (tool["description"] !== undefined && typeof tool["description"] !== "string") {
+    throw new RequestError(400, "invalid_request", "Function tool description must be a string");
+  }
+  if (typeof tool["parameters"] !== "object" || tool["parameters"] === null || Array.isArray(tool["parameters"])) {
+    throw new RequestError(400, "invalid_request", "Function tool parameters must be a JSON schema object");
+  }
+  if (tool["strict"] !== undefined && typeof tool["strict"] !== "boolean") {
+    throw new RequestError(400, "invalid_request", "Function tool strict must be a boolean");
+  }
+  return {
+    type: "function",
+    name: tool["name"],
+    ...(tool["description"] === undefined ? {} : { description: tool["description"] }),
+    parameters: tool["parameters"] as Record<string, unknown>,
+    strict: tool["strict"] === true
+  };
+}
+
+function parseToolChoice(value: unknown, functionNames: Set<string>): FunctionToolChoice {
+  if (value === undefined || value === "auto") {
+    return "auto";
+  }
+  if (value === "none") {
+    return value;
+  }
+  if (value === "required") {
+    if (functionNames.size === 0) {
+      throw new RequestError(400, "invalid_request", "tool_choice required needs at least one function tool");
+    }
+    return value;
+  }
+  if (typeof value !== "object" || value === null) {
+    throw new RequestError(400, "invalid_request", "Unsupported tool_choice");
+  }
+  const choice: Record<string, unknown> = value as Record<string, unknown>;
+  if (choice["type"] !== "function" || typeof choice["name"] !== "string" || !functionNames.has(choice["name"])) {
+    throw new RequestError(400, "invalid_request", "tool_choice must reference a declared function");
+  }
+  return { name: choice["name"] };
+}
+
+function toFunctionCallItem(call: FunctionCall): Extract<ResponsesBody["output"][number], { type: "function_call" }> {
+  return {
+    id: `fc_${randomUUID()}`,
+    type: "function_call",
+    status: "completed",
+    call_id: call.callId,
+    name: call.name,
+    arguments: call.arguments
+  };
+}
+
+class RequestError extends Error {
+  public readonly statusCode: number;
+  public readonly code: string;
+
+  public constructor(statusCode: number, code: string, message: string) {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+  }
+}
+
+function readBody(request: IncomingMessage): Promise<string> {
+  return new Promise<string>((resolve, reject): void => {
+    let content: string = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk: string): void => {
+      content += chunk;
+    });
+    request.on("end", (): void => resolve(content));
+    request.on("error", reject);
+  });
+}
+
+function toProtocolImage(image: ResolvedImage): { data: string; media_type: string; name: string } {
+  return { data: Buffer.from(image.bytes).toString("base64"), media_type: image.mediaType, name: image.name };
+}

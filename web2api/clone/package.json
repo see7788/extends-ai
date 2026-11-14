@@ -1,0 +1,73 @@
+{
+  "name": "glidea-web2api",
+  "version": "0.1.0",
+  "description": "Expose ChatGPT, Gemini and Grok web sessions as a local OpenAI-compatible Responses API.",
+  "type": "module",
+  "keywords": [
+    "chatgpt",
+    "gemini",
+    "grok",
+    "openai",
+    "responses-api",
+    "web2api"
+  ],
+  "homepage": "https://github.com/glidea/web2api#readme",
+  "bugs": {
+    "url": "https://github.com/glidea/web2api/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glidea/web2api.git"
+  },
+  "bin": {
+    "glidea-web2api": "bin/glidea-web2api.mjs"
+  },
+  "files": [
+    "README.zh-CN.md",
+    "bin/glidea-web2api.mjs",
+    "dist/glidea-web2api.cjs",
+    "dist/extension"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx scripts/dev/index.ts",
+    "build:daemon": "esbuild src/daemon/cli.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist/glidea-web2api.cjs",
+    "prepare:extension": "wxt prepare src/extension",
+    "build:extension": "wxt build src/extension --mv3",
+    "stage:extension": "node -e \"const fs = require('node:fs'); fs.rmSync('dist/extension', { recursive: true, force: true }); fs.cpSync('src/extension/.output/chrome-mv3', 'dist/extension', { recursive: true });\"",
+    "test:e2e:extension": "pnpm build:daemon && pnpm build:extension && playwright test --config playwright.config.ts tests/e2e/extension.spec.ts",
+    "test:e2e:extension-daemon": "pnpm build:extension && WEB2API_EXTENSION_DAEMON_TEST=1 playwright test --config playwright.config.ts tests/e2e/extension-daemon.spec.ts",
+    "test:e2e:extension-responses": "pnpm build:extension && WEB2API_EXTENSION_RESPONSES_TEST=1 playwright test --config playwright.config.ts tests/e2e/extension-responses.spec.ts",
+    "test:smoke:chatgpt:setup": "pnpm build:extension && tsx scripts/setup-chatgpt-profile.ts",
+    "test:smoke:chatgpt": "pnpm build:extension && playwright test --config playwright.config.ts tests/e2e/chatgpt-smoke.spec.ts",
+    "test:smoke:gemini:setup": "tsx scripts/setup-gemini-profile.ts",
+    "test:smoke:gemini": "pnpm build:extension && playwright test --config playwright.config.ts tests/e2e/gemini-smoke.spec.ts",
+    "test:smoke:grok:setup": "tsx scripts/setup-grok-profile.ts",
+    "test:smoke:grok": "pnpm build:extension && playwright test --config playwright.config.ts tests/e2e/grok-smoke.spec.ts",
+    "pack:extension": "pnpm build:extension && mkdir -p dist && rm -f dist/web2api-extension.zip && cd src/extension/.output && zip -qr ../../../dist/web2api-extension.zip chrome-mv3",
+    "prepack": "pnpm build:daemon && pnpm build:extension && pnpm stage:extension",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@lucide/svelte": "^1.29.0",
+    "@playwright/test": "^1.55.0",
+    "@sveltejs/vite-plugin-svelte": "^6.2.0",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "@wxt-dev/module-svelte": "^2.0.5",
+    "esbuild": "^0.28.1",
+    "happy-dom": "^18.0.1",
+    "svelte": "^5.54.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.2",
+    "ws": "^8.18.3",
+    "wxt": "^0.20.27",
+    "zod": "^4.1.12"
+  },
+  "packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9bc75946aadfb08d"
+}

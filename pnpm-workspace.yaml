@@ -1,6 +1,7 @@
 ﻿packages:
   - "apps/**"
   - "libs/**"
+  - "web2api/clone"
   - "../runtimeproxy/libs/invoke-protocol"
   - "../extends-antd"
   - "../extends-icons"
