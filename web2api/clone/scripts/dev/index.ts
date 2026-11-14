@@ -1,5 +1,5 @@
 ﻿import { spawn } from "node:child_process";
-import { closeSync, cpSync, existsSync, openSync, rmSync } from "node:fs";
+import { closeSync, existsSync, openSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { defaultConfigPath, loadOrCreateConfig, type DaemonConfig } from "../../src/daemon/config";
@@ -11,7 +11,6 @@ const distRoot: string = resolve(devRoot, "dist");
 const daemonRuntimePath: string = resolve(distRoot, "web2api-daemon.cjs");
 const daemonLogPath: string = resolve(distRoot, "daemon.log");
 const extensionSourcePath: string = resolve(cloneRoot, "src", "extension", ".output", "chrome-mv3");
-const extensionDistPath: string = resolve(distRoot, "extension");
 const vscodePath: string = "C:\\Users\\diyya\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe";
 const pnpmPath: string = "pnpm.cmd";
 
@@ -44,9 +43,6 @@ async function runPnpm(argumentsList: string[]): Promise<void> {
 async function buildExtension(): Promise<void> {
   await runPnpm(["run", "build:extension"]);
   assertPath(extensionSourcePath, "扩展构建目录");
-  rmSync(extensionDistPath, { recursive: true, force: true });
-  cpSync(extensionSourcePath, extensionDistPath, { recursive: true });
-  rmSync(resolve(cloneRoot, "src", "extension", ".output"), { recursive: true, force: true });
 }
 
 async function buildDaemon(): Promise<void> {
@@ -152,7 +148,7 @@ async function main(): Promise<void> {
   await writeFile(resolve(envobj.CODEX_HOME, "config.toml"), configContent, "utf8");
   startVsCode(daemonConfig.api_key);
 
-  console.log(`扩展：${extensionDistPath}`);
+  console.log(`扩展：${extensionSourcePath}`);
   console.log(`Web2API daemon：${baseUrl}`);
   console.log(`Codex Home：${envobj.CODEX_HOME}`);
   console.log(`配置文件：${resolve(envobj.CODEX_HOME, "config.toml")}`);
