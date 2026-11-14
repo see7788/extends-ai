@@ -1,4 +1,4 @@
-import { browser } from "wxt/browser";
+﻿import { browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 import type { Capabilities, ExtensionHelloMessage, HeartbeatMessage, WorkerReadyMessage, WorkerUnhealthyMessage, DaemonToExtensionMessage, ExtensionToDaemonMessage, JobStartMessage, Provider } from "../../shared/protocol";
 import type { NativeHostRequest, NativeHostResponse, NativeHostStatus } from "../../shared/native-protocol";
@@ -44,6 +44,20 @@ let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
 export default defineBackground((): void => {
   void initializeDaemon();
+  browser.tabs.onCreated.addListener((tab): void => {
+    if (providerFromUrl(tab.url) !== undefined) {
+      void synchronizeWorkerTabs().catch((error: unknown): void => {
+        console.error(error instanceof Error ? error.message : error);
+      });
+    }
+  });
+  browser.tabs.onUpdated.addListener((_tabId, changeInfo): void => {
+    if (changeInfo.url !== undefined && providerFromUrl(changeInfo.url) !== undefined) {
+      void synchronizeWorkerTabs().catch((error: unknown): void => {
+        console.error(error instanceof Error ? error.message : error);
+      });
+    }
+  });
   browser.tabs.onRemoved.addListener((tabId: number): void => {
     let removedProvider: Provider | undefined;
     for (const [workerId, workerTabId] of workerTabs.entries()) {
@@ -56,7 +70,9 @@ export default defineBackground((): void => {
       }
     }
     if (removedProvider !== undefined && shouldReconnect) {
-      void ensureWorkerTabs(removedProvider, configuredTabCount(removedProvider));
+      void synchronizeWorkerTabs().catch((error: unknown): void => {
+        console.error(error instanceof Error ? error.message : error);
+      });
     }
   });
   browser.runtime.onMessage.addListener((message: unknown, sender): Promise<PopupStatus | { data: string } | undefined> => {
@@ -252,7 +268,9 @@ async function connectToDaemon(): Promise<void> {
         configuredChatGptTabs = message.chatgpt_tabs;
         configuredGeminiTabs = message.gemini_tabs;
         configuredGrokTabs = message.grok_tabs;
-        void synchronizeWorkerTabs();
+        void synchronizeWorkerTabs().catch((error: unknown): void => {
+          console.error(error instanceof Error ? error.message : error);
+        });
         break;
       case "job.start":
         void dispatchJob(message);
@@ -359,13 +377,25 @@ function sameChatPage(currentUrl: string, targetUrl: string): boolean {
   return current.origin === target.origin && current.pathname === target.pathname;
 }
 
+let workerSyncPromise: Promise<void> | undefined;
+
 async function synchronizeWorkerTabs(): Promise<void> {
-  await ensureWorkerTabs("chatgpt", configuredChatGptTabs);
-  await ensureWorkerTabs("gemini", configuredGeminiTabs);
-  await ensureWorkerTabs("grok", configuredGrokTabs);
+  if (workerSyncPromise !== undefined) {
+    return workerSyncPromise;
+  }
+  workerSyncPromise = (async (): Promise<void> => {
+    const tabs = await browser.tabs.query({});
+    await ensureWorkerTabs("chatgpt", configuredChatGptTabs, tabs.filter((tab): boolean => providerFromUrl(tab.url) === "chatgpt").map((tab): number | undefined => tab.id).filter((tabId): tabId is number => tabId !== undefined));
+    await ensureWorkerTabs("gemini", configuredGeminiTabs, tabs.filter((tab): boolean => providerFromUrl(tab.url) === "gemini").map((tab): number | undefined => tab.id).filter((tabId): tabId is number => tabId !== undefined));
+    await ensureWorkerTabs("grok", configuredGrokTabs, tabs.filter((tab): boolean => providerFromUrl(tab.url) === "grok").map((tab): number | undefined => tab.id).filter((tabId): tabId is number => tabId !== undefined));
+  })().finally((): void => {
+    workerSyncPromise = undefined;
+  });
+  return workerSyncPromise;
 }
 
-async function ensureWorkerTabs(provider: Provider, tabCount: number): Promise<void> {
+async function ensureWorkerTabs(provider: Provider, tabCount: number, existingTabIds: number[]): Promise<void> {
+  const removedTabIds: Set<number> = new Set<number>();
   for (const [workerId, tabId] of workerTabs.entries()) {
     const workerProvider: Provider | undefined = providerFromWorkerId(workerId);
     const index: number = workerIndex(workerId);
@@ -373,24 +403,35 @@ async function ensureWorkerTabs(provider: Provider, tabCount: number): Promise<v
       workerTabs.delete(workerId);
       readyWorkers.delete(workerId);
       workerCapabilities.delete(workerId);
+      removedTabIds.add(tabId);
       await browser.tabs.remove(tabId);
     }
   }
+  const usedTabIds: Set<number> = new Set<number>(workerTabs.values());
+  const availableTabIds: number[] = existingTabIds.filter((tabId: number): boolean => !removedTabIds.has(tabId));
   for (let index: number = 1; index <= tabCount; index += 1) {
     const workerId: string = `${provider}-worker-${index}`;
     if (workerTabs.has(workerId)) {
       continue;
     }
-    const createdTab: unknown = await browser.tabs.create({ url: "about:blank", active: false });
-    if (typeof createdTab !== "object" || createdTab === null) {
+    const existingTabId: number | undefined = availableTabIds.find((tabId: number): boolean => !usedTabIds.has(tabId));
+    if (existingTabId !== undefined) {
+      workerTabs.set(workerId, existingTabId);
+      usedTabIds.add(existingTabId);
+      readyWorkers.delete(workerId);
+      workerCapabilities.delete(workerId);
+      void browser.tabs.sendMessage(existingTabId, "web2api:probe").catch((error: unknown): void => {
+        console.warn(error instanceof Error ? error.message : error);
+      });
+      continue;
+    }
+    const createdTab = await browser.tabs.create({ url: "about:blank", active: false });
+    if (createdTab.id === undefined) {
       throw new Error("worker tab has no id");
     }
-    const tabRecord: Record<string, unknown> = createdTab as Record<string, unknown>;
-    if (typeof tabRecord["id"] !== "number") {
-      throw new Error("worker tab has no id");
-    }
-    const tabId: number = tabRecord["id"];
+    const tabId: number = createdTab.id;
     workerTabs.set(workerId, tabId);
+    usedTabIds.add(tabId);
     await browser.tabs.update(tabId, { url: providerHomeUrl(provider) });
   }
 }
@@ -456,17 +497,6 @@ function workerIndex(workerId: string): number {
   return Number(workerId.slice(separator + 1));
 }
 
-function configuredTabCount(provider: Provider): number {
-  switch (provider) {
-    case "chatgpt":
-      return configuredChatGptTabs;
-    case "gemini":
-      return configuredGeminiTabs;
-    case "grok":
-      return configuredGrokTabs;
-  }
-}
-
 function providerHomeUrl(provider: Provider): string {
   switch (provider) {
     case "chatgpt":
@@ -475,6 +505,29 @@ function providerHomeUrl(provider: Provider): string {
       return "https://gemini.google.com/app";
     case "grok":
       return "https://grok.com/";
+  }
+}
+
+function providerFromUrl(value: string | undefined): Provider | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return undefined;
+  }
+  switch (url.hostname) {
+    case "chatgpt.com":
+    case "chat.openai.com":
+      return "chatgpt";
+    case "gemini.google.com":
+      return "gemini";
+    case "grok.com":
+      return "grok";
+    default:
+      return undefined;
   }
 }
 

@@ -1,4 +1,4 @@
-import { browser } from "wxt/browser";
+﻿import { browser } from "wxt/browser";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { cancelGeneration, detectImageMediaType, enableImageGeneration, getAssistantMessageCount, getCapabilities, getGeneratedImageCount, isGrokLoggedIn, isGrokUsable, parseConversationId, selectModel, selectReasoningEffort, streamAssistantText, submitPrompt, uploadImages, waitForGeneratedImage, type ImagePayload } from "../lib/grok-adapter";
 import type { Capabilities, ExtensionToDaemonMessage, JobCancelMessage, JobStartMessage } from "../../shared/protocol";
@@ -9,6 +9,10 @@ export default defineContentScript({
     document.documentElement.dataset.web2apiContentScript = "ready";
     void reportContentReady();
     browser.runtime.onMessage.addListener((message: unknown): Promise<void> => {
+      if (message === "web2api:probe") {
+        void reportContentReady();
+        return Promise.resolve();
+      }
       if (isJobStartMessage(message)) {
         void runJob(message);
       }

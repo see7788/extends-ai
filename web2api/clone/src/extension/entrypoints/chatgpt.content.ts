@@ -1,4 +1,4 @@
-import { browser } from "wxt/browser";
+﻿import { browser } from "wxt/browser";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { cancelGeneration, getAssistantMessageCount, getCapabilities, isChatGPTLoggedIn, parseConversationId, selectModel, selectReasoningEffort, streamAssistantText, submitPrompt, uploadImages, waitForGeneratedImage, type ImagePayload } from "../lib/chatgpt-adapter";
 import type { Capabilities, JobCancelMessage, JobStartMessage, ExtensionToDaemonMessage } from "../../shared/protocol";
@@ -9,6 +9,10 @@ export default defineContentScript({
     document.documentElement.dataset.web2apiContentScript = "ready";
     void reportContentReady();
     browser.runtime.onMessage.addListener((message: unknown): Promise<void> => {
+      if (message === "web2api:probe") {
+        void reportContentReady();
+        return Promise.resolve();
+      }
       if (isJobStartMessage(message)) {
         void runTextJob(message);
       }
