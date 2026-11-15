@@ -1,0 +1,8 @@
+{
+  "name": "chatgpt-web-provider-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types dev/index.ts"
+  }
+}

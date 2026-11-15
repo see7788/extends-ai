@@ -1,0 +1,12 @@
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+*.log
+.log/
+.DS_Store
+playwright-report/
+test-results/
+chrome-profile/
+dev/dist/
