@@ -1,0 +1,12 @@
+{
+  "name": "responses-kasmvnc-chrome",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx honorouter.ts"
+  },
+  "dependencies": {
+    "hono": "^4.13.17",
+    "invoke-protocol": "workspace:*"
+  }
+}

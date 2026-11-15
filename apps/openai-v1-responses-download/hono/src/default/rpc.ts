@@ -1,4 +1,4 @@
-﻿﻿import Base, { type context_t } from "invoke-protocol";
+﻿import Base, { type context_t } from "invoke-protocol";
 import peer from "./peer.js";
 import auth from "./auth.js";
 import tasks from "./tasks.js";
@@ -6,7 +6,7 @@ import tasks from "./tasks.js";
 type RpcContext = context_t;
 
 class DefaultRpc extends Base<RpcContext> {
-  override async dispatchInit(): Promise<void> {}
+  async dispatchInit(): Promise<void> {}
 
   dispatch(path: string, input: unknown): Promise<unknown> {
     return this.dispatchRoute({ path, input });

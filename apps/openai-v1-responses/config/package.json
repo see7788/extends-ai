@@ -1,0 +1,8 @@
+{
+  "name": "openai-v1-responses-config",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./config.ts"
+  }
+}

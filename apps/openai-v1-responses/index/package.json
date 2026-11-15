@@ -1,0 +1,20 @@
+{
+  "name": "openai-v1-responses",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx index.ts",
+    "build": "pnpm --filter responses-chrome-extension build"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.11",
+    "openai-v1-responses-config": "workspace:*",
+    "hono": "^4.13.17",
+    "ws": "^8.22.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.20.0"
+  }
+}

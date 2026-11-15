@@ -1,0 +1,21 @@
+{
+  "name": "responses-chrome-extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "extends-icons": "workspace:*",
+    "invoke-protocol": "workspace:*",
+    "lib-chatgpt-com": "workspace:*",
+    "openai-v1-responses-config": "workspace:*"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}

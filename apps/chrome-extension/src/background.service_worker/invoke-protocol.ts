@@ -1,4 +1,4 @@
-﻿﻿import Base_core, {
+﻿import Base_core, {
   type context_t as context_core,
   type invokeProxy_t,
 } from 'invoke-protocol';
@@ -19,7 +19,7 @@ export interface TabInfo {
 }
 
 class Base extends Base_core<Context> {
-  public override async dispatchInit(): Promise<void> {
+  public async dispatchInit(): Promise<void> {
     chrome.runtime.onConnect.addListener(port => {
       if (port.name !== 'mcp-browser-tabs') return;
 
