@@ -229,6 +229,9 @@ importers:
 
   ../runtimeproxy/libs/invoke-protocol:
     dependencies:
+      '@hono/node-ws':
+        specifier: ^1.3.1
+        version: 1.3.1(@hono/node-server@1.19.17(hono@4.13.18))(hono@4.13.18)
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
@@ -398,301 +401,30 @@ importers:
 
   apps/chatgpt-web-provider/dev/dist/codex-home/plugins/cache/openai-curated-remote/sites/1.1.6/skills/sites/templates/worker-esm-starter: {}
 
-  apps/chatgtp-kasmvnc: {}
-
-  apps/chatgtp-kasmvnc/node:
-    dependencies:
-      immer:
-        specifier: 10.2.0
-        version: 10.2.0
-      invoke-protocol:
-        specifier: workspace:*
-        version: link:../../../../runtimeproxy/libs/invoke-protocol
-      peerjs:
-        specifier: ^1.5.5
-        version: 1.5.5
-      ubuntu-lib:
-        specifier: workspace:*
-        version: link:../../../../extends-ssh/ubuntu-lib
-      wrtc:
-        specifier: ^0.4.7
-        version: 0.4.7
-      ws:
-        specifier: ^8.22.1
-        version: 8.22.1
-      zustand:
-        specifier: 5.0.13
-        version: 5.0.13(@types/react@19.2.18)(immer@10.2.0)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
-      zustand-lib:
-        specifier: workspace:*
-        version: link:../../../../extends-zustand/libs/zustand-lib
-    devDependencies:
-      '@types/node':
-        specifier: 20.17.17
-        version: 20.17.17
-      '@types/ws':
-        specifier: ^8.18.2
-        version: 8.18.2
-      typescript:
-        specifier: ^5.8.0
-        version: 5.9.3
-      vite:
-        specifier: 8.0.11
-        version: 8.0.11(@types/node@20.17.17)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-
-  apps/chrome-extension:
-    dependencies:
-      '@ant-design/icons':
-        specifier: ^6.1.0
-        version: 6.3.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      antd:
-        specifier: ^6.3.7
-        version: 6.7.0(date-fns@4.4.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      extends-antd:
-        specifier: workspace:*
-        version: link:../../../extends-antd
-      extends-icons:
-        specifier: workspace:*
-        version: link:../../../extends-icons
-      invoke-protocol:
-        specifier: workspace:*
-        version: link:../../../runtimeproxy/libs/invoke-protocol
-      postprocessing:
-        specifier: 6.39.2
-        version: 6.39.2(three@0.180.0)
-      react:
-        specifier: ^19.2.6
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.2.6
-        version: 19.2.8(react@19.2.8)
-      react-src:
-        specifier: workspace:*
-        version: link:../../../extends-react/libs/react-src
-      three:
-        specifier: 0.180.0
-        version: 0.180.0
-      zod:
-        specifier: 4.6.7
-        version: 4.6.7
-    devDependencies:
-      '@crxjs/vite-plugin':
-        specifier: ^2.7.0
-        version: 2.7.1(vite@8.0.11(@types/node@20.17.17)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12))
-      '@types/chrome':
-        specifier: 0.1.43
-        version: 0.1.43
-      '@types/node':
-        specifier: 20.17.17
-        version: 20.17.17
-      '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@types/three':
-        specifier: 0.180.0
-        version: 0.180.0
-      typescript:
-        specifier: ^5.8.0
-        version: 5.9.3
-      vite:
-        specifier: 8.0.11
-        version: 8.0.11(@types/node@20.17.17)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-
-  apps/chrome-extension-apikey:
-    dependencies:
-      '@ant-design/icons':
-        specifier: ^6.0.0
-        version: 6.3.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      antd:
-        specifier: ^6.0.0
-        version: 6.7.0(date-fns@4.4.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      immer:
-        specifier: 10.2.0
-        version: 10.2.0
-      openai:
-        specifier: ^7.52.0
-        version: 7.52.0(undici@7.30.2)(ws@8.22.1)(zod@4.6.7)
-      openai-v1-responses-zod:
-        specifier: workspace:*
-        version: link:../openai-v1-responses-zod
-      peerjs:
-        specifier: 1.5.5
-        version: 1.5.5
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: 19.2.8
-        version: 19.2.8(react@19.2.8)
-      ubuntu-lib:
-        specifier: workspace:*
-        version: link:../../../extends-ssh/ubuntu-lib
-      use-immer:
-        specifier: 0.11.0
-        version: 0.11.0(immer@10.2.0)(react@19.2.8)
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.40
-        version: 20.19.40
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 6.0.5
-        version: 6.0.5(vite@8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12))
-      typescript:
-        specifier: ^5.8.0
-        version: 5.9.3
-      vite:
-        specifier: 8.0.11
-        version: 8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-
-  apps/openai-v1-responses-download/hono:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.11
-        version: 1.19.17(hono@4.12.30)
-      '@roamhq/wrtc':
-        specifier: 0.10.0
-        version: 0.10.0
-      hono:
-        specifier: 4.12.30
-        version: 4.12.30
-      hono-vite-config:
-        specifier: workspace:*
-        version: link:../../../../extends-hono/libs/hono-vite-config
-      invoke-protocol:
-        specifier: workspace:*
-        version: link:../../../../runtimeproxy/libs/invoke-protocol
-      peerjs:
-        specifier: 1.5.5
-        version: 1.5.5
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.40
-        version: 20.19.40
-      typescript:
-        specifier: ^5.8.0
-        version: 5.9.3
-      vite:
-        specifier: 8.0.11
-        version: 8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-
-  apps/openai-v1-responses-download/react:
-    dependencies:
-      '@ant-design/icons':
-        specifier: ^6.0.0
-        version: 6.3.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@babel/runtime':
-        specifier: 7.28.4
-        version: 7.28.4
-      antd:
-        specifier: ^6.0.0
-        version: 6.7.0(date-fns@4.4.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      invoke-protocol:
-        specifier: workspace:*
-        version: link:../../../../runtimeproxy/libs/invoke-protocol
-      openai-v1-responses-download-hono:
-        specifier: workspace:*
-        version: link:../hono
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: 19.2.8
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.40
-        version: 20.19.40
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.14)
-      typescript:
-        specifier: ^5.8.0
-        version: 5.9.3
-      vite:
-        specifier: 8.0.11
-        version: 8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-
-  apps/openai-v1-responses-zod:
-    dependencies:
-      '@hono/zod-validator':
-        specifier: ^0.7.0
-        version: 0.7.6(hono@4.13.18)(zod@4.6.7)
-      hono:
-        specifier: ^4.13.17
-        version: 4.13.18
-      invoke-protocol:
-        specifier: workspace:*
-        version: link:../../../runtimeproxy/libs/invoke-protocol
-      zod:
-        specifier: 4.6.7
-        version: 4.6.7
-    devDependencies:
-      typescript:
-        specifier: ^5.8.0
-        version: 5.9.3
-
-  apps/openai-v1-responses/config: {}
-
-  apps/openai-v1-responses/download-codex-config-toml:
-    dependencies:
-      hono:
-        specifier: ^4.13.17
-        version: 4.13.18
-      openai-v1-responses-config:
-        specifier: workspace:*
-        version: link:../config
-
-  apps/openai-v1-responses/download-vscode-extension:
-    dependencies:
-      download-codex-config-toml:
-        specifier: workspace:*
-        version: link:../download-codex-config-toml
-      hono:
-        specifier: ^4.13.17
-        version: 4.13.18
-
   apps/openai-v1-responses/index:
     dependencies:
       '@hono/node-server':
         specifier: ^1.19.11
         version: 1.19.17(hono@4.13.18)
-      download-codex-config-toml:
-        specifier: workspace:*
-        version: link:../download-codex-config-toml
-      download-vscode-extension:
-        specifier: workspace:*
-        version: link:../download-vscode-extension
       hono:
         specifier: ^4.13.17
         version: 4.13.18
-      openai-v1-responses-config:
+      hono-vite-config:
         specifier: workspace:*
-        version: link:../config
-      ws:
-        specifier: ^8.22.1
-        version: 8.22.1
+        version: link:../../../../extends-hono/libs/hono-vite-config
+      responses-kasmvnc-chrome:
+        specifier: workspace:*
+        version: link:../responses-kasmvnc-chrome
+      users:
+        specifier: workspace:*
+        version: link:../users
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.19
-      '@types/ws':
-        specifier: ^8.18.2
-        version: 8.18.2
-      tsx:
-        specifier: ^4.20.0
-        version: 4.23.12
+      vite:
+        specifier: 8.0.11
+        version: 8.0.11(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
 
   apps/openai-v1-responses/lib-chatgpt-com:
     dependencies:
@@ -717,9 +449,6 @@ importers:
       lib-chatgpt-com:
         specifier: workspace:*
         version: link:../lib-chatgpt-com
-      openai-v1-responses-config:
-        specifier: workspace:*
-        version: link:../config
     devDependencies:
       '@crxjs/vite-plugin':
         specifier: ^2.7.0
@@ -733,21 +462,49 @@ importers:
 
   apps/openai-v1-responses/responses-kasmvnc-chrome:
     dependencies:
+      '@hono/node-ws':
+        specifier: ^1.3.1
+        version: 1.3.1(@hono/node-server@1.19.17(hono@4.13.18))(hono@4.13.18)
       hono:
         specifier: ^4.13.17
         version: 4.13.18
       invoke-protocol:
         specifier: workspace:*
         version: link:../../../../runtimeproxy/libs/invoke-protocol
+      users:
+        specifier: workspace:*
+        version: link:../users
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+      zustand:
+        specifier: 5.0.13
+        version: 5.0.13(@types/react@19.2.18)(immer@11.2.10)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+      zustand-lib:
+        specifier: workspace:*
+        version: link:../../../../extends-zustand/libs/zustand-lib
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
 
   apps/openai-v1-responses/users:
     dependencies:
+      '@hono/zod-validator':
+        specifier: ^0.9.1
+        version: 0.9.1(hono@4.13.18)(zod@4.6.7)
       hono:
         specifier: ^4.13.17
         version: 4.13.18
       invoke-protocol:
         specifier: workspace:*
         version: link:../../../../runtimeproxy/libs/invoke-protocol
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
 packages:
 
@@ -1694,6 +1451,13 @@ packages:
     peerDependencies:
       hono: ^4
 
+  '@hono/node-ws@1.3.1':
+    resolution: {integrity: sha512-vo/MwCnpJAVHBkGzWjCJ28wF45fYHAfbPZcH2rodZODHtch2GHA94KtMfusmVycTUtsLAsaNsHhtY6P8X3RQsA==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      '@hono/node-server': ^1.19.11
+      hono: ^4.6.0
+
   '@hono/vite-dev-server@0.26.1':
     resolution: {integrity: sha512-OlcWoXjNogKiJhVwV/ftMK87UcsJmIBfmImSdI4e8to/ZdwNHrW9ddKw2OGHjXI5/uS2RaZr+2y+l8T9VFbCmw==}
     engines: {node: '>=18.14.1'}
@@ -1706,12 +1470,6 @@ packages:
         optional: true
       wrangler:
         optional: true
-
-  '@hono/zod-validator@0.7.6':
-    resolution: {integrity: sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw==}
-    peerDependencies:
-      hono: '>=3.9.0'
-      zod: ^3.25.0 || ^4.0.0
 
   '@hono/zod-validator@0.9.1':
     resolution: {integrity: sha512-iiv6w0qrIc0arfvCtUqBWsvl4fXjzaTcQcCJTTtCnkawF9HHGE+KjEl0ox3gQJ6rKZEgE3mLExlQCF72M+mNuw==}
@@ -3265,34 +3023,6 @@ packages:
     resolution: {integrity: sha512-C7c51Nn4yTxXFKvgh2txJFNweaVcfUPQxwEUFw4aWsCmfiBDJsTSwviIF8EcwjQ6k8bPyMWCl1vw4BdxE569Cg==}
     engines: {node: '>= 10'}
 
-  '@roamhq/wrtc-darwin-arm64@0.10.0':
-    resolution: {integrity: sha512-vFdi79jWuPHcnUcnuOjTvyKtmY/RI2xRQo9Y6RsIjIlYePN/7LTy00c+Ivrz4prYAPbp0oHscl7PDV64VUqGTQ==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@roamhq/wrtc-darwin-x64@0.10.0':
-    resolution: {integrity: sha512-H6852g2xYCuaR+/TrthpdMafs4bMfAUEpvRDhsIguzrK7Dz+MKpNI8MkwdqJN8W65J+7w7k+YqXIkTHe7Fz/cg==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@roamhq/wrtc-linux-arm64@0.10.0':
-    resolution: {integrity: sha512-fEuJbNjprxQG6QlFd2iqBW9x028RDSho6izVg7gyt8irdPiXWOxzOxNnYMs/B2fohBTd1wD4Qxfivl07/dCR8A==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@roamhq/wrtc-linux-x64@0.10.0':
-    resolution: {integrity: sha512-H32lK2eFg3sVb/9nkHIX5HIisxFoS82Gpesuea+zqAyRpRzSd5NpFXx28bVy9wQyRrNtj8k0bTUgEzWRzSbYCA==}
-    cpu: [x64]
-    os: [linux]
-
-  '@roamhq/wrtc-win32-x64@0.10.0':
-    resolution: {integrity: sha512-wEVXMvLrBizdLyrd+Zc7zb7zpwUuHUBXwrdIvI69e3i/AA8YsVYI2xo/sxk6GoQ+o8a14ONc4SStDS35TCjg+w==}
-    cpu: [x64]
-    os: [win32]
-
-  '@roamhq/wrtc@0.10.0':
-    resolution: {integrity: sha512-yFqQQ0EV1ZUHaphh3tmjoxPi2wzhW2vjmzoAVNRRLUjXYd2e1nvwi9TKfE2w4WNvNws/hBkouvOt23Xo9FkXkQ==}
-
   '@rolldown/binding-android-arm64@1.0.0-rc.18':
     resolution: {integrity: sha512-lIDyUAfD7U3+BWKzdxMbJcsYHuqXqmGz40aeRqvuAm3y5TkJSYTBW2RDrn65DJFPQqVjUAUqq5uz8urzQ8aBdQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -3574,9 +3304,6 @@ packages:
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
-  '@types/chrome@0.1.43':
-    resolution: {integrity: sha512-ukH/HhmR6ht+UTX3PLUWJxgJ/RQcK2Foj4lBzsF24SIWsXgqhGuXqjd8FFuwioPP7d/JUKLM4g8GZxw3F4HTcA==}
-
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
 
@@ -3615,15 +3342,6 @@ packages:
 
   '@types/express@4.17.25':
     resolution: {integrity: sha512-dVd04UKsfpINUnK0yBoYHDF3xu7xVH4BuDotC/xGuycx4CgbP48X/KF/586bcObxT0HENHXEU8Nqtu6NR+eKhw==}
-
-  '@types/filesystem@0.0.36':
-    resolution: {integrity: sha512-vPDXOZuannb9FZdxgHnqSwAG/jvdGM8Wq+6N4D/d80z+D4HWH+bItqsZaVRQykAn6WEVeEkLm2oQigyHtgb0RA==}
-
-  '@types/filewriter@0.0.33':
-    resolution: {integrity: sha512-xFU8ZXTw4gd358lb2jw25nxY9QAgqn2+bKKjKOYfNCzN4DKCFetK7sPtrlpg66Ywe3vWY9FNxprZawAh9wfJ3g==}
-
-  '@types/har-format@1.2.16':
-    resolution: {integrity: sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A==}
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
@@ -3910,19 +3628,6 @@ packages:
 
   '@vitejs/plugin-react@6.0.2':
     resolution: {integrity: sha512-DlSMqo4WhThw4vB8Mpn0Woe9J+Jfq1geJ61AKW0QEgLzGMNwtIMdxbDUzLxcun8W7NbJO0e2Jg/Nxm3cCSVzzg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    peerDependencies:
-      '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
-      babel-plugin-react-compiler: ^1.0.0
-      vite: 8.0.11
-    peerDependenciesMeta:
-      '@rolldown/plugin-babel':
-        optional: true
-      babel-plugin-react-compiler:
-        optional: true
-
-  '@vitejs/plugin-react@6.0.5':
-    resolution: {integrity: sha512-BOVzne/NL162sMdResB25mUv+vWMF5NoAjNf09TeGlE7ZpszZWSD3winycicLJw72yeVsoCn/2kOhEuCvEShMA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
@@ -4491,11 +4196,6 @@ packages:
 
   domexception@1.0.1:
     resolution: {integrity: sha512-raigMkn7CJNNo6Ihro1fzG7wr3fHuYVytzquZKX5n0yizGsTcYgzdIUwj1X9pK0VvjeihV+XiclP+DjwbsSKug==}
-    deprecated: Use your platform's native DOMException instead
-
-  domexception@4.0.0:
-    resolution: {integrity: sha512-A2is4PLG+eeSfoTMA95/s4pvAoSo2mKtiM5jlHkAVewmiO8ISFTFKZjH7UAM1Atli/OT/7JHOrJRJiMKUZKYBw==}
-    engines: {node: '>=12'}
     deprecated: Use your platform's native DOMException instead
 
   domhandler@5.0.3:
@@ -5882,33 +5582,6 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
-  openai@7.52.0:
-    resolution: {integrity: sha512-aY0e5WGnTfAae81ygo+cbRaYwSQNowoyyxvAKNC0vu8orz3bl4cbz1il3Ce6I2rNea5et/FGDxj82OO9iB4+nA==}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
-      '@smithy/hash-node': '>=4.3.0 <5'
-      '@smithy/signature-v4': '>=5.4.0 <6'
-      google-auth-library: '>=9.15.1 <12'
-      undici: '>=5 <9'
-      ws: ^8.21.0
-      zod: ^3.25 || ^4.0
-    peerDependenciesMeta:
-      '@aws-sdk/credential-provider-node':
-        optional: true
-      '@smithy/hash-node':
-        optional: true
-      '@smithy/signature-v4':
-        optional: true
-      google-auth-library:
-        optional: true
-      undici:
-        optional: true
-      ws:
-        optional: true
-      zod:
-        optional: true
-
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -6722,12 +6395,6 @@ packages:
       '@types/react':
         optional: true
 
-  use-immer@0.11.0:
-    resolution: {integrity: sha512-RNAqi3GqsWJ4bcCd4LMBgdzvPmTABam24DUaFiKfX9s3MSorNRz9RDZYJkllJoMHUxVLMDetwAuCDeyWNrp1yA==}
-    peerDependencies:
-      immer: '>=8.0.0'
-      react: ^16.8.0 || ^17.0.1 || ^18.0.0 || ^19.0.0
-
   use-sidecar@1.1.3:
     resolution: {integrity: sha512-Fedw0aZvkhynoPYlA5WXrMCAMm+nSWdZt6lzJQ7Ok8S6Q+VsHmHpRWndVRJ8Be0ZbkfPc5LRYH+5XrzXcEeLRQ==}
     engines: {node: '>=10'}
@@ -6850,10 +6517,6 @@ packages:
 
   webidl-conversions@4.0.2:
     resolution: {integrity: sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==}
-
-  webidl-conversions@7.0.0:
-    resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
-    engines: {node: '>=12'}
 
   webpack-sources@3.7.0:
     resolution: {integrity: sha512-PdUhbCycwEgiS1hB/FBDksWKg/ashAIuJKqwdbPn8/dFVgU5LxQiBvG0js6VRRIzPujMrStYCczywp82P0KWng==}
@@ -7251,26 +6914,6 @@ snapshots:
     optional: true
 
   '@cloudflare/workers-types@4.20260515.1': {}
-
-  '@crxjs/vite-plugin@2.7.1(vite@8.0.11(@types/node@20.17.17)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12))':
-    dependencies:
-      '@webcomponents/custom-elements': 1.6.0
-      acorn-walk: 8.3.5
-      convert-source-map: 2.0.0
-      debug: 4.4.3
-      es-module-lexer: 0.10.5
-      fs-extra: 11.4.1
-      jsesc: 3.1.0
-      magic-string: 0.30.21
-      node-html-parser: 7.1.0
-      pathe: 2.0.3
-      picocolors: 1.1.1
-      rollup: 2.80.0
-      rxjs: 7.5.7
-      tinyglobby: 0.2.17
-      vite: 8.0.11(@types/node@20.17.17)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-    transitivePeerDependencies:
-      - supports-color
 
   '@crxjs/vite-plugin@2.7.1(vite@8.0.11(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12))':
     dependencies:
@@ -7736,6 +7379,15 @@ snapshots:
     dependencies:
       hono: 4.13.18
 
+  '@hono/node-ws@1.3.1(@hono/node-server@1.19.17(hono@4.13.18))(hono@4.13.18)':
+    dependencies:
+      '@hono/node-server': 1.19.17(hono@4.13.18)
+      hono: 4.13.18
+      ws: 8.22.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@hono/vite-dev-server@0.26.1(hono@4.13.18)(miniflare@4.20260515.0)(wrangler@4.92.0(@cloudflare/workers-types@4.20260515.1))':
     dependencies:
       '@hono/node-server': 1.19.17(hono@4.13.18)
@@ -7745,15 +7397,15 @@ snapshots:
       miniflare: 4.20260515.0
       wrangler: 4.92.0(@cloudflare/workers-types@4.20260515.1)
 
-  '@hono/zod-validator@0.7.6(hono@4.13.18)(zod@4.6.7)':
-    dependencies:
-      hono: 4.13.18
-      zod: 4.6.7
-
   '@hono/zod-validator@0.9.1(hono@4.12.30)(zod@4.4.3)':
     dependencies:
       hono: 4.12.30
       zod: 4.4.3
+
+  '@hono/zod-validator@0.9.1(hono@4.13.18)(zod@4.6.7)':
+    dependencies:
+      hono: 4.13.18
+      zod: 4.6.7
 
   '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.92.0(@types/react@19.2.14)(react@19.2.6))(zod@3.25.76)':
     dependencies:
@@ -8025,7 +7677,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.30.0(zod@4.4.3)':
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.12.30)
+      '@hono/node-server': 1.19.17(hono@4.13.18)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -8035,7 +7687,7 @@ snapshots:
       eventsource-parser: 3.1.1
       express: 5.3.0
       express-rate-limit: 8.7.3(express@5.3.0)
-      hono: 4.12.30
+      hono: 4.13.18
       jose: 6.2.15
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -9241,30 +8893,6 @@ snapshots:
 
   '@resvg/resvg-wasm@2.4.0': {}
 
-  '@roamhq/wrtc-darwin-arm64@0.10.0':
-    optional: true
-
-  '@roamhq/wrtc-darwin-x64@0.10.0':
-    optional: true
-
-  '@roamhq/wrtc-linux-arm64@0.10.0':
-    optional: true
-
-  '@roamhq/wrtc-linux-x64@0.10.0':
-    optional: true
-
-  '@roamhq/wrtc-win32-x64@0.10.0':
-    optional: true
-
-  '@roamhq/wrtc@0.10.0':
-    optionalDependencies:
-      '@roamhq/wrtc-darwin-arm64': 0.10.0
-      '@roamhq/wrtc-darwin-x64': 0.10.0
-      '@roamhq/wrtc-linux-arm64': 0.10.0
-      '@roamhq/wrtc-linux-x64': 0.10.0
-      '@roamhq/wrtc-win32-x64': 0.10.0
-      domexception: 4.0.0
-
   '@rolldown/binding-android-arm64@1.0.0-rc.18':
     optional: true
 
@@ -9479,11 +9107,6 @@ snapshots:
       '@types/connect': 3.4.38
       '@types/node': 22.19.19
 
-  '@types/chrome@0.1.43':
-    dependencies:
-      '@types/filesystem': 0.0.36
-      '@types/har-format': 1.2.16
-
   '@types/connect@3.4.38':
     dependencies:
       '@types/node': 22.19.19
@@ -9527,14 +9150,6 @@ snapshots:
       '@types/express-serve-static-core': 4.19.9
       '@types/qs': 6.15.1
       '@types/serve-static': 1.15.10
-
-  '@types/filesystem@0.0.36':
-    dependencies:
-      '@types/filewriter': 0.0.33
-
-  '@types/filewriter@0.0.33': {}
-
-  '@types/har-format@1.2.16': {}
 
   '@types/http-errors@2.0.5': {}
 
@@ -9830,11 +9445,6 @@ snapshots:
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.0.11(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
-
-  '@vitejs/plugin-react@6.0.5(vite@8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12))':
-    dependencies:
-      '@rolldown/pluginutils': 1.0.1
-      vite: 8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12)
 
   '@vitejs/plugin-rsc@0.5.26(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.112.2(esbuild@0.28.2)))(react@19.2.6)(vite@8.0.11(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12))':
     dependencies:
@@ -10492,11 +10102,6 @@ snapshots:
   domexception@1.0.1:
     dependencies:
       webidl-conversions: 4.0.2
-    optional: true
-
-  domexception@4.0.0:
-    dependencies:
-      webidl-conversions: 7.0.0
     optional: true
 
   domhandler@5.0.3:
@@ -11966,12 +11571,6 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openai@7.52.0(undici@7.30.2)(ws@8.22.1)(zod@4.6.7):
-    optionalDependencies:
-      undici: 7.30.2
-      ws: 8.22.1
-      zod: 4.6.7
-
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -13006,11 +12605,6 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
 
-  use-immer@0.11.0(immer@10.2.0)(react@19.2.8):
-    dependencies:
-      immer: 10.2.0
-      react: 19.2.8
-
   use-sidecar@1.1.3(@types/react@19.2.14)(react@19.2.6):
     dependencies:
       detect-node-es: 1.1.0
@@ -13091,21 +12685,6 @@ snapshots:
       fast-glob: 3.3.3
       magic-string: 0.30.21
 
-  vite@8.0.11(@types/node@20.17.17)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12):
-    dependencies:
-      lightningcss: 1.33.0
-      picomatch: 4.0.7
-      postcss: 8.5.32
-      rolldown: 1.0.0-rc.18
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 20.17.17
-      esbuild: 0.28.2
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      terser: 5.51.2
-      tsx: 4.23.12
-
   vite@8.0.11(@types/node@20.19.40)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.12):
     dependencies:
       lightningcss: 1.33.0
@@ -13179,9 +12758,6 @@ snapshots:
   web-vitals@4.2.4: {}
 
   webidl-conversions@4.0.2:
-    optional: true
-
-  webidl-conversions@7.0.0:
     optional: true
 
   webpack-sources@3.7.0: {}
@@ -13366,5 +12942,12 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.18
       immer: 10.2.0
+      react: 19.2.8
+      use-sync-external-store: 1.7.0(react@19.2.8)
+
+  zustand@5.0.13(@types/react@19.2.18)(immer@11.2.10)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8)):
+    optionalDependencies:
+      '@types/react': 19.2.18
+      immer: 11.2.10
       react: 19.2.8
       use-sync-external-store: 1.7.0(react@19.2.8)
